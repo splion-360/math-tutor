@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from shared_lora_baseline.config import TrainingConfig
+from shared_lora_baseline.config import TrainingConfig, tracking_metadata
 from shared_lora_baseline.constants import (
     ADAPTER_ID,
     ADAPTER_KIND,
@@ -39,6 +39,11 @@ def add_runtime_versions(plan: RunPlan, versions: dict[str, str]) -> RunPlan:
     return RunPlan(metadata=metadata, redacted_text=_render_plan(metadata))
 
 
+def add_tracking_metadata(plan: RunPlan, tracking: dict[str, Any]) -> RunPlan:
+    metadata = {**plan.metadata, "tracking": tracking}
+    return RunPlan(metadata=metadata, redacted_text=_render_plan(metadata))
+
+
 def write_run_metadata(plan: RunPlan, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(plan.metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -56,6 +61,12 @@ def _metadata(config: TrainingConfig, report: DatasetValidationReport) -> dict[s
         "dependency_constraints": dict(sorted(TRAIN_DEPENDENCY_CONSTRAINTS.items())),
         "weights_loaded": False,
         "runtime_versions": {},
+        "tracking": tracking_metadata(
+            config.tracking,
+            active=False,
+            reason="not_started",
+            git_revision=None,
+        ),
         "dataset": {
             "train_path": _redact_path(config.train_path),
             "holdout_path": _redact_path(config.holdout_path),
@@ -106,6 +117,7 @@ def _render_plan(metadata: dict[str, Any]) -> str:
         f"  holdout_content_sha256: {metadata['dataset']['holdout_content_sha256']}",
         f"weights_loaded: {str(metadata['weights_loaded']).lower()}",
         f"runtime_versions: {metadata['runtime_versions']}",
+        f"tracking: {metadata['tracking']}",
         "training:",
     ]
     training = metadata["training"]

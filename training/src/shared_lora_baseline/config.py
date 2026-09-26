@@ -3,7 +3,43 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+TrackingMode = Literal["auto", "disabled", "online"]
+
+
+@dataclass(frozen=True)
+class ExperimentTrackingConfig:
+    mode: TrackingMode = "auto"
+    project: str = "math-tutor-dynamic-lora"
+    run_name: str | None = None
+    tags: tuple[str, ...] = ("shared-lora",)
+    modal_artifact_path: str | None = None
+
+
+def tracking_metadata(
+    config: ExperimentTrackingConfig,
+    *,
+    active: bool,
+    git_revision: str | None,
+    reason: str | None = None,
+    run_url: str | None = None,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "provider": "wandb",
+        "mode": config.mode,
+        "project": config.project,
+        "run_name": config.run_name,
+        "tags": list(config.tags),
+        "modal_artifact_path": config.modal_artifact_path,
+        "active": active,
+        "git_revision": git_revision,
+    }
+    if reason is not None:
+        metadata["reason"] = reason
+    if run_url is not None:
+        metadata["run_url"] = run_url
+    return metadata
 
 
 @dataclass(frozen=True)
@@ -25,6 +61,7 @@ class TrainingConfig:
         default=("q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj")
     )
     load_in_4bit: bool = True
+    tracking: ExperimentTrackingConfig = field(default_factory=ExperimentTrackingConfig)
 
 
 class ConfigError(ValueError):
@@ -106,4 +143,45 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
         lora_dropout=float(lora_dropout),
         target_modules=tuple(target_modules_raw),
         load_in_4bit=load_in_4bit,
+        tracking=_tracking_config(raw.get("tracking")),
+    )
+
+
+def _tracking_config(raw: object) -> ExperimentTrackingConfig:
+    if raw is None:
+        return ExperimentTrackingConfig()
+    if not isinstance(raw, dict):
+        raise ConfigError("tracking must be an object")
+
+    mode = raw.get("mode", "auto")
+    if mode not in ("auto", "disabled", "online"):
+        raise ConfigError("tracking.mode must be auto, disabled, or online")
+
+    project = raw.get("project", "math-tutor-dynamic-lora")
+    if not isinstance(project, str) or not project:
+        raise ConfigError("tracking.project must be a non-empty string")
+
+    run_name = raw.get("run_name")
+    if run_name is not None and (not isinstance(run_name, str) or not run_name):
+        raise ConfigError("tracking.run_name must be a non-empty string when set")
+
+    tags_raw = raw.get("tags", ["shared-lora"])
+    if (
+        not isinstance(tags_raw, list)
+        or not all(isinstance(item, str) and item for item in tags_raw)
+    ):
+        raise ConfigError("tracking.tags must be a list of non-empty strings")
+
+    modal_artifact_path = raw.get("modal_artifact_path")
+    if modal_artifact_path is not None and (
+        not isinstance(modal_artifact_path, str) or not modal_artifact_path
+    ):
+        raise ConfigError("tracking.modal_artifact_path must be a non-empty string when set")
+
+    return ExperimentTrackingConfig(
+        mode=mode,
+        project=project,
+        run_name=run_name,
+        tags=tuple(tags_raw),
+        modal_artifact_path=modal_artifact_path,
     )
