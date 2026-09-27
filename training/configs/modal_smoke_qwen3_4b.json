@@ -1,8 +1,8 @@
 {
   "train_path": "/workspace/training/fixtures/tiny_train.jsonl",
   "holdout_path": "/workspace/backend/data/evaluation/manim_eval_v1.jsonl",
-  "output_dir": "/artifacts/shared_lora_smoke/adapter",
-  "metadata_path": "/artifacts/shared_lora_smoke/run_metadata.json",
+  "output_dir": "/artifacts/shared_lora_smoke_multi_sample/adapter",
+  "metadata_path": "/artifacts/shared_lora_smoke_multi_sample/run_metadata.json",
   "seed": 42,
   "max_steps": 2,
   "per_device_train_batch_size": 1,
@@ -16,14 +16,14 @@
   "load_in_4bit": true,
   "run_smoke_eval": true,
   "layer_energy_probe_top_k": 4,
-  "layer_energy_probe_sample_count": 1,
+  "layer_energy_probe_sample_count": 3,
   "gradient_signature_dim": 64,
   "gradient_signature_every_steps": 1,
   "tracking": {
     "mode": "online",
     "project": "math-tutor-dynamic-lora",
-    "run_name": "modal-shared-lora-smoke",
+    "run_name": "modal-shared-lora-multi-sample-smoke",
     "tags": ["shared-lora", "modal-smoke"],
-    "modal_artifact_path": "modal-volume://dream-ai-training-artifacts/shared_lora_smoke"
+    "modal_artifact_path": "modal-volume://dream-ai-training-artifacts/shared_lora_smoke_multi_sample"
   }
 }

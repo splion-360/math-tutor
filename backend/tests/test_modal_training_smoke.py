@@ -13,6 +13,7 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
     installed_packages: list[str] = []
     env_values: dict[str, str] = {}
     local_dirs: list[tuple[str, str]] = []
+    local_files: list[tuple[str, str]] = []
     function_options: dict[str, object] = {}
     secret_names: list[str] = []
 
@@ -34,6 +35,10 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
 
         def add_local_dir(self, source: Path, *, remote_path: str) -> FakeImage:
             local_dirs.append((source.as_posix(), remote_path))
+            return self
+
+        def add_local_file(self, source: Path, *, remote_path: str) -> FakeImage:
+            local_files.append((source.as_posix(), remote_path))
             return self
 
     class FakeApp:
@@ -71,6 +76,8 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
     assert ("src", "/workspace/training/src") in mounted_dirs
     assert ("fixtures", "/workspace/training/fixtures") in mounted_dirs
     assert ("configs", "/workspace/training/configs") in mounted_dirs
+    if (Path(__file__).parents[2] / "training/data/bespoke_manim_train.jsonl").exists():
+        assert local_files[0][1] == "/workspace/training/data/bespoke_manim_train.jsonl"
     assert (
         "evaluation",
         "/workspace/backend/data/evaluation",

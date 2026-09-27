@@ -1,10 +1,11 @@
-"""Run the shared-LoRA training smoke job on Modal.
+"""Run shared-LoRA training smoke and layer-probe jobs on Modal.
 
 Run this from the repository root with:
 
     modal run deployments/modal/training_smoke.py
 
-The job uses the tiny checked-in training fixture. It is a wiring smoke test, not a quality run.
+The default job uses the tiny checked-in fixture. Pass --full-probe to sample the
+prepared local Manim training dataset for layer-energy diagnostics.
 """
 
 from __future__ import annotations
@@ -15,9 +16,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-import tomllib
-
 import modal
+import tomllib
 
 APP_NAME = "dream-ai-shared-lora-training-smoke"
 HF_CACHE_VOLUME = "dream-ai-huggingface-cache"
@@ -40,11 +40,13 @@ TRAINING_SOURCE = REPO_ROOT / "training"
 TRAINING_SRC_SOURCE = TRAINING_SOURCE / "src"
 TRAINING_FIXTURES_SOURCE = TRAINING_SOURCE / "fixtures"
 TRAINING_CONFIGS_SOURCE = TRAINING_SOURCE / "configs"
+FULL_TRAINING_DATA_SOURCE = TRAINING_SOURCE / "data" / "bespoke_manim_train.jsonl"
 HOLDOUT_SOURCE = REPO_ROOT / "backend" / "data" / "evaluation"
 REMOTE_ROOT = Path("/workspace")
 REMOTE_TRAINING_ROOT = REMOTE_ROOT / "training"
 REMOTE_HOLDOUT_ROOT = REMOTE_ROOT / "backend" / "data" / "evaluation"
-REMOTE_CONFIG_PATH = REMOTE_TRAINING_ROOT / "configs" / "modal_smoke_qwen3_4b.json"
+REMOTE_CONFIG_DIR = REMOTE_TRAINING_ROOT / "configs"
+REMOTE_FULL_TRAINING_DATA = REMOTE_TRAINING_ROOT / "data" / "bespoke_manim_train.jsonl"
 REMOTE_ARTIFACT_ROOT = Path("/artifacts")
 
 
@@ -93,6 +95,10 @@ train_image = (
     .add_local_dir(TRAINING_CONFIGS_SOURCE, remote_path=str(REMOTE_TRAINING_ROOT / "configs"))
     .add_local_dir(HOLDOUT_SOURCE, remote_path=str(REMOTE_HOLDOUT_ROOT))
 )
+if FULL_TRAINING_DATA_SOURCE.exists():
+    train_image = train_image.add_local_file(
+        FULL_TRAINING_DATA_SOURCE, remote_path=str(REMOTE_FULL_TRAINING_DATA)
+    )
 
 
 @app.function(
@@ -105,12 +111,19 @@ train_image = (
     },
     secrets=[modal.Secret.from_name(WANDB_SECRET_NAME)],
 )
-def run_smoke() -> dict[str, Any]:
-    """Train and evaluate one tiny shared-LoRA smoke run."""
+def run_smoke(config_name: str = "modal_smoke_qwen3_4b.json") -> dict[str, Any]:
+    """Run a shared-LoRA smoke or layer-probe configuration on Modal.
+
+    Args:
+        config_name: Name of a mounted JSON config in the training config directory.
+
+    Returns:
+        Run identity, diagnostic summary, and artifact locations.
+    """
     from dynamic_lora.config import load_config
     from dynamic_lora.training import train_shared_lora
 
-    config = load_config(REMOTE_CONFIG_PATH)
+    config = load_config(REMOTE_CONFIG_DIR / config_name)
     plan = train_shared_lora(config)
     training_artifacts.commit()
     metadata = json.loads(config.metadata_path.read_text(encoding="utf-8"))
@@ -131,6 +144,10 @@ def run_smoke() -> dict[str, Any]:
 
 
 @app.local_entrypoint()
-def main() -> None:
-    result = run_smoke.remote()
+def main(full_probe: bool = False) -> None:
+    """Choose the tiny smoke fixture or the local prepared training dataset."""
+    if full_probe and not FULL_TRAINING_DATA_SOURCE.exists():
+        raise FileNotFoundError(FULL_TRAINING_DATA_SOURCE)
+    config_name = "modal_probe_qwen3_4b.json" if full_probe else "modal_smoke_qwen3_4b.json"
+    result = run_smoke.remote(config_name)
     print(json.dumps(result, indent=2, sort_keys=True))

@@ -24,6 +24,7 @@ dynamic-lora = "dynamic_lora.cli:main"
 
 [dependency-groups]
 dev = [
+    "matplotlib>=3.10,<4",
     "mypy>=1.14,<2",
     "pytest>=8,<9",
     "ruff>=0.9,<1",

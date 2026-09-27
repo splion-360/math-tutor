@@ -66,7 +66,7 @@ class TrainingConfig:
     load_in_4bit: bool = True
     run_smoke_eval: bool = False
     layer_energy_probe_top_k: int = 0
-    layer_energy_probe_sample_count: int = 1
+    layer_energy_probe_sample_count: int = 16
     gradient_signature_dim: int = 0
     gradient_signature_every_steps: int = 1
     tracking: ExperimentTrackingConfig = field(default_factory=ExperimentTrackingConfig)
@@ -170,7 +170,7 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
         load_in_4bit=load_in_4bit,
         run_smoke_eval=run_smoke_eval,
         layer_energy_probe_top_k=layer_energy_probe_top_k,
-        layer_energy_probe_sample_count=int_field("layer_energy_probe_sample_count", 1),
+        layer_energy_probe_sample_count=int_field("layer_energy_probe_sample_count", 16),
         gradient_signature_dim=gradient_signature_dim,
         gradient_signature_every_steps=int_field("gradient_signature_every_steps", 1),
         tracking=_tracking_config(raw.get("tracking")),

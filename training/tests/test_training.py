@@ -224,7 +224,7 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         "dataset": "tokenized_training_fixture",
         "purpose": "modal_trainer_smoke",
     }
-    assert probe_calls[0]["sample_count"] == 1
+    assert probe_calls[0]["sample_count"] == 16
     assert probe_calls[0]["top_k"] == 2
     assert plan.metadata["layer_energy_probe"]["selected_layers"] == ["layer_7.q_proj"]
     assert callback_builds[0]["selected_layers"] == ("layer_7.q_proj",)
