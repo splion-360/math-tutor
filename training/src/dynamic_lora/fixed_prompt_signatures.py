@@ -15,7 +15,12 @@ from dynamic_lora.lora_parameters import is_lora_parameter, lora_layer_key
 
 @dataclass(frozen=True)
 class ProbeExample:
-    """One identified, tokenized example reserved from training."""
+    """One identified, tokenized example reserved from optimizer training.
+
+    Attributes:
+        record_id: Stable source record ID, used only in diagnostic artifacts.
+        tokenized: Model inputs and mask for one supervised Manim example.
+    """
 
     record_id: str
     tokenized: dict[str, list[int]]
@@ -53,7 +58,11 @@ def select_probe_indices(
 
 
 class FixedPromptSignatureCallback:
-    """Capture gradients of the same held-out examples at chosen optimizer steps."""
+    """Capture gradients of the same held-out examples at chosen optimizer steps.
+
+    The probe runs with dropout disabled and uses ``torch.autograd.grad``, leaving
+    parameter ``.grad`` values for the optimizer unchanged.
+    """
 
     def __init__(
         self,
@@ -85,9 +94,7 @@ class FixedPromptSignatureCallback:
         """Return the JSONL path for identified per-example signatures."""
         return self._store.snapshot_path
 
-    def on_train_begin(
-        self, _args: object, state: Any, control: Any, **kwargs: Any
-    ) -> Any:
+    def on_train_begin(self, _args: object, state: Any, control: Any, **kwargs: Any) -> Any:
         """Capture the untrained adapter before its first optimizer update."""
         if int(state.global_step) == 0 and 0 in self.steps:
             self._capture(0, kwargs.get("model"))
@@ -125,9 +132,7 @@ class FixedPromptSignatureCallback:
                         for key, tensor in self.data_collator([example.tokenized]).items()
                     }
                     loss = model(**batch).loss
-                    gradients = self.torch_module.autograd.grad(
-                        loss, parameters, allow_unused=True
-                    )
+                    gradients = self.torch_module.autograd.grad(loss, parameters, allow_unused=True)
                     signatures = project_named_gradients(
                         zip(names, gradients, strict=True),
                         selected_layers=self.selected_layers,
@@ -154,7 +159,11 @@ class FixedPromptSignatureCallback:
         self._captured_steps.add(step)
 
     def finalize(self) -> dict[str, Any]:
-        """Persist the capture manifest and return its artifact summary."""
+        """Persist the capture manifest.
+
+        Returns:
+            Artifact paths, captured checkpoints, and probe provenance.
+        """
         prefix = self.snapshot_path.parent.name
         summary = {
             "enabled": True,
@@ -186,7 +195,22 @@ def build_fixed_prompt_signature_callback(
     torch_module: Any,
     callback_base: type[Any],
 ) -> FixedPromptSignatureCallback:
-    """Build a Transformers callback for repeated identified gradients."""
+    """Build a Transformers callback for repeated identified gradients.
+
+    Args:
+        selected_layers: Layer-module keys measured at each checkpoint.
+        examples: Fixed, identified probe examples excluded from optimizer training.
+        steps: Optimizer-step numbers at which to capture gradients.
+        projection_dim: Width of each deterministic projected vector.
+        seed: Stable projection seed.
+        artifact_dir: Directory for the JSONL snapshots and manifest.
+        data_collator: Single-example model batch builder.
+        torch_module: Torch module used for isolated autograd calculations.
+        callback_base: Installed Transformers callback superclass.
+
+    Returns:
+        Callback compatible with the installed Transformers trainer.
+    """
     callback_type = type(
         "TransformersFixedPromptSignatureCallback",
         (FixedPromptSignatureCallback, callback_base),

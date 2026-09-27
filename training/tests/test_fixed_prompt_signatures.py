@@ -21,9 +21,7 @@ from dynamic_lora.fixed_prompt_signatures import (
 def test_probe_indices_are_stable_by_id_and_excluded_from_training() -> None:
     records = [{"id": item} for item in ("alpha", "beta", "gamma", "delta", "epsilon")]
     selected, training = select_probe_indices(records, sample_count=2, seed=42)
-    reversed_selected, _ = select_probe_indices(
-        list(reversed(records)), sample_count=2, seed=42
-    )
+    reversed_selected, _ = select_probe_indices(list(reversed(records)), sample_count=2, seed=42)
 
     assert len(selected) == 2
     assert {records[index]["id"] for index in selected} == {
