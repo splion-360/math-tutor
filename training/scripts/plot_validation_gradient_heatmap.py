@@ -40,7 +40,7 @@ def plot_heatmap(summary_path: Path, output_path: Path) -> None:
         ha="right",
     )
     axis.set_yticks(np.arange(36), [layer.removeprefix("layer_") for layer in layers])
-    axis.set_xlabel("Validation subject (sample count)")
+    axis.set_xlabel("Subject (sample count)")
     axis.set_ylabel("Qwen transformer layer")
     source = summary["gradient_source"]
     if source == "unadapted_base_transformer_layer_weights":

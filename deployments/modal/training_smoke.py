@@ -264,6 +264,35 @@ def run_base_validation_gradient_heatmap() -> dict[str, Any]:
         str(REMOTE_ARTIFACT_ROOT): training_artifacts,
     },
 )
+def run_autoresearch_subject_probe() -> dict[str, Any]:
+    """Measure no-update base gradients on tagged cross-subject Manim cases.
+
+    Returns:
+        Artifact path and measured subject coverage.
+    """
+    from dynamic_lora.autoresearch_subject_probe import (
+        capture_autoresearch_subject_probe,
+    )
+
+    output = REMOTE_ARTIFACT_ROOT / "autoresearch_subject_probe/summary.json"
+    summary = capture_autoresearch_subject_probe(output)
+    training_artifacts.commit()
+    return {
+        "summary_path": str(output),
+        "example_count": summary["validation_count"],
+        "subject_count": summary["subject_count"],
+    }
+
+
+@app.function(
+    image=train_image,
+    gpu="A100-80GB",
+    timeout=90 * 60,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        str(REMOTE_ARTIFACT_ROOT): training_artifacts,
+    },
+)
 def run_validation_gradient_cosines() -> dict[str, Any]:
     """Compare held-out LoRA directions at every layer and projection.
 
@@ -410,6 +439,7 @@ def main(
     placement_arm: str = "",
     validation_gradient_heatmap: bool = False,
     base_validation_gradient_heatmap: bool = False,
+    autoresearch_subject_probe: bool = False,
     validation_gradient_cosines: bool = False,
 ) -> None:
     """Choose the tiny fixture or one full-dataset diagnostic run."""
@@ -424,6 +454,7 @@ def main(
                 bool(placement_arm),
                 validation_gradient_heatmap,
                 base_validation_gradient_heatmap,
+                autoresearch_subject_probe,
                 validation_gradient_cosines,
             )
         )
@@ -465,6 +496,13 @@ def main(
         print(
             json.dumps(
                 run_base_validation_gradient_heatmap.remote(), indent=2, sort_keys=True
+            )
+        )
+        return
+    if autoresearch_subject_probe:
+        print(
+            json.dumps(
+                run_autoresearch_subject_probe.remote(), indent=2, sort_keys=True
             )
         )
         return
