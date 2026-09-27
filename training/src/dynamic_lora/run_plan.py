@@ -90,6 +90,8 @@ def _metadata(config: TrainingConfig, report: DatasetValidationReport) -> dict[s
             "run_smoke_eval": config.run_smoke_eval,
             "layer_energy_probe_top_k": config.layer_energy_probe_top_k,
             "layer_energy_probe_sample_count": config.layer_energy_probe_sample_count,
+            "gradient_signature_dim": config.gradient_signature_dim,
+            "gradient_signature_every_steps": config.gradient_signature_every_steps,
         },
         "lora": {
             "r": config.lora_r,

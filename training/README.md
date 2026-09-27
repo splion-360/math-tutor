@@ -72,6 +72,11 @@ hashes, LoRA settings, git revision, output directory, and Modal artifact path. 
 metrics are reported to the same W&B run with grouped names such as `train/loss` and
 `train/runtime_seconds`.
 
+When `gradient_signature_dim` is positive, training also observes the layers selected by the
+gradient-energy probe. At each configured optimizer-step interval it saves deterministic projected
+gradients, logs cosine similarity and conflict rates to W&B, and writes these plotting inputs under
+`adapter/gradient_signatures/`.
+
 Set `tracking.mode` to `disabled` for local runs that should never contact W&B. Set it to `online`
 when missing W&B setup should fail fast instead of silently falling back to local metadata only.
 
@@ -91,6 +96,7 @@ modal run deployments/modal/training_smoke.py
 Expected smoke artifacts:
 
 - `modal-volume://dream-ai-training-artifacts/shared_lora_smoke/adapter/`
+- `modal-volume://dream-ai-training-artifacts/shared_lora_smoke/adapter/gradient_signatures/`
 - `modal-volume://dream-ai-training-artifacts/shared_lora_smoke/run_metadata.json`
 
 The smoke eval is only a wiring check. It uses the tiny supervised fixture and must not be reported

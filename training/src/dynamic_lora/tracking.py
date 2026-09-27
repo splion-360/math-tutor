@@ -30,12 +30,13 @@ class ExperimentTrackingRun:
     metadata: dict[str, Any]
     _wandb_run: WandbRun | None = None
 
-    def log_metrics(self, metrics: Mapping[str, object]) -> None:
+    def log_metrics(self, metrics: Mapping[str, object], step: int | None = None) -> None:
+        """Log scalar metrics when tracking is active."""
         if self._wandb_run is None:
             return
         grouped = _group_metrics(metrics)
         if grouped:
-            self._wandb_run.log(grouped)
+            self._wandb_run.log(grouped, step=step)
 
     def finish(self) -> None:
         if self._wandb_run is not None:

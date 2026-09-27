@@ -12,9 +12,10 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import tomllib
 from pathlib import Path
 from typing import Any
+
+import tomllib
 
 import modal
 
@@ -122,6 +123,7 @@ def run_smoke() -> dict[str, Any]:
         "weights_loaded": metadata["weights_loaded"],
         "smoke_eval": metadata.get("smoke_eval"),
         "layer_energy_probe": metadata.get("layer_energy_probe"),
+        "gradient_signatures": metadata.get("gradient_signatures"),
         "trainable_parameters": metadata["parameter_budget"]["trainable_parameters"],
         "plan": plan.redacted_text,
     }

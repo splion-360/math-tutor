@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from dynamic_lora.config import load_config
+import pytest
+
+from dynamic_lora.config import ConfigError, load_config
 
 
 def test_relative_paths_resolve_from_config_directory(tmp_path: Path, monkeypatch: object) -> None:
@@ -52,6 +54,8 @@ def test_tracking_config_is_loaded_from_nested_object(tmp_path: Path) -> None:
                 "run_smoke_eval": True,
                 "layer_energy_probe_top_k": 4,
                 "layer_energy_probe_sample_count": 2,
+                "gradient_signature_dim": 64,
+                "gradient_signature_every_steps": 2,
             }
         ),
         encoding="utf-8",
@@ -67,3 +71,24 @@ def test_tracking_config_is_loaded_from_nested_object(tmp_path: Path) -> None:
     assert config.run_smoke_eval is True
     assert config.layer_energy_probe_top_k == 4
     assert config.layer_energy_probe_sample_count == 2
+    assert config.gradient_signature_dim == 64
+    assert config.gradient_signature_every_steps == 2
+
+
+def test_gradient_signatures_require_selected_layers(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "train_path": "train.jsonl",
+                "holdout_path": "holdout.jsonl",
+                "output_dir": "adapter",
+                "metadata_path": "run.json",
+                "gradient_signature_dim": 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="layer_energy_probe_top_k"):
+        load_config(config_path)

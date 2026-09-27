@@ -15,7 +15,7 @@ def test_wandb_tracking_starts_run_and_groups_train_metrics(
     tmp_path: Path,
     monkeypatch: Any,
 ) -> None:
-    logged: list[dict[str, int | float | str]] = []
+    logged: list[tuple[int | None, dict[str, int | float | str]]] = []
     init_kwargs: dict[str, object] = {}
 
     class FakeRun:
@@ -23,8 +23,7 @@ def test_wandb_tracking_starts_run_and_groups_train_metrics(
         summary: dict[str, object] = {}
 
         def log(self, data: dict[str, int | float | str], *, step: int | None = None) -> None:
-            assert step is None
-            logged.append(data)
+            logged.append((step, data))
 
         def finish(self) -> None:
             self.summary["finished"] = True
@@ -78,7 +77,8 @@ def test_wandb_tracking_starts_run_and_groups_train_metrics(
             "train_loss": 1.25,
             "train_runtime": 3.5,
             "ignored": object(),
-        }
+        },
+        step=3,
     )
     tracking_run.finish()
 
@@ -90,7 +90,9 @@ def test_wandb_tracking_starts_run_and_groups_train_metrics(
     assert init_kwargs["tags"] == ["dynamic-lora", "unit"]
     assert fake_run.summary["modal_artifact_path"] == "modal://dream-ai-training/runs/unit-run"
     assert fake_run.summary["finished"] is True
-    assert logged == [{"eval/loss": 1.1, "train/loss": 1.25, "train/runtime_seconds": 3.5}]
+    assert logged == [
+        (3, {"eval/loss": 1.1, "train/loss": 1.25, "train/runtime_seconds": 3.5})
+    ]
 
 
 def test_auto_tracking_stays_inactive_without_api_key(tmp_path: Path, monkeypatch: Any) -> None:

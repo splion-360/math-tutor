@@ -3,12 +3,11 @@ This module ranks LoRA layer/module keys so later training stages can choose obs
 
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from importlib import import_module
 from typing import Any, TypedDict
 
-LAYER_PATTERN = re.compile(r"(?:^|\.)layers\.(\d+)\.")
+from dynamic_lora.lora_parameters import is_lora_parameter, lora_layer_key
 
 
 class RankedLayer(TypedDict):
@@ -53,10 +52,10 @@ def measure_lora_layer_gradient_energy(
     observed_parameters = 0
     for name, parameter in model.named_parameters():
         gradient = getattr(parameter, "grad", None)
-        if gradient is None or "lora_" not in name:
+        if gradient is None or not is_lora_parameter(name):
             continue
         observed_parameters += 1
-        energy_by_layer[_layer_key(name)] += _squared_norm(gradient)
+        energy_by_layer[lora_layer_key(name)] += _squared_norm(gradient)
 
     _zero_grad(model)
     ranked_layer_items = sorted(
@@ -177,16 +176,3 @@ def _zero_grad(model: Any) -> None:
 
 def _squared_norm(gradient: Any) -> float:
     return float(gradient.detach().float().pow(2).sum().item())
-
-
-def _layer_key(parameter_name: str) -> str:
-    layer_match = LAYER_PATTERN.search(parameter_name)
-    module_name = _module_name(parameter_name)
-    if layer_match is None:
-        return module_name
-    return f"layer_{layer_match.group(1)}.{module_name}"
-
-
-def _module_name(parameter_name: str) -> str:
-    before_lora = parameter_name.split(".lora_", maxsplit=1)[0]
-    return before_lora.rsplit(".", maxsplit=1)[-1]

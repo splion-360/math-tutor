@@ -79,7 +79,17 @@ def test_seed_is_set_before_model_and_adapter_initialization(
     tokenized_batches: list[dict[str, object]] = []
     evaluated: list[object] = []
     probe_calls: list[dict[str, object]] = []
+    callback_builds: list[dict[str, object]] = []
+    added_callbacks: list[object] = []
     tokenizer = FakeTokenizer()
+
+    class FakeSignatureCallback:
+        def finalize(self) -> dict[str, object]:
+            return {
+                "enabled": True,
+                "projection_dim": 64,
+                "snapshot_count": 1,
+            }
 
     class FakeModel:
         def get_nb_trainable_parameters(self) -> tuple[int, int]:
@@ -87,6 +97,9 @@ def test_seed_is_set_before_model_and_adapter_initialization(
 
         def save_pretrained(self, _path: Path) -> None:
             return None
+
+    class FakeTrainerCallback:
+        pass
 
     class FakeDataset:
         @classmethod
@@ -109,6 +122,9 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         def train(self) -> SimpleNamespace:
             return SimpleNamespace(metrics={"train_loss": 1.5})
 
+        def add_callback(self, callback: object) -> None:
+            added_callbacks.append(callback)
+
         def evaluate(self, *, eval_dataset: object) -> dict[str, float]:
             evaluated.append(eval_dataset)
             return {"eval_loss": 1.25}
@@ -126,6 +142,7 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         TrainingArguments=lambda **kwargs: training_args_kwargs.update(kwargs) or object(),
         DataCollatorForLanguageModeling=lambda **_kwargs: object(),
         Trainer=FakeTrainer,
+        TrainerCallback=FakeTrainerCallback,
     )
     peft = SimpleNamespace(
         __version__="0.12.0",
@@ -160,6 +177,10 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         "dynamic_lora.training.gradient_probe_metrics",
         lambda _probe: {"gradient_probe/enabled": 1},
     )
+    monkeypatch.setattr(
+        "dynamic_lora.training.build_gradient_signature_callback",
+        lambda **kwargs: callback_builds.append(kwargs) or FakeSignatureCallback(),
+    )
 
     train_path = tmp_path / "train.jsonl"
     holdout_path = tmp_path / "holdout.jsonl"
@@ -180,6 +201,7 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         load_in_4bit=False,
         run_smoke_eval=True,
         layer_energy_probe_top_k=2,
+        gradient_signature_dim=64,
     )
 
     plan = train_shared_lora(config)
@@ -205,6 +227,16 @@ def test_seed_is_set_before_model_and_adapter_initialization(
     assert probe_calls[0]["sample_count"] == 1
     assert probe_calls[0]["top_k"] == 2
     assert plan.metadata["layer_energy_probe"]["selected_layers"] == ["layer_7.q_proj"]
+    assert callback_builds[0]["selected_layers"] == ("layer_7.q_proj",)
+    assert callback_builds[0]["projection_dim"] == 64
+    assert callback_builds[0]["artifact_dir"] == config.output_dir / "gradient_signatures"
+    assert callback_builds[0]["callback_base"] is FakeTrainerCallback
+    assert len(added_callbacks) == 1
+    assert plan.metadata["gradient_signatures"] == {
+        "enabled": True,
+        "projection_dim": 64,
+        "snapshot_count": 1,
+    }
     assert len(evaluated) == 1
     assert set(plan.metadata["runtime_versions"]) == {
         "accelerate",

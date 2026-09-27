@@ -4,7 +4,7 @@
   "output_dir": "/artifacts/shared_lora_smoke/adapter",
   "metadata_path": "/artifacts/shared_lora_smoke/run_metadata.json",
   "seed": 42,
-  "max_steps": 1,
+  "max_steps": 2,
   "per_device_train_batch_size": 1,
   "gradient_accumulation_steps": 1,
   "learning_rate": 0.0002,
@@ -17,6 +17,8 @@
   "run_smoke_eval": true,
   "layer_energy_probe_top_k": 4,
   "layer_energy_probe_sample_count": 1,
+  "gradient_signature_dim": 64,
+  "gradient_signature_every_steps": 1,
   "tracking": {
     "mode": "online",
     "project": "math-tutor-dynamic-lora",

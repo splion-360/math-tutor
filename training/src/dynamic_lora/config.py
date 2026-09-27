@@ -67,6 +67,8 @@ class TrainingConfig:
     run_smoke_eval: bool = False
     layer_energy_probe_top_k: int = 0
     layer_energy_probe_sample_count: int = 1
+    gradient_signature_dim: int = 0
+    gradient_signature_every_steps: int = 1
     tracking: ExperimentTrackingConfig = field(default_factory=ExperimentTrackingConfig)
 
 
@@ -143,6 +145,13 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
     if not isinstance(lora_dropout, int | float) or not 0 <= lora_dropout < 1:
         raise ConfigError("lora_dropout must be in [0, 1)")
 
+    layer_energy_probe_top_k = non_negative_int_field("layer_energy_probe_top_k", 0)
+    gradient_signature_dim = non_negative_int_field("gradient_signature_dim", 0)
+    if gradient_signature_dim > 0 and layer_energy_probe_top_k == 0:
+        raise ConfigError(
+            "gradient_signature_dim requires layer_energy_probe_top_k to be positive"
+        )
+
     return TrainingConfig(
         train_path=path_field("train_path"),
         holdout_path=path_field("holdout_path"),
@@ -160,8 +169,10 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
         target_modules=tuple(target_modules_raw),
         load_in_4bit=load_in_4bit,
         run_smoke_eval=run_smoke_eval,
-        layer_energy_probe_top_k=non_negative_int_field("layer_energy_probe_top_k", 0),
+        layer_energy_probe_top_k=layer_energy_probe_top_k,
         layer_energy_probe_sample_count=int_field("layer_energy_probe_sample_count", 1),
+        gradient_signature_dim=gradient_signature_dim,
+        gradient_signature_every_steps=int_field("gradient_signature_every_steps", 1),
         tracking=_tracking_config(raw.get("tracking")),
     )
 
