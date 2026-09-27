@@ -133,3 +133,49 @@ def test_probe_captures_same_ids_at_checkpoints_without_touching_optimizer_gradi
     assert model.parameter.grad == "optimizer-gradient"
     assert model.training is True
     assert callback.finalize()["snapshot_count"] == 6
+
+    callback.capture(step=5, model=model)
+    assert callback.finalize()["snapshot_count"] == 8
+    assert {
+        row["record_id"]
+        for row in map(json.loads, callback.snapshot_path.read_text().splitlines())
+        if row["step"] == 5
+    } == {"alpha", "beta"}
+
+
+def test_probe_persists_completed_example_before_later_example_fails(tmp_path: Path) -> None:
+    class FailingModel(FakeModel):
+        calls = 0
+
+        def __call__(self, **batch: object) -> SimpleNamespace:
+            self.calls += 1
+            if self.calls == 2:
+                raise RuntimeError("second example failed")
+            return super().__call__(**batch)
+
+    model = FailingModel()
+    callback = build_fixed_prompt_signature_callback(
+        selected_layers=("layer_6.down_proj",),
+        examples=(
+            ProbeExample("alpha", {"input_ids": [1, 2]}),
+            ProbeExample("beta", {"input_ids": [3, 4]}),
+        ),
+        steps=(1,),
+        projection_dim=8,
+        seed=42,
+        artifact_dir=tmp_path,
+        data_collator=lambda _rows: {"input_ids": FakeTensor()},
+        torch_module=SimpleNamespace(
+            enable_grad=nullcontext,
+            autograd=SimpleNamespace(
+                grad=lambda _loss, _parameters, **_kwargs: (FakeGradient([1.0, 2.0]),)
+            ),
+        ),
+        callback_base=object,
+    )
+
+    with pytest.raises(RuntimeError, match="second example failed"):
+        callback.capture(step=1, model=model)
+
+    rows = [json.loads(line) for line in callback.snapshot_path.read_text().splitlines()]
+    assert [row["record_id"] for row in rows] == ["alpha"]

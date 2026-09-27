@@ -13,11 +13,11 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import tomllib
 from pathlib import Path
 from typing import Any
 
 import modal
+import tomllib
 
 APP_NAME = "dream-ai-shared-lora-training-smoke"
 HF_CACHE_VOLUME = "dream-ai-huggingface-cache"
@@ -145,6 +145,40 @@ def run_full_probe(config_name: str) -> dict[str, Any]:
     return _run_shared_training(config_name)
 
 
+@app.function(
+    image=train_image,
+    gpu="A100-80GB",
+    timeout=6 * 60 * 60,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        str(REMOTE_ARTIFACT_ROOT): training_artifacts,
+    },
+    secrets=[modal.Secret.from_name(WANDB_SECRET_NAME)],
+)
+def run_full_corpus_signatures() -> dict[str, Any]:
+    """Train three complete epochs and capture gradients for all training rows.
+
+    Returns:
+        Dataset coverage, validation loss, and gradient artifact identity.
+    """
+    from dynamic_lora.full_corpus_run import load_full_corpus_config, run_full_corpus
+
+    config = load_full_corpus_config(
+        REMOTE_CONFIG_DIR / "modal_full_corpus_signatures_qwen3_4b.json"
+    )
+    result = run_full_corpus(config)
+    training_artifacts.commit()
+    return {
+        "metadata_path": str(config.artifact_root / "run_metadata.json"),
+        "training_count": result["dataset"]["training_count"],
+        "validation_count": result["dataset"]["validation_count"],
+        "optimizer_steps_observed": result["training"]["optimizer_steps_observed"],
+        "validation_metrics": result["validation_metrics"],
+        "gradient_probe": result["gradient_probe"],
+        "wandb_run_url": result["wandb_run_url"],
+    }
+
+
 def _run_shared_training(config_name: str) -> dict[str, Any]:
     from dynamic_lora.config import load_config
     from dynamic_lora.training import train_shared_lora
@@ -252,14 +286,34 @@ def main(
     full_probe: bool = False,
     signatures: bool = False,
     fixed_prompt_signatures: bool = False,
+    full_corpus_signatures: bool = False,
     base_probe: bool = False,
     placement_arm: str = "",
 ) -> None:
     """Choose the tiny fixture or one full-dataset diagnostic run."""
-    if sum((full_probe, signatures, fixed_prompt_signatures, base_probe, bool(placement_arm))) > 1:
+    if (
+        sum(
+            (
+                full_probe,
+                signatures,
+                fixed_prompt_signatures,
+                full_corpus_signatures,
+                base_probe,
+                bool(placement_arm),
+            )
+        )
+        > 1
+    ):
         raise ValueError("choose only one full-dataset diagnostic mode")
     needs_full_data = any(
-        (full_probe, signatures, fixed_prompt_signatures, base_probe, bool(placement_arm))
+        (
+            full_probe,
+            signatures,
+            fixed_prompt_signatures,
+            full_corpus_signatures,
+            base_probe,
+            bool(placement_arm),
+        )
     )
     if needs_full_data and not FULL_TRAINING_DATA_SOURCE.exists():
         raise FileNotFoundError(FULL_TRAINING_DATA_SOURCE)
@@ -267,6 +321,9 @@ def main(
         if placement_arm not in {"discovered", "low_energy", "random_1", "random_2"}:
             raise ValueError(f"unknown placement arm: {placement_arm}")
         print(json.dumps(run_placement_arm.remote(placement_arm), indent=2, sort_keys=True))
+        return
+    if full_corpus_signatures:
+        print(json.dumps(run_full_corpus_signatures.remote(), indent=2, sort_keys=True))
         return
     if base_probe:
         print(json.dumps(run_base_weight_probe.remote(), indent=2, sort_keys=True))

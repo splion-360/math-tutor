@@ -1,0 +1,12 @@
+{
+  "train_path": "/workspace/training/data/bespoke_manim_train.jsonl",
+  "holdout_path": "/workspace/backend/data/evaluation/manim_eval_v1.jsonl",
+  "artifact_root": "/artifacts/full_corpus_signatures_3_epochs_label_free",
+  "seed": 42,
+  "epochs": 3,
+  "max_seq_length": 3072,
+  "learning_rate": 0.0002,
+  "projection_dim": 256,
+  "expected_training_count": 895,
+  "expected_validation_count": 100
+}

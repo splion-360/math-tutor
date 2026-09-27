@@ -97,17 +97,26 @@ class FixedPromptSignatureCallback:
     def on_train_begin(self, _args: object, state: Any, control: Any, **kwargs: Any) -> Any:
         """Capture the untrained adapter before its first optimizer update."""
         if int(state.global_step) == 0 and 0 in self.steps:
-            self._capture(0, kwargs.get("model"))
+            self.capture(step=0, model=kwargs.get("model"))
         return control
 
     def on_step_end(self, _args: object, state: Any, control: Any, **kwargs: Any) -> Any:
         """Capture identified gradients after a requested optimizer update."""
         step = int(state.global_step)
         if step in self.steps:
-            self._capture(step, kwargs.get("model"))
+            self.capture(step=step, model=kwargs.get("model"))
         return control
 
-    def _capture(self, step: int, model: Any) -> None:
+    def capture(self, *, step: int, model: Any) -> None:
+        """Measure identified examples at one fixed set of model weights.
+
+        Args:
+            step: Optimizer step associated with the current model checkpoint.
+            model: LoRA model whose weights remain unchanged during the probe.
+
+        Raises:
+            RuntimeError: If the model or selected LoRA parameters are absent.
+        """
         if step in self._captured_steps:
             return
         if model is None:
@@ -123,7 +132,6 @@ class FixedPromptSignatureCallback:
         parameters = tuple(parameter for _, parameter in named_parameters)
         was_training = model.training
         model.eval()
-        records: list[dict[str, Any]] = []
         try:
             with self.torch_module.enable_grad():
                 for example in self.examples:
@@ -143,7 +151,7 @@ class FixedPromptSignatureCallback:
                         raise RuntimeError(
                             "fixed prompt probe is missing selected module gradients"
                         )
-                    records.extend(
+                    records = [
                         {
                             "step": step,
                             "record_id": example.record_id,
@@ -151,11 +159,11 @@ class FixedPromptSignatureCallback:
                             "signature": signatures[layer],
                         }
                         for layer in self.selected_layers
-                    )
+                    ]
+                    self._store.append(records)
+                    self._snapshot_count += len(records)
         finally:
             model.train(was_training)
-        self._store.append(records)
-        self._snapshot_count += len(records)
         self._captured_steps.add(step)
 
     def finalize(self) -> dict[str, Any]:
