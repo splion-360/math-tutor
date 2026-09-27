@@ -1,3 +1,6 @@
+"""Validate generated Manim scenes and coordinate lesson rendering.
+Both product lessons and raw adapter outputs share the same safety checks."""
+
 from __future__ import annotations
 
 import ast
@@ -333,6 +336,59 @@ def extract_and_validate_scene(
             diagnostics={"failure_stage": "validation"},
         )
 
+    _validate_safe_scene_tree(tree, voiceover=voiceover)
+
+    if voiceover:
+        _validate_voiceover_contract(tree)
+
+    return ExtractedScene(source=source, scene_class="GeneratedLesson")
+
+
+def extract_and_validate_raw_scene(response: str) -> ExtractedScene:
+    """Validate one raw training-style Manim scene before isolated rendering.
+
+    Args:
+        response: Plain Python source or one fenced Python block from an adapter.
+
+    Returns:
+        Original source and the sole direct Manim scene subclass name.
+
+    Raises:
+        ExtractionError: If fencing is incomplete or ambiguous.
+        SceneValidationError: If syntax, scene structure, or safety checks fail.
+    """
+    matches = _PYTHON_FENCE.findall(response)
+    if len(matches) > 1 or ("```" in response and len(matches) != 1):
+        raise ExtractionError(
+            "raw scene must be plain Python or one Python code fence",
+            diagnostics={"failure_stage": "extraction"},
+        )
+    source = (matches[0] if matches else response).strip()
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError) as error:
+        raise SceneValidationError(
+            "generated scene is not valid Python",
+            diagnostics={"failure_stage": "parse", "line": getattr(error, "lineno", None)},
+        ) from error
+    scene_classes = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef)
+        and len(node.bases) == 1
+        and isinstance(node.bases[0], ast.Name)
+        and node.bases[0].id in {"Scene", "MovingCameraScene", "ThreeDScene"}
+    ]
+    if len(scene_classes) != 1:
+        raise SceneValidationError(
+            "raw code must define exactly one direct Manim scene subclass",
+            diagnostics={"failure_stage": "validation"},
+        )
+    _validate_safe_scene_tree(tree, voiceover=False)
+    return ExtractedScene(source=source, scene_class=scene_classes[0].name)
+
+
+def _validate_safe_scene_tree(tree: ast.Module, *, voiceover: bool) -> None:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
@@ -371,12 +427,6 @@ def extract_and_validate_scene(
                     f"call '{forbidden_call}' is not allowed in generated scenes",
                     diagnostics={"failure_stage": "validation"},
                 )
-
-    if voiceover:
-        _validate_voiceover_contract(tree)
-
-    return ExtractedScene(source=source, scene_class="GeneratedLesson")
-
 
 def _validate_voiceover_contract(tree: ast.Module) -> None:
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]

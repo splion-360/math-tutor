@@ -15,6 +15,7 @@ from math_tutor.generated_lesson import (
     SceneValidationError,
     SpecialistGuidedLessonPipeline,
     VoiceoverFallbackRenderer,
+    extract_and_validate_raw_scene,
     extract_and_validate_scene,
 )
 from math_tutor.generation import (
@@ -149,6 +150,22 @@ def test_extracts_one_python_fence_and_validates_generated_scene() -> None:
 
     assert extracted.source == VALID_SCENE.rstrip()
     assert extracted.scene_class == "GeneratedLesson"
+
+
+def test_raw_manim_scene_accepts_training_style_class_without_rewriting_it() -> None:
+    source = VALID_SCENE.replace("GeneratedLesson", "TriangleProof")
+
+    extracted = extract_and_validate_raw_scene(source)
+
+    assert extracted.source == source.strip()
+    assert extracted.scene_class == "TriangleProof"
+
+
+def test_raw_manim_scene_rejects_unsafe_import_before_rendering() -> None:
+    source = VALID_SCENE.replace("from manim import *", "import os\nfrom manim import *")
+
+    with pytest.raises(SceneValidationError, match="import 'os' is not allowed"):
+        extract_and_validate_raw_scene(source)
 
 
 def test_accepts_voiceover_scene_with_three_timed_narration_blocks() -> None:
