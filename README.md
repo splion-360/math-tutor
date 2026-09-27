@@ -1,37 +1,38 @@
 # Math Tutor
 
-**Ask a math question. Get a narrated visual lesson.**
+**Ask a math question. Get a visual lesson made for that question.**
 
-Some math ideas are hard to explain with another wall of text. Math Tutor turns a question into a custom animation, so learners can watch the idea unfold instead.
+Math is often easier to understand when you can watch an idea unfold. Math Tutor turns a typed question into a short animation with an explanation, narration, and captions.
 
-It can cover anything from basic geometry to calculus, Fourier transforms, and other advanced topics.
+It is designed for more than elementary math. The same product can explain geometry, calculus, differential equations, Fourier transforms, and other advanced topics.
 
-## How it works
+## From question to lesson
 
-1. Ask a question in plain English or LaTeX.
-2. Pick the difficulty that feels right.
-3. The model writes a Manim scene for the lesson.
-4. The code is checked and rendered in an isolated container.
-5. ElevenLabs adds narration that moves with the animation.
+1. The learner asks a question in plain English or with a typed equation.
+2. The app estimates the level and chooses a model path.
+3. The model writes a Manim animation for that question.
+4. The generated code is checked before it is allowed to run.
+5. Manim renders the lesson in an isolated container.
+6. ElevenLabs provides synchronized narration and captions when available.
 
 ![A question moves through routing, generation, validation, rendering, and narration to become a visual lesson.](assets/product-flow.svg)
 
-If narration fails, the silent animation can still be returned. Generated code is kept away from the main app while it runs.
+If a specialist, narration, or media step fails, the app can fall back to a simpler lesson path instead of hiding what happened.
 
-## Different questions need different tutors
+## A tutor that can adapt
 
-A first geometry lesson should not feel like a graduate analysis lecture. We use three small LoRA specialists on top of the same Qwen3-4B model:
+A lesson about fractions should not sound like a lecture on partial differential equations. Different questions may need different teaching styles, notation, and visual detail.
 
-- **Foundational** for introductory ideas.
-- **Intermediate** for longer, multi-step lessons.
-- **Advanced** for dense notation and higher-level topics.
+The current product uses small LoRA specialists for foundational, intermediate, and advanced lessons. They share one Qwen model, so each specialist only needs to learn a small set of changes.
 
-The selected difficulty routes the question to its matching specialist. The specialists run through a shared Modal endpoint, so we do not need three separate copies of the full model.
+Our research goes one step further: can the model discover useful specializations during training instead of having us decide them in advance?
 
-![Training examples are split by difficulty and used to train three LoRA specialists on one shared model.](assets/training-pipeline.svg)
+That is the idea behind our Dynamic LoRA work. We observe how different training examples try to change the model and look for persistent disagreements that may justify a new specialist.
 
-For now, routing is simple and predictable. The learner chooses the level. A learned router and dynamic adapter spawning are the next research steps.
+[Read the plain-language Dynamic LoRA explanation, including the mathematics.](training/src/dynamic_lora/README.md)
 
-## The idea
+## The goal
 
-Math explanations should feel made for the question—not pulled from a generic video library. The goal is simple: make difficult ideas easier to see, hear, and understand.
+Math Tutor is not a library of prerecorded clips. Each lesson is generated for the learner's question.
+
+The product goal is simple: make difficult mathematics easier to see, hear, and explore. The research goal is to help the model develop the right kinds of expertise without assuming those categories beforehand.
