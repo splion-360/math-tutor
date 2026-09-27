@@ -102,7 +102,7 @@ def load_placement_config(path: Path) -> PlacementConfig:
 
 
 def validate_placement_probe(
-    metadata: dict[str, Any], *, train_hash: str, holdout_hash: str
+    metadata: dict[str, Any], *, train_hash: str, holdout_hash: str, max_seq_length: int
 ) -> None:
     """Require a no-update base probe on the exact training and holdout files.
 
@@ -110,6 +110,7 @@ def validate_placement_probe(
         metadata: Saved base-gradient probe metadata.
         train_hash: SHA-256 of the current training JSONL.
         holdout_hash: SHA-256 of the current prompt-only evaluation JSONL.
+        max_seq_length: Complete-example token ceiling used for placement training.
 
     Raises:
         ValueError: If model, gradient source, or data provenance differs.
@@ -121,6 +122,10 @@ def validate_placement_probe(
         raise ValueError("placement probe uses a different model revision")
     if metadata.get("gradient_source") != "base_weights" or metadata.get("optimizer_steps") != 0:
         raise ValueError("placement probe must use untrained base-weight gradients")
+    if metadata.get("prompt_includes_difficulty") is not False:
+        raise ValueError("placement probe prompt must omit difficulty")
+    if metadata.get("probe_config", {}).get("max_seq_length") != max_seq_length:
+        raise ValueError("placement probe token limit does not match")
     dataset = metadata.get("dataset")
     if not isinstance(dataset, dict) or dataset.get("training_content_sha256") != train_hash:
         raise ValueError("placement probe training dataset does not match")
@@ -148,6 +153,7 @@ def run_placement_arm(config: PlacementConfig, arm_name: str) -> dict[str, Any]:
         probe,
         train_hash=report.training_content_sha256,
         holdout_hash=report.holdout_content_sha256,
+        max_seq_length=config.max_seq_length,
     )
     records = load_training_records(config.train_path)
     manifest = build_placement_manifest(probe, records, split_seed=config.seed)
@@ -226,6 +232,8 @@ def run_placement_arm(config: PlacementConfig, arm_name: str) -> dict[str, Any]:
             "seed": config.seed,
             "max_steps": config.max_steps,
             "max_seq_length": config.max_seq_length,
+            "prompt_includes_difficulty": False,
+            "target_truncation": "reject",
             "lora_r": config.lora_r,
             "lora_alpha": config.lora_alpha,
             "lora_dropout": config.lora_dropout,
@@ -286,6 +294,8 @@ def run_placement_arm(config: PlacementConfig, arm_name: str) -> dict[str, Any]:
             "validation_metrics": validation_metrics,
             "max_steps": config.max_steps,
             "seed": config.seed,
+            "prompt_includes_difficulty": False,
+            "target_truncation": "reject",
             "git_revision": os.environ.get("SOURCE_VERSION", "unknown"),
             "wandb_run_url": getattr(wandb_run, "url", None),
             "adapter_path": str(run_dir / "adapter"),

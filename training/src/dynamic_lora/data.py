@@ -38,11 +38,7 @@ def _task_messages(record: dict[str, Any]) -> list[dict[str, str]]:
         {"role": "system", "content": SYSTEM_PROMPT},
         {
             "role": "user",
-            "content": (
-                f"Difficulty: {record['difficulty']}\n"
-                f"Topic: {record['topic']}\n"
-                f"Task: {record['prompt']}"
-            ),
+            "content": f"Topic: {record['topic']}\nTask: {record['prompt']}",
         },
     ]
 
@@ -82,9 +78,9 @@ def format_training_record(
         messages,
         tokenize=False,
         add_generation_prompt=False,
-    )
-    if tokenizer.eos_token is not None and not text.rstrip().endswith(tokenizer.eos_token):
-        text = text.rstrip() + tokenizer.eos_token
+    ).rstrip()
+    if tokenizer.eos_token is not None and not text.endswith(tokenizer.eos_token):
+        text += tokenizer.eos_token
     return {"text": text}
 
 
@@ -102,19 +98,14 @@ def tokenize_completion_record(
         Input IDs, attention mask, and labels with prompt tokens set to -100.
 
     Raises:
-        ValueError: If truncation removes the target code or templates do not align.
+        ValueError: If the complete example exceeds the limit or templates do not align.
     """
     if max_seq_length < 2:
         raise ValueError("max_seq_length must be at least 2")
     prompt = format_training_prompt(record, tokenizer)
     full = format_training_record(record, tokenizer)["text"]
     prompt_ids: list[int] = tokenizer(prompt, add_special_tokens=False)["input_ids"]
-    full_ids: list[int] = tokenizer(
-        full,
-        add_special_tokens=False,
-        truncation=True,
-        max_length=max_seq_length - 1,
-    )["input_ids"]
+    full_ids: list[int] = tokenizer(full, add_special_tokens=False)["input_ids"]
     if full_ids[: len(prompt_ids)] != prompt_ids or len(full_ids) <= len(prompt_ids):
         raise ValueError(f"prompt and completion tokens do not align for {record['id']}")
     labels = [-100] * len(prompt_ids) + full_ids[len(prompt_ids) :]
@@ -122,6 +113,11 @@ def tokenize_completion_record(
     if eos_token_id is not None and full_ids[-1] != eos_token_id:
         full_ids.append(eos_token_id)
         labels.append(eos_token_id)
+    if len(full_ids) > max_seq_length:
+        raise ValueError(
+            f"example {record['id']} requires {len(full_ids)} tokens "
+            f"and exceeds max_seq_length={max_seq_length}"
+        )
     return {
         "input_ids": full_ids,
         "attention_mask": [1] * len(full_ids),
@@ -132,7 +128,7 @@ def tokenize_completion_record(
 def tokenize_training_batch(
     batch: dict[str, list[str]], tokenizer: Any, *, max_seq_length: int
 ) -> dict[str, Any]:
-    """Tokenize formatted lessons with the same truncation and EOS contract.
+    """Tokenize complete formatted lessons and reject examples above the limit.
 
     Args:
         batch: Text fields produced by ``format_training_record``.
@@ -143,14 +139,13 @@ def tokenize_training_batch(
         Token IDs and attention masks suitable for causal-LM collation.
 
     Raises:
-        ValueError: If the context length cannot contain content and EOS.
+        ValueError: If an example cannot fit with its terminal EOS token.
     """
     if max_seq_length < 2:
         raise ValueError("max_seq_length must be at least 2")
     encoded: dict[str, Any] = tokenizer(
         batch["text"],
-        truncation=True,
-        max_length=max_seq_length - 1,
+        add_special_tokens=False,
         padding=False,
     )
     eos_token_id = tokenizer.eos_token_id
@@ -160,6 +155,18 @@ def tokenize_training_batch(
                 input_ids.append(eos_token_id)
                 if "attention_mask" in encoded:
                     encoded["attention_mask"][index].append(1)
+            if len(input_ids) > max_seq_length:
+                raise ValueError(
+                    f"example at batch index {index} requires {len(input_ids)} tokens "
+                    f"and exceeds max_seq_length={max_seq_length}"
+                )
+    else:
+        for index, input_ids in enumerate(encoded["input_ids"]):
+            if len(input_ids) > max_seq_length:
+                raise ValueError(
+                    f"example at batch index {index} requires {len(input_ids)} tokens "
+                    f"and exceeds max_seq_length={max_seq_length}"
+                )
     return encoded
 
 

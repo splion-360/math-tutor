@@ -81,6 +81,8 @@ def _metadata(config: TrainingConfig, report: DatasetValidationReport) -> dict[s
         },
         "training": {
             "seed": config.seed,
+            "prompt_includes_difficulty": False,
+            "target_truncation": "reject",
             "max_steps": config.max_steps,
             "per_device_train_batch_size": config.per_device_train_batch_size,
             "gradient_accumulation_steps": config.gradient_accumulation_steps,

@@ -45,6 +45,8 @@ def test_placement_probe_must_match_frozen_model_and_exact_dataset() -> None:
         "model_revision": "1b4199c4f36b0cef378bfb12390c18780c18af4c",
         "gradient_source": "base_weights",
         "optimizer_steps": 0,
+        "prompt_includes_difficulty": False,
+        "probe_config": {"max_seq_length": 3072},
         "dataset": {
             "training_content_sha256": "train-hash",
             "holdout_content_sha256": "holdout-hash",
@@ -52,8 +54,25 @@ def test_placement_probe_must_match_frozen_model_and_exact_dataset() -> None:
         "probe": {"sample_indices": [0, 1], "selected_modules": []},
     }
 
-    validate_placement_probe(reference, train_hash="train-hash", holdout_hash="holdout-hash")
+    validate_placement_probe(
+        reference, train_hash="train-hash", holdout_hash="holdout-hash", max_seq_length=3072
+    )
 
     reference["dataset"]["training_content_sha256"] = "other"  # type: ignore[index]
     with pytest.raises(ValueError, match="training dataset"):
-        validate_placement_probe(reference, train_hash="train-hash", holdout_hash="holdout-hash")
+        validate_placement_probe(
+            reference, train_hash="train-hash", holdout_hash="holdout-hash", max_seq_length=3072
+        )
+
+    reference["dataset"]["training_content_sha256"] = "train-hash"  # type: ignore[index]
+    reference["prompt_includes_difficulty"] = True
+    with pytest.raises(ValueError, match="difficulty"):
+        validate_placement_probe(
+            reference, train_hash="train-hash", holdout_hash="holdout-hash", max_seq_length=3072
+        )
+
+    reference["prompt_includes_difficulty"] = False
+    with pytest.raises(ValueError, match="token limit"):
+        validate_placement_probe(
+            reference, train_hash="train-hash", holdout_hash="holdout-hash", max_seq_length=1024
+        )

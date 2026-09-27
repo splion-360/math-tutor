@@ -1,3 +1,6 @@
+"""Test supervised Manim record validation and complete-example tokenization.
+These checks keep difficulty out of prompts and reject partial targets."""
+
 from __future__ import annotations
 
 import json
@@ -14,17 +17,41 @@ from dynamic_lora.data import (
 )
 
 
-def test_tokenize_training_batch_appends_eos_after_truncation() -> None:
+def test_tokenize_training_batch_rejects_incomplete_example() -> None:
     class Tokenizer:
         eos_token_id = 99
 
-        def __call__(self, _text: list[str], **kwargs: object) -> dict[str, list[list[int]]]:
-            assert kwargs["max_length"] == 7
-            return {"input_ids": [[1, 2]], "attention_mask": [[1, 1]]}
+        def __call__(self, text: list[str], **kwargs: object) -> dict[str, list[list[int]]]:
+            encoded = [[ord(character) for character in item] for item in text]
+            if kwargs.get("truncation"):
+                encoded = [ids[: int(kwargs["max_length"])] for ids in encoded]
+            return {
+                "input_ids": encoded,
+                "attention_mask": [[1] * len(ids) for ids in encoded],
+            }
 
-    encoded = tokenize_training_batch({"text": ["example"]}, Tokenizer(), max_seq_length=8)
+    with pytest.raises(ValueError, match="exceeds max_seq_length"):
+        tokenize_training_batch({"text": ["example"]}, Tokenizer(), max_seq_length=4)
 
-    assert encoded == {"input_ids": [[1, 2, 99]], "attention_mask": [[1, 1, 1]]}
+
+def test_training_prompt_does_not_expose_difficulty_label() -> None:
+    class Tokenizer:
+        def apply_chat_template(
+            self,
+            messages: list[dict[str, str]],
+            *,
+            tokenize: bool,
+            add_generation_prompt: bool,
+        ) -> str:
+            assert tokenize is False
+            assert add_generation_prompt is True
+            return "\n".join(message["content"] for message in messages)
+
+    prompt = format_training_prompt(valid_record("test-1", "advanced"), Tokenizer())
+
+    assert "Topic: calculus" in prompt
+    assert "Task: Create a Manim lesson" in prompt
+    assert "Difficulty:" not in prompt
 
 
 def test_completion_record_masks_prompt_and_keeps_code_and_eos() -> None:
@@ -57,6 +84,35 @@ def test_completion_record_masks_prompt_and_keeps_code_and_eos() -> None:
     assert encoded["labels"][len(prompt)] != -100
     assert encoded["input_ids"][-1] == 99
     assert encoded["labels"][-1] == 99
+
+
+def test_completion_record_rejects_code_that_exceeds_context() -> None:
+    class Tokenizer:
+        eos_token = "!"
+        eos_token_id = 99
+
+        def apply_chat_template(
+            self,
+            messages: list[dict[str, str]],
+            *,
+            tokenize: bool,
+            add_generation_prompt: bool,
+        ) -> str:
+            assert tokenize is False
+            content = "|".join(message["content"] for message in messages[:2])
+            completion = "" if add_generation_prompt else messages[2]["content"]
+            return content + "|assistant:" + completion
+
+        def __call__(self, text: str, **kwargs: object) -> dict[str, list[int]]:
+            ids = [ord(character) for character in text]
+            if kwargs.get("truncation"):
+                ids = ids[: int(kwargs["max_length"])]
+            return {"input_ids": ids}
+
+    with pytest.raises(ValueError, match="exceeds max_seq_length"):
+        tokenize_completion_record(
+            valid_record("test-1", "foundational"), Tokenizer(), max_seq_length=120
+        )
 
 
 def write_jsonl(path: Path, records: list[dict[str, object]]) -> None:

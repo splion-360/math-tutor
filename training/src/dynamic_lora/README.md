@@ -172,8 +172,6 @@ Cluster names should be assigned only after inspecting the examples. If a group 
 
 ## An important experiment detail
 
-The current baseline records difficulty metadata and includes it in the training prompt. A clean discovery experiment should remove it from the model input or keep it only for analysis after training.
-
-Otherwise, we cannot confidently claim that a discovered specialization emerged without being influenced by the original difficulty labels.
+The training records retain difficulty as metadata for splitting and analysis, but the model prompt contains only the topic and task. The predefined difficulty proxy is not supplied as an input feature when probing or training the model.
 
 For commands, configuration, data rules, and artifact locations, see the [training guide](../../README.md).

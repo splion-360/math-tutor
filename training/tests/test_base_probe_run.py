@@ -52,6 +52,7 @@ def test_reference_probe_requires_matching_model_and_training_data() -> None:
             "training_content_sha256": "train-hash",
             "holdout_content_sha256": "holdout-hash",
         },
+        "training": {"prompt_includes_difficulty": False},
         "layer_energy_probe": {"selected_layers": ["layer_7.q_proj"]},
     }
 
@@ -69,5 +70,16 @@ def test_reference_probe_requires_matching_model_and_training_data() -> None:
             model_id="Qwen/Qwen3-4B-Instruct-2507",
             model_revision="revision-1",
             training_content_sha256="different",
+            holdout_content_sha256="holdout-hash",
+        )
+
+    reference["dataset"]["training_content_sha256"] = "train-hash"  # type: ignore[index]
+    reference["training"]["prompt_includes_difficulty"] = True  # type: ignore[index]
+    with pytest.raises(ValueError, match="difficulty"):
+        validate_reference_probe(
+            reference,
+            model_id="Qwen/Qwen3-4B-Instruct-2507",
+            model_revision="revision-1",
+            training_content_sha256="train-hash",
             holdout_content_sha256="holdout-hash",
         )

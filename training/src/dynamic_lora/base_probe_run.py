@@ -135,6 +135,8 @@ def validate_reference_probe(
         raise ValueError("reference training dataset does not match base probe")
     if dataset.get("holdout_content_sha256") != holdout_content_sha256:
         raise ValueError("reference holdout dataset does not match base probe")
+    if reference.get("training", {}).get("prompt_includes_difficulty") is not False:
+        raise ValueError("reference prompt must omit difficulty")
     old_probe = reference.get("layer_energy_probe", {})
     selected = old_probe.get("selected_layers")
     if not isinstance(selected, list) or not selected or not all(
@@ -329,7 +331,8 @@ def run_base_probe(config: BaseProbeConfig) -> dict[str, Any]:
             "gradient_source": "base_weights",
             "precision": "bf16",
             "optimizer_steps": 0,
-            "prompt_includes_difficulty": True,
+            "prompt_includes_difficulty": False,
+            "target_truncation": "reject",
             "dataset": {
                 "record_count": report.record_count,
                 "training_ids_sha256": report.training_ids_sha256,

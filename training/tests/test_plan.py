@@ -1,3 +1,6 @@
+"""Test deterministic shared-LoRA run plans and saved provenance.
+These checks keep training inputs and artifact paths inspectable."""
+
 from __future__ import annotations
 
 import json
@@ -96,3 +99,5 @@ def test_dry_run_plan_is_redacted_deterministic_and_machine_readable(tmp_path: P
         "foundational": 1,
         "intermediate": 1,
     }
+    assert metadata["training"]["prompt_includes_difficulty"] is False
+    assert metadata["training"]["target_truncation"] == "reject"

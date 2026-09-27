@@ -55,6 +55,17 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
+        dataset = datasets.Dataset.from_list(
+            [format_training_record(record, tokenizer) for record in records]
+        )
+
+        def tokenize(batch: dict[str, list[str]]) -> dict[str, Any]:
+            return tokenize_training_batch(
+                batch, tokenizer, max_seq_length=config.max_seq_length
+            )
+
+        tokenized = dataset.map(tokenize, batched=True, remove_columns=["text"])
+
         quantization_config = (
             transformers.BitsAndBytesConfig(
                 load_in_4bit=True,
@@ -84,16 +95,6 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
         model = peft.get_peft_model(model, lora_config)
         trainable_parameters, total_parameters = model.get_nb_trainable_parameters()
 
-        dataset = datasets.Dataset.from_list(
-            [format_training_record(record, tokenizer) for record in records]
-        )
-
-        def tokenize(batch: dict[str, list[str]]) -> dict[str, Any]:
-            return tokenize_training_batch(
-                batch, tokenizer, max_seq_length=config.max_seq_length
-            )
-
-        tokenized = dataset.map(tokenize, batched=True, remove_columns=["text"])
         training_args = transformers.TrainingArguments(
             output_dir=str(config.output_dir),
             seed=config.seed,

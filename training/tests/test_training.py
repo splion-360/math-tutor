@@ -66,9 +66,10 @@ def test_format_record_uses_chat_template_and_ends_with_eos() -> None:
     )
 
     assert formatted["text"].startswith("<|im_start|>system\n")
-    assert "<|im_start|>user\nDifficulty: foundational" in formatted["text"]
+    assert "<|im_start|>user\nTopic: geometry\nTask: Explain triangle area." in formatted["text"]
+    assert "Difficulty:" not in formatted["text"]
     assert "<|im_start|>assistant\nfrom manim import *" in formatted["text"]
-    assert formatted["text"].rstrip().endswith("<|im_end|>")
+    assert formatted["text"].endswith("<|im_end|>")
     assert "<|system|>" not in formatted["text"]
 
 
@@ -114,6 +115,7 @@ def test_seed_is_set_before_model_and_adapter_initialization(
             callback: Callable[[dict[str, list[str]]], dict[str, object]],
             **_kwargs: object,
         ) -> FakeDataset:
+            events.append("tokenize")
             tokenized_batches.append(callback({"text": ["sample"]}))
             return self
 
@@ -209,7 +211,8 @@ def test_seed_is_set_before_model_and_adapter_initialization(
 
     plan = train_shared_lora(config)
 
-    assert events.index("seed") < events.index("model") < events.index("adapter")
+    assert events.index("seed") < events.index("tokenize") < events.index("model")
+    assert events.index("model") < events.index("adapter")
     assert model_kwargs["torch_dtype"] == "bfloat16"
     assert training_args_kwargs["report_to"] == []
     assert tokenized_batches[0]["input_ids"] == [[1, 2, 3, 99]]
