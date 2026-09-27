@@ -1,3 +1,6 @@
+"""Run the shared LoRA training workflow for Qwen Manim generation.
+This module orchestrates validation, model setup, tracking, probes, training, and metadata."""
+
 from __future__ import annotations
 
 from importlib import import_module
@@ -13,7 +16,7 @@ from shared_lora_baseline.dry_run import (
     build_run_plan,
     write_run_metadata,
 )
-from shared_lora_baseline.gradient_probe import (
+from shared_lora_baseline.lora_gradient_energy import (
     gradient_probe_metrics,
     measure_lora_layer_gradient_energy,
 )

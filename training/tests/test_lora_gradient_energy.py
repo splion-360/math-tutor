@@ -1,6 +1,9 @@
+"""Test deterministic LoRA gradient energy measurement behavior.
+These tests cover layer ranking, metric flattening, and device-independent fake gradients."""
+
 from __future__ import annotations
 
-from shared_lora_baseline.gradient_probe import (
+from shared_lora_baseline.lora_gradient_energy import (
     gradient_probe_metrics,
     measure_lora_layer_gradient_energy,
 )
@@ -110,7 +113,7 @@ def test_measure_lora_layer_gradient_energy_ranks_layers_and_records_details() -
     assert model.zero_grad_calls == 2
 
 
-def test_gradient_probe_metrics_are_wandb_friendly() -> None:
+def test_lora_gradient_energy_metrics_are_wandb_friendly() -> None:
     metrics = gradient_probe_metrics(
         {
             "enabled": True,

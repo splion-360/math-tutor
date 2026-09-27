@@ -1,3 +1,6 @@
+"""Test shared LoRA trainer orchestration without loading real model weights.
+These tests verify tokenizer formatting, model setup order, metadata, and probe wiring."""
+
 from __future__ import annotations
 
 import json

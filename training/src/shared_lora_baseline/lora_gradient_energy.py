@@ -1,3 +1,6 @@
+"""Measure LoRA gradient energy for the shared LoRA training path.
+This module ranks LoRA layer/module keys so later training stages can choose observed layers."""
+
 from __future__ import annotations
 
 import re
