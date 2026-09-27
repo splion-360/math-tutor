@@ -84,6 +84,7 @@ def _metadata(config: TrainingConfig, report: DatasetValidationReport) -> dict[s
             "learning_rate": config.learning_rate,
             "max_seq_length": config.max_seq_length,
             "load_in_4bit": config.load_in_4bit,
+            "run_smoke_eval": config.run_smoke_eval,
         },
         "lora": {
             "r": config.lora_r,

@@ -131,7 +131,10 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
             data_collator=collator,
         )
         train_output = trainer.train()
-        tracking_run.log_train_metrics(getattr(train_output, "metrics", {}))
+        tracking_run.log_metrics(getattr(train_output, "metrics", {}))
+        if config.run_smoke_eval:
+            eval_metrics = cast(dict[str, object], trainer.evaluate(eval_dataset=tokenized))
+            tracking_run.log_metrics(eval_metrics)
         model.save_pretrained(config.output_dir)
         tokenizer.save_pretrained(config.output_dir)
         plan = add_runtime_versions(
@@ -151,6 +154,11 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
             "total_parameters": total_parameters,
             "trainable_percent": round(100 * trainable_parameters / total_parameters, 6),
         }
+        if config.run_smoke_eval:
+            plan.metadata["smoke_eval"] = {
+                "dataset": "tokenized_training_fixture",
+                "purpose": "modal_trainer_smoke",
+            }
         plan = add_tracking_metadata(plan, tracking_run.metadata)
         write_run_metadata(plan, config.metadata_path)
         return plan

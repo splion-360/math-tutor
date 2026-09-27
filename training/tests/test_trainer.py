@@ -74,6 +74,7 @@ def test_seed_is_set_before_model_and_adapter_initialization(
     model_kwargs: dict[str, object] = {}
     training_args_kwargs: dict[str, object] = {}
     tokenized_batches: list[dict[str, object]] = []
+    evaluated: list[object] = []
     tokenizer = FakeTokenizer()
 
     class FakeModel:
@@ -97,11 +98,16 @@ def test_seed_is_set_before_model_and_adapter_initialization(
             return self
 
     class FakeTrainer:
-        def __init__(self, **_kwargs: object) -> None:
+        def __init__(self, **kwargs: object) -> None:
+            self.train_dataset = kwargs["train_dataset"]
             return None
 
-        def train(self) -> None:
-            return None
+        def train(self) -> SimpleNamespace:
+            return SimpleNamespace(metrics={"train_loss": 1.5})
+
+        def evaluate(self, *, eval_dataset: object) -> dict[str, float]:
+            evaluated.append(eval_dataset)
+            return {"eval_loss": 1.25}
 
     def load_model(*_args: object, **kwargs: object) -> FakeModel:
         events.append("model")
@@ -150,6 +156,7 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         output_dir=tmp_path / "adapter",
         metadata_path=tmp_path / "run.json",
         load_in_4bit=False,
+        run_smoke_eval=True,
     )
 
     plan = train_shared_lora(config)
@@ -168,6 +175,11 @@ def test_seed_is_set_before_model_and_adapter_initialization(
     assert plan.metadata["runtime_versions"]["transformers"] == "4.51.0"
     assert plan.metadata["tracking"]["active"] is False
     assert plan.metadata["tracking"]["reason"] == "missing_wandb_api_key"
+    assert plan.metadata["smoke_eval"] == {
+        "dataset": "tokenized_training_fixture",
+        "purpose": "modal_trainer_smoke",
+    }
+    assert len(evaluated) == 1
     assert set(plan.metadata["runtime_versions"]) == {
         "accelerate",
         "bitsandbytes",

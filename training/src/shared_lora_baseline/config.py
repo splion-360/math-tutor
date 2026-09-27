@@ -61,6 +61,7 @@ class TrainingConfig:
         default=("q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj")
     )
     load_in_4bit: bool = True
+    run_smoke_eval: bool = False
     tracking: ExperimentTrackingConfig = field(default_factory=ExperimentTrackingConfig)
 
 
@@ -123,6 +124,10 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
     if not isinstance(load_in_4bit, bool):
         raise ConfigError("load_in_4bit must be a boolean")
 
+    run_smoke_eval = raw.get("run_smoke_eval", False)
+    if not isinstance(run_smoke_eval, bool):
+        raise ConfigError("run_smoke_eval must be a boolean")
+
     lora_dropout = raw.get("lora_dropout", 0.05)
     if not isinstance(lora_dropout, int | float) or not 0 <= lora_dropout < 1:
         raise ConfigError("lora_dropout must be in [0, 1)")
@@ -143,6 +148,7 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
         lora_dropout=float(lora_dropout),
         target_modules=tuple(target_modules_raw),
         load_in_4bit=load_in_4bit,
+        run_smoke_eval=run_smoke_eval,
         tracking=_tracking_config(raw.get("tracking")),
     )
 
