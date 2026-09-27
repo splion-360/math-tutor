@@ -81,4 +81,10 @@ PY
 
 ## Experiment boundary
 
-The 995 rows are the source pool. The placement comparison reserves 100 stratified rows for validation and excludes the 16 gradient-probe examples from that validation set; the remaining 895 are eligible for training. The prior 64-step, batch-one pilot did not complete an epoch. The next sequence is a label-free one-step shared-LoRA probe, a no-update base-weight gradient probe, then matched placement arms. Each new run writes to a distinct `label_free` artifact path so historical metrics remain identifiable. Render success is not established by training loss alone.
+The 995 rows are the source pool. The placement comparison reserves 100 stratified rows for validation and excludes the 16 gradient-probe examples from that validation set; the remaining 895 are eligible for training. The prior 64-step, batch-one pilot did not complete an epoch. The experiment sequence is a label-free one-step shared-LoRA probe, a no-update base-weight gradient probe, then matched placement arms. Each new run writes to a distinct `label_free` artifact path so historical metrics remain identifiable. Render success is not established by training loss alone.
+
+## One-step Modal probe observation
+
+**Measured on 2026-09-26:** The first attempt ran out of memory during the first 1,480-token gradient backward pass on an L4 (22.03 GiB total); it produced no ranking or adapter. The retry at source revision `2cceb7d71af95b3a9b3698ea756ca88258a4b3c1` completed on an A100 80 GB. It measured 16 example gradients, performed one optimizer step, and saved `adapter_model.safetensors` and `run_metadata.json` to `modal-volume://dream-ai-training-artifacts/shared_lora_probe_16_label_free`. The persisted files were verified with a read-only Modal volume listing. [W&B run](https://wandb.ai/splion/math-tutor-dynamic-lora/runs/hm7j492h).
+
+The raw-energy top four were `layer_6.down_proj`, `layer_1.up_proj`, `layer_7.up_proj`, and `layer_3.k_proj`. The single training step reported loss 1.0048. These are probe observations, **not** evidence that those placements improve held-out Manim code or that dynamic splitting is warranted. The matched base-weight and placement comparisons remain separate experiments.
