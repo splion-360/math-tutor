@@ -15,6 +15,7 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
     local_dirs: list[tuple[str, str]] = []
     local_files: list[tuple[str, str]] = []
     function_options: list[dict[str, object]] = []
+    remote_calls: list[tuple[str, tuple[object, ...]]] = []
     secret_names: list[str] = []
 
     class FakeImage:
@@ -47,7 +48,12 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
 
         def function(self, **kwargs: object) -> Any:
             function_options.append(kwargs)
-            return lambda function: function
+
+            def decorate(function: Any) -> Any:
+                function.remote = lambda *args: remote_calls.append((function.__name__, args)) or {}
+                return function
+
+            return decorate
 
         def local_entrypoint(self) -> Any:
             return lambda function: function
@@ -64,7 +70,7 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
     )
     monkeypatch.setitem(sys.modules, "modal", fake_modal)
 
-    runpy.run_path(
+    module = runpy.run_path(
         str(Path(__file__).parents[2] / "deployments" / "modal" / "training_smoke.py")
     )
 
@@ -82,7 +88,7 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
         "evaluation",
         "/workspace/backend/data/evaluation",
     ) in mounted_dirs
-    assert {options["gpu"] for options in function_options} == {"L4", "A100-40GB"}
+    assert {options["gpu"] for options in function_options} == {"L4", "A100-40GB", "A100-80GB"}
     expected_volumes = {
         "/root/.cache/huggingface": "volume:dream-ai-huggingface-cache",
         "/artifacts": "volume:dream-ai-training-artifacts",
@@ -90,3 +96,10 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
     for options in function_options:
         assert options["volumes"] == expected_volumes
         assert options["secrets"] == ["secret:WANDB_API_KEY"]
+
+    module["main"](full_probe=True)
+    module["main"]()
+    assert remote_calls == [
+        ("run_full_probe", ("modal_probe_qwen3_4b.json",)),
+        ("run_smoke", ("modal_smoke_qwen3_4b.json",)),
+    ]

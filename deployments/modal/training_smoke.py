@@ -120,6 +120,32 @@ def run_smoke(config_name: str = "modal_smoke_qwen3_4b.json") -> dict[str, Any]:
     Returns:
         Run identity, diagnostic summary, and artifact locations.
     """
+    return _run_shared_training(config_name)
+
+
+@app.function(
+    image=train_image,
+    gpu="A100-80GB",
+    timeout=45 * 60,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        str(REMOTE_ARTIFACT_ROOT): training_artifacts,
+    },
+    secrets=[modal.Secret.from_name(WANDB_SECRET_NAME)],
+)
+def run_full_probe(config_name: str) -> dict[str, Any]:
+    """Run a full-dataset LoRA probe on a GPU sized for complete examples.
+
+    Args:
+        config_name: Name of a mounted full-dataset JSON config.
+
+    Returns:
+        Run identity, probe summary, and artifact locations.
+    """
+    return _run_shared_training(config_name)
+
+
+def _run_shared_training(config_name: str) -> dict[str, Any]:
     from dynamic_lora.config import load_config
     from dynamic_lora.training import train_shared_lora
 
@@ -245,5 +271,6 @@ def main(
         config_name = "modal_probe_qwen3_4b.json"
     else:
         config_name = "modal_smoke_qwen3_4b.json"
-    result = run_smoke.remote(config_name)
+    run_function = run_full_probe if full_probe or signatures else run_smoke
+    result = run_function.remote(config_name)
     print(json.dumps(result, indent=2, sort_keys=True))
