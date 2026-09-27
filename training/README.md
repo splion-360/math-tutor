@@ -64,6 +64,17 @@ Expected artifacts:
 - `training/artifacts/shared_lora_qwen3_4b/run_metadata.json`
 - `training/artifacts/shared_lora_qwen3_4b/adapter/checkpoint-*/trainer_state.json`
 
+## Experiment Tracking
+
+Training runs use W&B when `WANDB_API_KEY` is present and `tracking.mode` is `auto` or `online`.
+The default project is `math-tutor-dynamic-lora`. The run config records the frozen model, dataset
+hashes, LoRA settings, git revision, output directory, and Modal artifact path. Hugging Face trainer
+metrics are reported to the same W&B run with grouped names such as `train/loss` and
+`train/runtime_seconds`.
+
+Set `tracking.mode` to `disabled` for local runs that should never contact W&B. Set it to `online`
+when missing W&B setup should fail fast instead of silently falling back to local metadata only.
+
 ## Assumptions
 
 - The target GPU can load Qwen/Qwen3-4B-Instruct-2507 with 4-bit quantization.

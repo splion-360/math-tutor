@@ -6,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from shared_lora_baseline.config import TrainingConfig
 from shared_lora_baseline.trainer import _format_record, train_shared_lora
 
@@ -67,8 +69,10 @@ def test_format_record_uses_chat_template_and_ends_with_eos() -> None:
 def test_seed_is_set_before_model_and_adapter_initialization(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
+    monkeypatch.delenv("WANDB_API_KEY", raising=False)
     events: list[str] = []
     model_kwargs: dict[str, object] = {}
+    training_args_kwargs: dict[str, object] = {}
     tokenized_batches: list[dict[str, object]] = []
     tokenizer = FakeTokenizer()
 
@@ -109,7 +113,7 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         set_seed=lambda _seed: events.append("seed"),
         AutoTokenizer=SimpleNamespace(from_pretrained=lambda *_args, **_kwargs: tokenizer),
         AutoModelForCausalLM=SimpleNamespace(from_pretrained=load_model),
-        TrainingArguments=lambda **_kwargs: object(),
+        TrainingArguments=lambda **kwargs: training_args_kwargs.update(kwargs) or object(),
         DataCollatorForLanguageModeling=lambda **_kwargs: object(),
         Trainer=FakeTrainer,
     )
@@ -152,6 +156,7 @@ def test_seed_is_set_before_model_and_adapter_initialization(
 
     assert events.index("seed") < events.index("model") < events.index("adapter")
     assert model_kwargs["torch_dtype"] == "bfloat16"
+    assert training_args_kwargs["report_to"] == []
     assert tokenized_batches[0]["input_ids"] == [[1, 2, 3, 99]]
     assert tokenized_batches[0]["attention_mask"] == [[1, 1, 1, 1]]
     assert plan.metadata["weights_loaded"] is True
@@ -161,6 +166,8 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         "trainable_percent": 10.0,
     }
     assert plan.metadata["runtime_versions"]["transformers"] == "4.51.0"
+    assert plan.metadata["tracking"]["active"] is False
+    assert plan.metadata["tracking"]["reason"] == "missing_wandb_api_key"
     assert set(plan.metadata["runtime_versions"]) == {
         "accelerate",
         "bitsandbytes",
@@ -170,3 +177,42 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         "torch",
         "transformers",
     }
+
+
+def test_tracking_metadata_is_written_before_heavy_training_imports(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.delenv("WANDB_API_KEY", raising=False)
+    train_path = tmp_path / "train.jsonl"
+    holdout_path = tmp_path / "holdout.jsonl"
+    metadata_path = tmp_path / "run.json"
+    write_jsonl(
+        train_path,
+        [
+            training_record("train-foundational-001", "foundational"),
+            training_record("train-intermediate-001", "intermediate"),
+            training_record("train-advanced-001", "advanced"),
+        ],
+    )
+    write_jsonl(holdout_path, [{"id": "eval-001"}])
+    config = TrainingConfig(
+        train_path=train_path,
+        holdout_path=holdout_path,
+        output_dir=tmp_path / "adapter",
+        metadata_path=metadata_path,
+        load_in_4bit=False,
+    )
+
+    def fail_import(name: str) -> object:
+        raise ModuleNotFoundError(name)
+
+    monkeypatch.setattr("shared_lora_baseline.trainer.import_module", fail_import)
+
+    with pytest.raises(ModuleNotFoundError):
+        train_shared_lora(config)
+
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["tracking"]["active"] is False
+    assert metadata["tracking"]["reason"] == "missing_wandb_api_key"
+    assert metadata["weights_loaded"] is False

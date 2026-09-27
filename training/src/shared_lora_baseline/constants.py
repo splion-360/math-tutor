@@ -14,4 +14,5 @@ TRAIN_DEPENDENCY_CONSTRAINTS = {
     "safetensors": ">=0.4,<1",
     "torch": ">=2.4,<3",
     "transformers": ">=4.51,<5",
+    "wandb": ">=0.18,<1",
 }

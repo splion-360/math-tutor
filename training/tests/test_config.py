@@ -31,3 +31,33 @@ def test_relative_paths_resolve_from_config_directory(tmp_path: Path, monkeypatc
     assert config.holdout_path == config_dir / "../data/holdout.jsonl"
     assert config.output_dir == config_dir / "../artifacts/adapter"
     assert config.metadata_path == config_dir / "../artifacts/run.json"
+
+
+def test_tracking_config_is_loaded_from_nested_object(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "train_path": "train.jsonl",
+                "holdout_path": "holdout.jsonl",
+                "output_dir": "adapter",
+                "metadata_path": "run.json",
+                "tracking": {
+                    "mode": "online",
+                    "project": "math-tutor-dynamic-lora",
+                    "run_name": "smoke-run",
+                    "tags": ["dynamic-lora", "smoke"],
+                    "modal_artifact_path": "modal://dream-ai-training/runs/smoke-run",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.tracking.mode == "online"
+    assert config.tracking.project == "math-tutor-dynamic-lora"
+    assert config.tracking.run_name == "smoke-run"
+    assert config.tracking.tags == ("dynamic-lora", "smoke")
+    assert config.tracking.modal_artifact_path == "modal://dream-ai-training/runs/smoke-run"

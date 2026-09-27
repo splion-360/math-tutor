@@ -13,5 +13,12 @@
   "lora_alpha": 32,
   "lora_dropout": 0.05,
   "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-  "load_in_4bit": true
+  "load_in_4bit": true,
+  "tracking": {
+    "mode": "auto",
+    "project": "math-tutor-dynamic-lora",
+    "run_name": "shared-lora-qwen3-4b-smoke",
+    "tags": ["shared-lora", "smoke"],
+    "modal_artifact_path": "modal://dream-ai-training/shared_lora_qwen3_4b"
+  }
 }
