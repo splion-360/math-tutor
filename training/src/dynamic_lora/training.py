@@ -162,6 +162,7 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
                     selected_layers=selected_layers,
                     projection_dim=config.gradient_signature_dim,
                     every_steps=config.gradient_signature_every_steps,
+                    start_step=config.gradient_signature_start_step,
                     seed=config.seed,
                     artifact_dir=config.output_dir / "gradient_signatures",
                     log_metrics=tracking_run.log_metrics,

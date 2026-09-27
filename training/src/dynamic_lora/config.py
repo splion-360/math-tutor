@@ -69,6 +69,7 @@ class TrainingConfig:
     layer_energy_probe_sample_count: int = 16
     gradient_signature_dim: int = 0
     gradient_signature_every_steps: int = 1
+    gradient_signature_start_step: int = 1
     tracking: ExperimentTrackingConfig = field(default_factory=ExperimentTrackingConfig)
 
 
@@ -147,10 +148,14 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
 
     layer_energy_probe_top_k = non_negative_int_field("layer_energy_probe_top_k", 0)
     gradient_signature_dim = non_negative_int_field("gradient_signature_dim", 0)
+    max_steps = int_field("max_steps", 1)
+    gradient_signature_start_step = int_field("gradient_signature_start_step", 1)
     if gradient_signature_dim > 0 and layer_energy_probe_top_k == 0:
         raise ConfigError(
             "gradient_signature_dim requires layer_energy_probe_top_k to be positive"
         )
+    if gradient_signature_dim > 0 and gradient_signature_start_step > max_steps:
+        raise ConfigError("gradient_signature_start_step cannot exceed max_steps")
 
     return TrainingConfig(
         train_path=path_field("train_path"),
@@ -158,7 +163,7 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
         output_dir=path_field("output_dir"),
         metadata_path=path_field("metadata_path"),
         seed=int_field("seed", 42),
-        max_steps=int_field("max_steps", 1),
+        max_steps=max_steps,
         per_device_train_batch_size=int_field("per_device_train_batch_size", 1),
         gradient_accumulation_steps=int_field("gradient_accumulation_steps", 4),
         learning_rate=float_field("learning_rate", 2e-4),
@@ -173,6 +178,7 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
         layer_energy_probe_sample_count=int_field("layer_energy_probe_sample_count", 16),
         gradient_signature_dim=gradient_signature_dim,
         gradient_signature_every_steps=int_field("gradient_signature_every_steps", 1),
+        gradient_signature_start_step=gradient_signature_start_step,
         tracking=_tracking_config(raw.get("tracking")),
     )
 

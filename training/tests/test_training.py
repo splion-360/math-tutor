@@ -229,6 +229,7 @@ def test_seed_is_set_before_model_and_adapter_initialization(
     assert plan.metadata["layer_energy_probe"]["selected_layers"] == ["layer_7.q_proj"]
     assert callback_builds[0]["selected_layers"] == ("layer_7.q_proj",)
     assert callback_builds[0]["projection_dim"] == 64
+    assert callback_builds[0]["start_step"] == 1
     assert callback_builds[0]["artifact_dir"] == config.output_dir / "gradient_signatures"
     assert callback_builds[0]["callback_base"] is FakeTrainerCallback
     assert len(added_callbacks) == 1

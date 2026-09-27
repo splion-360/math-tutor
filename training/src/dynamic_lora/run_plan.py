@@ -92,6 +92,7 @@ def _metadata(config: TrainingConfig, report: DatasetValidationReport) -> dict[s
             "layer_energy_probe_sample_count": config.layer_energy_probe_sample_count,
             "gradient_signature_dim": config.gradient_signature_dim,
             "gradient_signature_every_steps": config.gradient_signature_every_steps,
+            "gradient_signature_start_step": config.gradient_signature_start_step,
         },
         "lora": {
             "r": config.lora_r,

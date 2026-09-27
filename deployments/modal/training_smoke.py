@@ -4,8 +4,8 @@ Run this from the repository root with:
 
     modal run deployments/modal/training_smoke.py
 
-The default job uses the tiny checked-in fixture. Pass --full-probe to sample the
-prepared local Manim training dataset for layer-energy diagnostics.
+The default job uses the tiny checked-in fixture. Pass --full-probe for layer
+energy diagnostics or --signatures for post-warmup gradient capture.
 """
 
 from __future__ import annotations
@@ -144,10 +144,17 @@ def run_smoke(config_name: str = "modal_smoke_qwen3_4b.json") -> dict[str, Any]:
 
 
 @app.local_entrypoint()
-def main(full_probe: bool = False) -> None:
-    """Choose the tiny smoke fixture or the local prepared training dataset."""
-    if full_probe and not FULL_TRAINING_DATA_SOURCE.exists():
+def main(full_probe: bool = False, signatures: bool = False) -> None:
+    """Choose the tiny smoke fixture or a full-dataset diagnostic run."""
+    if full_probe and signatures:
+        raise ValueError("choose either full_probe or signatures")
+    if (full_probe or signatures) and not FULL_TRAINING_DATA_SOURCE.exists():
         raise FileNotFoundError(FULL_TRAINING_DATA_SOURCE)
-    config_name = "modal_probe_qwen3_4b.json" if full_probe else "modal_smoke_qwen3_4b.json"
+    if signatures:
+        config_name = "modal_signatures_qwen3_4b.json"
+    elif full_probe:
+        config_name = "modal_probe_qwen3_4b.json"
+    else:
+        config_name = "modal_smoke_qwen3_4b.json"
     result = run_smoke.remote(config_name)
     print(json.dumps(result, indent=2, sort_keys=True))

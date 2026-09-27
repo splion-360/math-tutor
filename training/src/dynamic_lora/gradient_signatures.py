@@ -73,6 +73,7 @@ class GradientSignatureCallback:
         seed: int,
         artifact_dir: Path,
         log_metrics: MetricLogger,
+        start_step: int = 1,
     ) -> None:
         if not selected_layers:
             raise ValueError("selected_layers must not be empty")
@@ -80,9 +81,12 @@ class GradientSignatureCallback:
             raise ValueError("projection_dim must be positive")
         if every_steps <= 0:
             raise ValueError("every_steps must be positive")
+        if start_step <= 0:
+            raise ValueError("start_step must be positive")
         self.selected_layers = selected_layers
         self.projection_dim = projection_dim
         self.every_steps = every_steps
+        self.start_step = start_step
         self.seed = seed
         self._log_metrics = log_metrics
         self._store = SnapshotStore(artifact_dir, name="gradient_signatures")
@@ -104,7 +108,7 @@ class GradientSignatureCallback:
     ) -> Any:
         """Capture gradients after accumulation and before the optimizer updates weights."""
         step = int(state.global_step) + 1
-        if step % self.every_steps != 0:
+        if step < self.start_step or step % self.every_steps != 0:
             return control
         model = kwargs.get("model")
         if model is None:
@@ -158,6 +162,7 @@ class GradientSignatureCallback:
             "projection": "deterministic_signed_bucket_projection",
             "projection_dim": self.projection_dim,
             "every_steps": self.every_steps,
+            "start_step": self.start_step,
             "selected_layers": list(self.selected_layers),
             "snapshot_count": self._snapshot_count,
             "snapshot_path": f"{artifact_prefix}/{self.snapshot_path.name}",
@@ -180,6 +185,7 @@ def build_gradient_signature_callback(
     artifact_dir: Path,
     log_metrics: MetricLogger,
     callback_base: type[Any],
+    start_step: int = 1,
 ) -> GradientSignatureCallback:
     """Build a callback compatible with the installed Transformers version."""
     callback_type = type(
@@ -196,6 +202,7 @@ def build_gradient_signature_callback(
             seed=seed,
             artifact_dir=artifact_dir,
             log_metrics=log_metrics,
+            start_step=start_step,
         ),
     )
 

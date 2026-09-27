@@ -52,10 +52,12 @@ def test_tracking_config_is_loaded_from_nested_object(tmp_path: Path) -> None:
                     "modal_artifact_path": "modal://dream-ai-training/runs/smoke-run",
                 },
                 "run_smoke_eval": True,
+                "max_steps": 8,
                 "layer_energy_probe_top_k": 4,
                 "layer_energy_probe_sample_count": 2,
                 "gradient_signature_dim": 64,
                 "gradient_signature_every_steps": 2,
+                "gradient_signature_start_step": 7,
             }
         ),
         encoding="utf-8",
@@ -73,6 +75,7 @@ def test_tracking_config_is_loaded_from_nested_object(tmp_path: Path) -> None:
     assert config.layer_energy_probe_sample_count == 2
     assert config.gradient_signature_dim == 64
     assert config.gradient_signature_every_steps == 2
+    assert config.gradient_signature_start_step == 7
 
 
 def test_gradient_signatures_require_selected_layers(tmp_path: Path) -> None:
@@ -91,4 +94,26 @@ def test_gradient_signatures_require_selected_layers(tmp_path: Path) -> None:
     )
 
     with pytest.raises(ConfigError, match="layer_energy_probe_top_k"):
+        load_config(config_path)
+
+
+def test_gradient_signatures_start_step_must_fit_training_run(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "train_path": "train.jsonl",
+                "holdout_path": "holdout.jsonl",
+                "output_dir": "adapter",
+                "metadata_path": "run.json",
+                "max_steps": 4,
+                "layer_energy_probe_top_k": 2,
+                "gradient_signature_dim": 64,
+                "gradient_signature_start_step": 5,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="gradient_signature_start_step"):
         load_config(config_path)
