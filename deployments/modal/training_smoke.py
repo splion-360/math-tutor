@@ -5,7 +5,7 @@ Run this from the repository root with:
     modal run deployments/modal/training_smoke.py
 
 The default job uses the tiny checked-in fixture. Pass --full-probe for layer
-energy diagnostics or --signatures for post-warmup gradient capture.
+energy diagnostics or --signatures for later-step gradient capture.
 """
 
 from __future__ import annotations

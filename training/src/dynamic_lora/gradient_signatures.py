@@ -108,7 +108,7 @@ class GradientSignatureCallback:
     ) -> Any:
         """Capture gradients after accumulation and before the optimizer updates weights."""
         step = int(state.global_step) + 1
-        if step < self.start_step or step % self.every_steps != 0:
+        if step < self.start_step or (step - self.start_step) % self.every_steps != 0:
             return control
         model = kwargs.get("model")
         if model is None:

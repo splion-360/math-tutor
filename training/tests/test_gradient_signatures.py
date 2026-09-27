@@ -130,7 +130,7 @@ def test_callback_saves_projected_signatures_and_reports_gradient_conflict(
     )
 
 
-def test_callback_starts_capture_after_warmup(tmp_path: Path) -> None:
+def test_callback_starts_capture_at_configured_step(tmp_path: Path) -> None:
     callback = build_gradient_signature_callback(
         selected_layers=("layer_7.q_proj",),
         projection_dim=4,
@@ -157,3 +157,31 @@ def test_callback_starts_capture_after_warmup(tmp_path: Path) -> None:
     ]
     assert [snapshot["step"] for snapshot in snapshots] == [3, 4]
     assert callback.finalize()["layers"]["layer_7.q_proj"]["conflicts"] == 1
+
+
+def test_callback_capture_interval_is_anchored_to_start_step(tmp_path: Path) -> None:
+    callback = build_gradient_signature_callback(
+        selected_layers=("layer_7.q_proj",),
+        projection_dim=4,
+        every_steps=3,
+        start_step=2,
+        seed=42,
+        artifact_dir=tmp_path,
+        log_metrics=lambda _metrics, _step: None,
+        callback_base=FakeTrainerCallback,
+    )
+    model = FakeModel()
+    for global_step in range(8):
+        model.gradient = [1.0, 2.0, 3.0]
+        callback.on_pre_optimizer_step(
+            None,
+            SimpleNamespace(global_step=global_step),
+            object(),
+            model=model,
+        )
+
+    snapshots = [
+        json.loads(line)
+        for line in callback.snapshot_path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert [snapshot["step"] for snapshot in snapshots] == [2, 5, 8]
