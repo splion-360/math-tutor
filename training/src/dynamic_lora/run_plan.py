@@ -100,6 +100,8 @@ def _metadata(config: TrainingConfig, report: DatasetValidationReport) -> dict[s
                 if config.signature_probe_metadata_path is not None
                 else None
             ),
+            "fixed_prompt_probe_sample_count": config.fixed_prompt_probe_sample_count,
+            "fixed_prompt_probe_steps": list(config.fixed_prompt_probe_steps),
         },
         "lora": {
             "r": config.lora_r,

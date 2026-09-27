@@ -14,6 +14,11 @@ from dynamic_lora.data import (
     load_training_records,
     tokenize_training_batch,
 )
+from dynamic_lora.fixed_prompt_signatures import (
+    ProbeExample,
+    build_fixed_prompt_signature_callback,
+    select_probe_indices,
+)
 from dynamic_lora.gradient_signatures import (
     GradientSignatureCallback,
     build_gradient_signature_callback,
@@ -63,6 +68,19 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
         transformers.set_seed(config.seed)
 
         records = load_training_records(config.train_path)
+        probe_indices: tuple[int, ...] = ()
+        training_indices: tuple[int, ...] = tuple(range(len(records)))
+        if config.fixed_prompt_probe_sample_count > 0:
+            probe_indices, training_indices = select_probe_indices(
+                records,
+                sample_count=config.fixed_prompt_probe_sample_count,
+                seed=config.seed,
+            )
+            plan.metadata["fixed_prompt_probe_selection"] = {
+                "sample_ids": [records[index]["id"] for index in probe_indices],
+                "training_record_count": len(training_indices),
+                "selection": "seeded_sha256_of_record_id",
+            }
         tokenizer = transformers.AutoTokenizer.from_pretrained(
             FROZEN_MODEL_ID,
             revision=FROZEN_MODEL_REVISION,
@@ -81,6 +99,13 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
             )
 
         tokenized = dataset.map(tokenize, batched=True, remove_columns=["text"])
+        training_dataset = (
+            tokenized.select(list(training_indices)) if probe_indices else tokenized
+        )
+        probe_examples = tuple(
+            ProbeExample(record_id=records[index]["id"], tokenized=tokenized[index])
+            for index in probe_indices
+        )
 
         quantization_config = (
             transformers.BitsAndBytesConfig(
@@ -127,7 +152,7 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
         trainer = transformers.Trainer(
             model=model,
             args=training_args,
-            train_dataset=tokenized,
+            train_dataset=training_dataset,
             data_collator=collator,
         )
         signature_callback: GradientSignatureCallback | None = None
@@ -159,10 +184,26 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
                 callback_base=transformers.TrainerCallback,
             )
             trainer.add_callback(signature_callback)
+        fixed_probe_callback = None
+        if config.fixed_prompt_probe_sample_count > 0:
+            fixed_probe_callback = build_fixed_prompt_signature_callback(
+                selected_layers=selected_layers,
+                examples=probe_examples,
+                steps=config.fixed_prompt_probe_steps,
+                projection_dim=config.gradient_signature_dim,
+                seed=config.seed,
+                artifact_dir=config.output_dir / "fixed_prompt_signatures",
+                data_collator=collator,
+                torch_module=torch,
+                callback_base=transformers.TrainerCallback,
+            )
+            trainer.add_callback(fixed_probe_callback)
         train_output = trainer.train()
         tracking_run.log_metrics(getattr(train_output, "metrics", {}))
         if signature_callback is not None:
             plan.metadata["gradient_signatures"] = signature_callback.finalize()
+        if fixed_probe_callback is not None:
+            plan.metadata["fixed_prompt_signatures"] = fixed_probe_callback.finalize()
         if config.run_smoke_eval:
             eval_metrics = cast(dict[str, object], trainer.evaluate(eval_dataset=tokenized))
             tracking_run.log_metrics(eval_metrics)

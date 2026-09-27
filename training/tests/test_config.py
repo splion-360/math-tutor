@@ -140,6 +140,33 @@ def test_signature_probe_reference_cannot_be_combined_with_lora_probe(tmp_path: 
         load_config(config_path)
 
 
+def test_fixed_prompt_probe_requires_valid_checkpoint_steps(tmp_path: Path) -> None:
+    base = {
+        "train_path": "train.jsonl",
+        "holdout_path": "holdout.jsonl",
+        "output_dir": "adapter",
+        "metadata_path": "run.json",
+        "max_steps": 64,
+        "gradient_signature_dim": 256,
+        "signature_probe_metadata_path": "probe.json",
+        "fixed_prompt_probe_sample_count": 64,
+        "fixed_prompt_probe_steps": [0, 32, 64],
+    }
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(base), encoding="utf-8")
+
+    config = load_config(path)
+
+    assert config.fixed_prompt_probe_sample_count == 64
+    assert config.fixed_prompt_probe_steps == (0, 32, 64)
+
+    path.write_text(
+        json.dumps({**base, "fixed_prompt_probe_steps": [0, 32, 65]}), encoding="utf-8"
+    )
+    with pytest.raises(ConfigError, match="fixed_prompt_probe_steps"):
+        load_config(path)
+
+
 def test_gradient_signatures_start_step_must_fit_training_run(tmp_path: Path) -> None:
     config_path = tmp_path / "config.json"
     config_path.write_text(

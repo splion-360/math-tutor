@@ -71,6 +71,8 @@ class TrainingConfig:
     gradient_signature_every_steps: int = 1
     gradient_signature_start_step: int = 1
     signature_probe_metadata_path: Path | None = None
+    fixed_prompt_probe_sample_count: int = 0
+    fixed_prompt_probe_steps: tuple[int, ...] = ()
     tracking: ExperimentTrackingConfig = field(default_factory=ExperimentTrackingConfig)
 
 
@@ -166,6 +168,25 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
     if gradient_signature_dim > 0 and gradient_signature_start_step > max_steps:
         raise ConfigError("gradient_signature_start_step cannot exceed max_steps")
 
+    fixed_prompt_probe_sample_count = non_negative_int_field(
+        "fixed_prompt_probe_sample_count", 0
+    )
+    fixed_prompt_probe_steps = raw.get("fixed_prompt_probe_steps", [])
+    if (
+        not isinstance(fixed_prompt_probe_steps, list)
+        or any(
+            type(step) is not int or step < 0 or step > max_steps
+            for step in fixed_prompt_probe_steps
+        )
+        or fixed_prompt_probe_steps != sorted(set(fixed_prompt_probe_steps))
+        or (fixed_prompt_probe_sample_count > 0) != bool(fixed_prompt_probe_steps)
+        or (fixed_prompt_probe_sample_count > 0 and gradient_signature_dim == 0)
+    ):
+        raise ConfigError(
+            "fixed_prompt_probe_steps must be unique ordered steps within training, "
+            "with a positive sample count and gradient signatures enabled"
+        )
+
     return TrainingConfig(
         train_path=path_field("train_path"),
         holdout_path=path_field("holdout_path"),
@@ -189,6 +210,8 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
         gradient_signature_every_steps=int_field("gradient_signature_every_steps", 1),
         gradient_signature_start_step=gradient_signature_start_step,
         signature_probe_metadata_path=signature_probe_metadata_path,
+        fixed_prompt_probe_sample_count=fixed_prompt_probe_sample_count,
+        fixed_prompt_probe_steps=tuple(fixed_prompt_probe_steps),
         tracking=_tracking_config(raw.get("tracking")),
     )
 

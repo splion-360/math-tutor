@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypedDict, cast
@@ -214,12 +214,37 @@ def _project_model_gradients(
     projection_dim: int,
     seed: int,
 ) -> dict[str, list[float]]:
+    return project_named_gradients(
+        ((name, getattr(parameter, "grad", None)) for name, parameter in model.named_parameters()),
+        selected_layers=selected_layers,
+        projection_dim=projection_dim,
+        seed=seed,
+    )
+
+
+def project_named_gradients(
+    named_gradients: Iterable[tuple[str, Any]],
+    *,
+    selected_layers: tuple[str, ...],
+    projection_dim: int,
+    seed: int,
+) -> dict[str, list[float]]:
+    """Project named LoRA gradients into stable module-level signatures.
+
+    Args:
+        named_gradients: Parameter names paired with gradient tensors or None.
+        selected_layers: Layer-module keys to retain.
+        projection_dim: Number of signed-hash buckets per module.
+        seed: Stable projection seed.
+
+    Returns:
+        Projected vectors for selected modules with observed gradients.
+    """
     selected = set(selected_layers)
     signatures = {layer: [0.0] * projection_dim for layer in selected_layers}
     offsets = {layer: 0 for layer in selected_layers}
     observed: set[str] = set()
-    for parameter_name, parameter in model.named_parameters():
-        gradient = getattr(parameter, "grad", None)
+    for parameter_name, gradient in named_gradients:
         if gradient is None or not is_lora_parameter(parameter_name):
             continue
         layer = lora_layer_key(parameter_name)

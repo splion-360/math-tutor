@@ -13,11 +13,11 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import tomllib
 from pathlib import Path
 from typing import Any
 
 import modal
-import tomllib
 
 APP_NAME = "dream-ai-shared-lora-training-smoke"
 HF_CACHE_VOLUME = "dream-ai-huggingface-cache"
@@ -164,6 +164,7 @@ def _run_shared_training(config_name: str) -> dict[str, Any]:
         "smoke_eval": metadata.get("smoke_eval"),
         "layer_energy_probe": metadata.get("layer_energy_probe"),
         "gradient_signatures": metadata.get("gradient_signatures"),
+        "fixed_prompt_signatures": metadata.get("fixed_prompt_signatures"),
         "trainable_parameters": metadata["parameter_budget"]["trainable_parameters"],
         "plan": plan.redacted_text,
     }
@@ -229,7 +230,8 @@ def run_placement_arm(arm_name: str) -> dict[str, Any]:
     Returns:
         Run identity, validation loss, and adapter artifact path.
     """
-    from dynamic_lora.placement_run import load_placement_config, run_placement_arm as run_arm
+    from dynamic_lora.placement_run import load_placement_config
+    from dynamic_lora.placement_run import run_placement_arm as run_arm
 
     config = load_placement_config(REMOTE_CONFIG_DIR / "modal_placement_ablation_qwen3_4b.json")
     result = run_arm(config, arm_name)
@@ -249,13 +251,17 @@ def run_placement_arm(arm_name: str) -> dict[str, Any]:
 def main(
     full_probe: bool = False,
     signatures: bool = False,
+    fixed_prompt_signatures: bool = False,
     base_probe: bool = False,
     placement_arm: str = "",
 ) -> None:
     """Choose the tiny fixture or one full-dataset diagnostic run."""
-    if sum((full_probe, signatures, base_probe, bool(placement_arm))) > 1:
+    if sum((full_probe, signatures, fixed_prompt_signatures, base_probe, bool(placement_arm))) > 1:
         raise ValueError("choose only one full-dataset diagnostic mode")
-    if (full_probe or signatures or base_probe or placement_arm) and not FULL_TRAINING_DATA_SOURCE.exists():
+    needs_full_data = any(
+        (full_probe, signatures, fixed_prompt_signatures, base_probe, bool(placement_arm))
+    )
+    if needs_full_data and not FULL_TRAINING_DATA_SOURCE.exists():
         raise FileNotFoundError(FULL_TRAINING_DATA_SOURCE)
     if placement_arm:
         if placement_arm not in {"discovered", "low_energy", "random_1", "random_2"}:
@@ -265,12 +271,16 @@ def main(
     if base_probe:
         print(json.dumps(run_base_weight_probe.remote(), indent=2, sort_keys=True))
         return
-    if signatures:
+    if fixed_prompt_signatures:
+        config_name = "modal_fixed_prompt_signatures_qwen3_4b.json"
+    elif signatures:
         config_name = "modal_signatures_qwen3_4b.json"
     elif full_probe:
         config_name = "modal_probe_qwen3_4b.json"
     else:
         config_name = "modal_smoke_qwen3_4b.json"
-    run_function = run_full_probe if full_probe or signatures else run_smoke
+    run_function = (
+        run_full_probe if full_probe or signatures or fixed_prompt_signatures else run_smoke
+    )
     result = run_function.remote(config_name)
     print(json.dumps(result, indent=2, sort_keys=True))
