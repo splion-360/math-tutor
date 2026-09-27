@@ -82,7 +82,7 @@ shared-LoRA training job on Modal using `fixtures/tiny_train.jsonl`, runs a smok
 same supervised fixture, writes artifacts to the `dream-ai-training-artifacts` Modal Volume, and
 logs to the `math-tutor-dynamic-lora` W&B project.
 
-Create a Modal secret named `wandb-api-key` with `WANDB_API_KEY`, then run from the repository root:
+Create a Modal secret named `WANDB_API_KEY`, then run from the repository root:
 
 ```bash
 modal run modal/shared_lora_training_smoke.py

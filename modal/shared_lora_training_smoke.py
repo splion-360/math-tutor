@@ -21,7 +21,7 @@ import modal
 APP_NAME = "dream-ai-shared-lora-training-smoke"
 HF_CACHE_VOLUME = "dream-ai-huggingface-cache"
 TRAINING_ARTIFACT_VOLUME = "dream-ai-training-artifacts"
-WANDB_SECRET_NAME = "wandb-api-key"
+WANDB_SECRET_NAME = "WANDB_API_KEY"
 
 REPO_ROOT = Path(__file__).parents[1]
 TRAINING_SOURCE = REPO_ROOT / "training"

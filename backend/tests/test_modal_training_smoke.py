@@ -78,4 +78,4 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
         "/root/.cache/huggingface": "volume:dream-ai-huggingface-cache",
         "/artifacts": "volume:dream-ai-training-artifacts",
     }
-    assert function_options["secrets"] == ["secret:wandb-api-key"]
+    assert function_options["secrets"] == ["secret:WANDB_API_KEY"]
