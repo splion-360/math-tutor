@@ -1,29 +1,32 @@
-"""Measure transformer base-weight gradient energy before adapter allocation.
-The probe ranks whole layers and LoRA-eligible modules without updating weights."""
+"""Rank base and matched-LoRA layers using sampled-subset gradients.
+The base pass includes all transformer-layer weights and never updates them."""
 
 from __future__ import annotations
 
 import re
 from collections import defaultdict
-from random import Random
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 
-from dynamic_lora.layer_selection import (
-    _move_to_model_device,
-    _probe_indices,
-    _squared_norm,
-    _zero_grad,
+from dynamic_lora.lora_parameters import is_lora_parameter, lora_layer_key
+from dynamic_lora.probe_support import (
+    move_to_model_device,
+    probe_indices,
+    squared_gradient_norm,
+    zero_model_grad,
 )
 
-BASE_WEIGHT_PATTERN = re.compile(
+BASE_LAYER_PATTERN = re.compile(r"(?:^|\.)layers\.(\d+)\.")
+BASE_MODULE_PATTERN = re.compile(
     r"(?:^|\.)layers\.(\d+)\.(?:self_attn|mlp)\.([a-z_]+)\.weight$"
 )
+GradientSource = Literal["base_weights", "lora_parameters"]
 
 
 class BaseLayerProbeResult(TypedDict):
-    gradient_source: str
+    """Subset-gradient energy and rankings for whole layers and eligible modules."""
+
+    gradient_source: GradientSource
     sample_indices: list[int]
-    sample_module_energy: list[dict[str, float]]
     module_energy: dict[str, float]
     module_energy_per_parameter: dict[str, float]
     layer_energy: dict[str, float]
@@ -32,6 +35,8 @@ class BaseLayerProbeResult(TypedDict):
 
 
 class ProbeComparison(TypedDict):
+    """Top-module agreement between a base-gradient and LoRA-gradient probe."""
+
     base_top_modules: list[str]
     lora_top_modules: list[str]
     overlap: list[str]
@@ -48,70 +53,125 @@ def measure_base_layer_gradient_energy(
     top_k: int,
     target_modules: tuple[str, ...],
 ) -> BaseLayerProbeResult:
-    """Rank base weights after backward passes that perform no optimizer updates.
+    """Rank base-weight gradients accumulated over one sampled subset.
 
     Args:
-        model: Unadapted model whose base parameters permit gradient computation.
-        tokenized_dataset: Indexable collection of probe examples.
+        model: Unadapted model with differentiable base weights.
+        tokenized_dataset: Indexable collection of supervised probe examples.
         data_collator: Converts one example to model inputs with labels.
-        sample_count: Number of evenly spaced examples to inspect.
-        top_k: Number of module keys and whole-layer keys to select.
-        target_modules: LoRA-eligible projection module names.
+        sample_count: Number of evenly spaced examples in the subset.
+        top_k: Number of whole-layer and module keys to select.
+        target_modules: Projection names eligible for later LoRA allocation.
 
     Returns:
-        Mean squared gradient norms and separate module/whole-layer rankings.
+        Squared norm of the mean subset gradient for each complete transformer
+        layer and each LoRA-eligible projection module. Squaring preserves the
+        layer order induced by D-MoLE's L2 norm score.
 
     Raises:
-        ValueError: If the requested sample or ranking count is non-positive.
-        RuntimeError: If no eligible base-weight gradients are produced.
+        ValueError: If the sample or ranking count is non-positive.
+        RuntimeError: If no eligible gradients are produced.
     """
+    return _measure_subset_gradient_energy(
+        model=model,
+        tokenized_dataset=tokenized_dataset,
+        data_collator=data_collator,
+        sample_count=sample_count,
+        top_k=top_k,
+        target_modules=target_modules,
+        source="base_weights",
+    )
+
+
+def measure_lora_subset_gradient_energy(
+    *,
+    model: Any,
+    tokenized_dataset: Any,
+    data_collator: Any,
+    sample_count: int,
+    top_k: int,
+    target_modules: tuple[str, ...],
+) -> BaseLayerProbeResult:
+    """Rank LoRA parameter gradients with the same subset score as the base probe.
+
+    Args:
+        model: Model with a freshly attached, untrained LoRA adapter.
+        tokenized_dataset: Same supervised examples used by the base probe.
+        data_collator: Same collator used by the base probe.
+        sample_count: Number of evenly spaced examples in the subset.
+        top_k: Number of whole-layer and module keys to select.
+        target_modules: Projection names eligible for LoRA allocation.
+
+    Returns:
+        Squared norm of the mean subset gradient for LoRA modules and layers.
+    """
+    return _measure_subset_gradient_energy(
+        model=model,
+        tokenized_dataset=tokenized_dataset,
+        data_collator=data_collator,
+        sample_count=sample_count,
+        top_k=top_k,
+        target_modules=target_modules,
+        source="lora_parameters",
+    )
+
+
+def _measure_subset_gradient_energy(
+    *,
+    model: Any,
+    tokenized_dataset: Any,
+    data_collator: Any,
+    sample_count: int,
+    top_k: int,
+    target_modules: tuple[str, ...],
+    source: GradientSource,
+) -> BaseLayerProbeResult:
     if sample_count <= 0 or top_k <= 0:
         raise ValueError("sample_count and top_k must be positive")
-    indices = _probe_indices(len(tokenized_dataset), sample_count)
+    indices = probe_indices(len(tokenized_dataset), sample_count)
     if not indices:
         raise ValueError("tokenized_dataset must not be empty")
 
-    sample_energies: list[dict[str, float]] = []
-    parameter_counts: dict[str, int] = {}
     was_training = getattr(model, "training", None)
     model.eval()
     try:
+        zero_model_grad(model)
         for index in indices:
             batch = data_collator([tokenized_dataset[index]])
-            _zero_grad(model)
-            outputs = model(**_move_to_model_device(batch, model))
+            outputs = model(**move_to_model_device(batch, model))
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs.loss
             loss.backward()
-            energy: dict[str, float] = defaultdict(float)
-            for name, parameter in model.named_parameters():
-                key = _base_module_key(name, target_modules)
-                if key is None or parameter.grad is None:
-                    continue
-                energy[key] += _squared_norm(parameter.grad)
-                parameter_counts[key] = parameter.numel()
-            sample_energies.append(dict(energy))
+
+        module_energy: dict[str, float] = defaultdict(float)
+        layer_energy: dict[str, float] = defaultdict(float)
+        parameter_counts: dict[str, int] = defaultdict(int)
+        scale = len(indices) ** 2
+        for name, parameter in model.named_parameters():
+            gradient = getattr(parameter, "grad", None)
+            if gradient is None:
+                continue
+            keys = _parameter_keys(name, source=source, target_modules=target_modules)
+            if keys is None:
+                continue
+            layer_key, module_key = keys
+            energy = squared_gradient_norm(gradient) / scale
+            layer_energy[layer_key] += energy
+            if module_key is not None:
+                module_energy[module_key] += energy
+                parameter_counts[module_key] += parameter.numel()
     finally:
-        _zero_grad(model)
+        zero_model_grad(model)
         if isinstance(was_training, bool):
             model.train(was_training)
 
-    if not parameter_counts:
-        raise RuntimeError("no LoRA-eligible base-weight gradients were observed")
-    module_energy = {
-        key: sum(sample.get(key, 0.0) for sample in sample_energies) / len(indices)
-        for key in sorted(parameter_counts)
-    }
-    layer_energy: dict[str, float] = defaultdict(float)
-    for key, mean_energy in module_energy.items():
-        layer_energy[key.split(".", maxsplit=1)[0]] += mean_energy
-
+    if not module_energy:
+        raise RuntimeError("no LoRA-eligible gradients were observed")
     return {
-        "gradient_source": "base_weights",
+        "gradient_source": source,
         "sample_indices": indices,
-        "sample_module_energy": sample_energies,
-        "module_energy": module_energy,
+        "module_energy": dict(sorted(module_energy.items())),
         "module_energy_per_parameter": {
-            key: energy / parameter_counts[key] for key, energy in module_energy.items()
+            key: energy / parameter_counts[key] for key, energy in sorted(module_energy.items())
         },
         "layer_energy": dict(sorted(layer_energy.items())),
         "selected_modules": _top_k(module_energy, top_k),
@@ -119,48 +179,27 @@ def measure_base_layer_gradient_energy(
     }
 
 
-def _base_module_key(name: str, target_modules: tuple[str, ...]) -> str | None:
-    match = BASE_WEIGHT_PATTERN.search(name)
-    if match is None or match.group(2) not in target_modules:
+def _parameter_keys(
+    name: str, *, source: GradientSource, target_modules: tuple[str, ...]
+) -> tuple[str, str | None] | None:
+    if source == "lora_parameters":
+        if not is_lora_parameter(name):
+            return None
+        module_key = lora_layer_key(name)
+        if module_key.rsplit(".", maxsplit=1)[-1] not in target_modules:
+            return None
+        return module_key.split(".", maxsplit=1)[0], module_key
+
+    if ".lora_" in name:
         return None
-    return f"layer_{match.group(1)}.{match.group(2)}"
-
-
-def bootstrap_topk_frequency(
-    sample_energy: list[dict[str, float]],
-    *,
-    top_k: int,
-    repeats: int,
-    seed: int,
-) -> dict[str, float]:
-    """Estimate how often each key enters top-k under sample resampling.
-
-    Args:
-        sample_energy: Per-example squared gradient energies by module or layer.
-        top_k: Number of highest-energy keys selected in each resample.
-        repeats: Number of deterministic bootstrap resamples.
-        seed: Random seed used only for resampling.
-
-    Returns:
-        Selection frequency for every observed key.
-
-    Raises:
-        ValueError: If no samples are supplied or counts are non-positive.
-    """
-    if not sample_energy or top_k <= 0 or repeats <= 0:
-        raise ValueError("samples, top_k, and repeats must be positive")
-    keys = sorted({key for sample in sample_energy for key in sample})
-    selections = dict.fromkeys(keys, 0)
-    rng = Random(seed)
-    for _ in range(repeats):
-        indices = rng.choices(range(len(sample_energy)), k=len(sample_energy))
-        mean = {
-            key: sum(sample_energy[index].get(key, 0.0) for index in indices) / len(indices)
-            for key in keys
-        }
-        for key in _top_k(mean, top_k):
-            selections[key] += 1
-    return {key: count / repeats for key, count in selections.items()}
+    layer_match = BASE_LAYER_PATTERN.search(name)
+    if layer_match is None:
+        return None
+    layer_key = f"layer_{layer_match.group(1)}"
+    module_match = BASE_MODULE_PATTERN.search(name)
+    if module_match is None or module_match.group(2) not in target_modules:
+        return layer_key, None
+    return layer_key, f"{layer_key}.{module_match.group(2)}"
 
 
 def compare_probe_rankings(
@@ -176,6 +215,17 @@ def compare_probe_rankings(
         "base_only": [key for key in base_modules if key not in lora_set],
         "lora_only": [key for key in lora_modules if key not in base_set],
     }
+
+
+def selection_frequency(rankings: list[list[str]]) -> dict[str, float]:
+    """Report top-k selection frequency across independently probed subsets."""
+    if not rankings:
+        raise ValueError("rankings must not be empty")
+    counts: dict[str, int] = defaultdict(int)
+    for ranking in rankings:
+        for key in ranking:
+            counts[key] += 1
+    return {key: count / len(rankings) for key, count in sorted(counts.items())}
 
 
 def _top_k(energy: dict[str, float], count: int) -> list[str]:

@@ -1,18 +1,19 @@
-"""Test no-update base-weight gradient measurement and ranking.
-The tests distinguish base transformer weights from attached LoRA parameters."""
+"""Test subset-gradient ranking for unadapted base and matched LoRA weights.
+The tests cover cancellation, whole-layer accounting, and parameter filtering."""
 
 from __future__ import annotations
 
 from dynamic_lora.base_layer_probe import (
-    bootstrap_topk_frequency,
     compare_probe_rankings,
     measure_base_layer_gradient_energy,
+    measure_lora_subset_gradient_energy,
+    selection_frequency,
 )
 
 
 class FakeGradient:
-    def __init__(self, energy: float) -> None:
-        self.energy = energy
+    def __init__(self, value: float) -> None:
+        self.value = value
 
     def detach(self) -> FakeGradient:
         return self
@@ -22,13 +23,13 @@ class FakeGradient:
 
     def pow(self, exponent: int) -> FakeGradient:
         assert exponent == 2
-        return self
+        return FakeGradient(self.value**2)
 
     def sum(self) -> FakeGradient:
         return self
 
     def item(self) -> float:
-        return self.energy
+        return self.value
 
 
 class FakeParameter:
@@ -41,8 +42,15 @@ class FakeParameter:
 
 
 class FakeLoss:
+    def __init__(self, model: FakeModel, sample: int) -> None:
+        self.model = model
+        self.sample = sample
+
     def backward(self) -> None:
-        return None
+        for name, value in self.model.sample_gradients[self.sample].items():
+            parameter = self.model.weights[name]
+            previous = parameter.grad.value if parameter.grad is not None else 0.0
+            parameter.grad = FakeGradient(previous + value)
 
 
 class FakeModel:
@@ -52,21 +60,20 @@ class FakeModel:
         self.weights = {
             "model.layers.0.self_attn.q_proj.weight": FakeParameter(4),
             "model.layers.0.self_attn.v_proj.weight": FakeParameter(2),
+            "model.layers.0.input_layernorm.weight": FakeParameter(2),
             "model.layers.1.mlp.down_proj.weight": FakeParameter(8),
-            "model.layers.1.mlp.down_proj.lora_B.default.weight": FakeParameter(2),
+            "model.layers.0.self_attn.q_proj.lora_B.default.weight": FakeParameter(2),
+            "model.layers.0.self_attn.v_proj.lora_B.default.weight": FakeParameter(2),
             "model.embed_tokens.weight": FakeParameter(10),
         }
+        q, v, norm, down, lora_q, lora_v, embed = self.weights
+        self.sample_gradients = (
+            {q: 3.0, v: 1.0, norm: 2.0, down: 2.0, lora_q: 3.0, lora_v: 1.0, embed: 100.0},
+            {q: -3.0, v: 1.0, norm: 2.0, down: 2.0, lora_q: -3.0, lora_v: 1.0, embed: 100.0},
+        )
 
     def __call__(self, **batch: object) -> dict[str, FakeLoss]:
-        sample = int(batch["sample"])
-        energies = (
-            {"q_proj": 9.0, "v_proj": 4.0, "down_proj": 1.0},
-            {"q_proj": 1.0, "v_proj": 4.0, "down_proj": 9.0},
-        )[sample]
-        for name, parameter in self.weights.items():
-            module = name.split(".")[-2]
-            parameter.grad = FakeGradient(energies.get(module, 100.0))
-        return {"loss": FakeLoss()}
+        return {"loss": FakeLoss(self, int(batch["sample"]))}
 
     def named_parameters(self) -> object:
         return iter(self.weights.items())
@@ -87,7 +94,7 @@ class FakeModel:
         return iter(())
 
 
-def test_base_probe_ranks_base_weights_without_updates() -> None:
+def test_base_probe_uses_subset_gradient_and_all_layer_weights() -> None:
     model = FakeModel()
     result = measure_base_layer_gradient_energy(
         model=model,
@@ -100,31 +107,32 @@ def test_base_probe_ranks_base_weights_without_updates() -> None:
 
     assert result["gradient_source"] == "base_weights"
     assert result["sample_indices"] == [0, 1]
-    assert result["selected_modules"] == ["layer_0.q_proj", "layer_1.down_proj"]
-    assert result["selected_layers"] == ["layer_0", "layer_1"]
     assert result["module_energy"] == {
-        "layer_0.q_proj": 5.0,
-        "layer_0.v_proj": 4.0,
-        "layer_1.down_proj": 5.0,
+        "layer_0.q_proj": 0.0,
+        "layer_0.v_proj": 1.0,
+        "layer_1.down_proj": 4.0,
     }
-    assert result["layer_energy"] == {"layer_0": 9.0, "layer_1": 5.0}
-    assert len(result["sample_module_energy"]) == 2
-    assert model.zero_grad_calls == 3
+    assert result["layer_energy"] == {"layer_0": 5.0, "layer_1": 4.0}
+    assert result["selected_modules"] == ["layer_1.down_proj", "layer_0.v_proj"]
+    assert result["selected_layers"] == ["layer_0", "layer_1"]
+    assert model.zero_grad_calls == 2
     assert model.training is True
 
 
-def test_bootstrap_frequency_exposes_unstable_rankings() -> None:
-    samples = [
-        {"layer_0.q_proj": 9.0, "layer_1.v_proj": 1.0},
-        {"layer_0.q_proj": 1.0, "layer_1.v_proj": 9.0},
-    ]
+def test_matched_lora_probe_uses_same_subset_score_but_only_lora_weights() -> None:
+    model = FakeModel()
+    result = measure_lora_subset_gradient_energy(
+        model=model,
+        tokenized_dataset=[{"sample": 0}, {"sample": 1}],
+        data_collator=lambda examples: examples[0],
+        sample_count=2,
+        top_k=2,
+        target_modules=("q_proj", "v_proj"),
+    )
 
-    frequency = bootstrap_topk_frequency(samples, top_k=1, repeats=100, seed=42)
-
-    assert 0 < frequency["layer_0.q_proj"] < 1
-    assert 0 < frequency["layer_1.v_proj"] < 1
-    assert sum(frequency.values()) == 1.0
-    assert frequency == bootstrap_topk_frequency(samples, top_k=1, repeats=100, seed=42)
+    assert result["gradient_source"] == "lora_parameters"
+    assert result["module_energy"] == {"layer_0.q_proj": 0.0, "layer_0.v_proj": 1.0}
+    assert result["layer_energy"] == {"layer_0": 1.0}
 
 
 def test_comparison_preserves_both_probe_rankings() -> None:
@@ -140,3 +148,11 @@ def test_comparison_preserves_both_probe_rankings() -> None:
         "base_only": ["layer_1.v_proj"],
         "lora_only": ["layer_3.down_proj"],
     }
+
+
+def test_selection_frequency_reports_disjoint_subset_agreement() -> None:
+    frequency = selection_frequency(
+        [["layer_0", "layer_1"], ["layer_0", "layer_2"], ["layer_0", "layer_2"]]
+    )
+
+    assert frequency == {"layer_0": 1.0, "layer_1": 1 / 3, "layer_2": 2 / 3}

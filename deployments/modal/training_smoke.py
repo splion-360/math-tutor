@@ -171,7 +171,7 @@ def run_base_weight_probe() -> dict[str, Any]:
         "optimizer_steps": result["optimizer_steps"],
         "selected_layers": result["probe"]["selected_layers"],
         "selected_modules": result["probe"]["selected_modules"],
-        "matched_lora_modules": result["matched_lora_probe"]["selected_layers"],
+        "matched_lora_modules": result["matched_lora_probe"]["selected_modules"],
         "comparison_with_matched_lora_probe": result[
             "comparison_with_matched_lora_probe"
         ],

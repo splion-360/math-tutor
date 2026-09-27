@@ -4,10 +4,10 @@ These tests cover layer ranking, metric flattening, and device-independent fake 
 from __future__ import annotations
 
 from dynamic_lora.layer_selection import (
-    _probe_indices,
     gradient_probe_metrics,
     measure_lora_layer_gradient_energy,
 )
+from dynamic_lora.probe_support import probe_indices
 
 
 class FakeGradient:
@@ -202,8 +202,8 @@ def test_probe_averages_per_prompt_energy_and_reports_category_relative_energy()
 
 
 def test_probe_indices_spread_across_dataset() -> None:
-    assert _probe_indices(dataset_size=100, sample_count=5) == [0, 24, 49, 74, 99]
-    assert _probe_indices(dataset_size=3, sample_count=16) == [0, 1, 2]
+    assert probe_indices(dataset_size=100, sample_count=5) == [0, 24, 49, 74, 99]
+    assert probe_indices(dataset_size=3, sample_count=16) == [0, 1, 2]
 
 
 def test_lora_gradient_energy_metrics_are_wandb_friendly() -> None:

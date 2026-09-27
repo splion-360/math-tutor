@@ -4,10 +4,15 @@ This module ranks LoRA layer/module keys so later training stages can choose obs
 from __future__ import annotations
 
 from collections import defaultdict
-from importlib import import_module
 from typing import Any, TypedDict
 
 from dynamic_lora.lora_parameters import is_lora_parameter, lora_layer_key
+from dynamic_lora.probe_support import (
+    move_to_model_device,
+    probe_indices,
+    squared_gradient_norm,
+    zero_model_grad,
+)
 
 
 class RankedLayer(TypedDict):
@@ -54,7 +59,7 @@ def measure_lora_layer_gradient_energy(
     if top_k <= 0:
         return _disabled_probe("top_k_not_positive")
 
-    indices = _probe_indices(len(tokenized_dataset), sample_count)
+    indices = probe_indices(len(tokenized_dataset), sample_count)
     if not indices:
         return _disabled_probe("empty_dataset")
 
@@ -67,8 +72,8 @@ def measure_lora_layer_gradient_energy(
     try:
         for index in indices:
             batch = data_collator([tokenized_dataset[index]])
-            _zero_grad(model)
-            outputs = model(**_move_to_model_device(batch, model))
+            zero_model_grad(model)
+            outputs = model(**move_to_model_device(batch, model))
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs.loss
             loss.backward()
             for name, parameter in model.named_parameters():
@@ -76,12 +81,12 @@ def measure_lora_layer_gradient_energy(
                 if gradient is None or not is_lora_parameter(name):
                     continue
                 layer = lora_layer_key(name)
-                energy_by_layer[layer] += _squared_norm(gradient)
+                energy_by_layer[layer] += squared_gradient_norm(gradient)
                 if name not in observed_parameter_names:
                     observed_parameter_names.add(name)
                     parameter_counts[layer] += parameter.numel()
     finally:
-        _zero_grad(model)
+        zero_model_grad(model)
         if isinstance(was_training, bool) and callable(getattr(model, "train", None)):
             model.train(was_training)
 
@@ -173,78 +178,3 @@ def _disabled_probe(reason: str) -> LayerEnergyProbe:
         "relative_energy_by_layer": {},
         "selected_layers": [],
     }
-
-
-def _probe_indices(dataset_size: int, sample_count: int) -> list[int]:
-    size = min(sample_count, dataset_size)
-    if size <= 0:
-        return []
-    if size == 1:
-        return [dataset_size // 2]
-    return [index * (dataset_size - 1) // (size - 1) for index in range(size)]
-
-
-def _move_to_model_device(batch: Any, model: Any) -> Any:
-    device = _model_device(model)
-    if device is None:
-        return batch
-    if hasattr(batch, "to"):
-        return batch.to(device)
-    if not hasattr(batch, "items"):
-        return batch
-    moved = {}
-    for key, value in batch.items():
-        moved[key] = value.to(device) if hasattr(value, "to") else value
-    return moved
-
-
-def _model_device(model: Any) -> Any | None:
-    embedding_device = _input_embedding_device(model)
-    if embedding_device is not None:
-        return embedding_device
-    first_device = None
-    try:
-        parameters = model.parameters()
-    except (StopIteration, TypeError, AttributeError):
-        return None
-    for parameter in parameters:
-        device = getattr(parameter, "device", None)
-        if device is None:
-            continue
-        if first_device is None:
-            first_device = device
-        if str(device) != "cpu":
-            return device
-    model_device = getattr(model, "device", None)
-    if model_device is not None and str(model_device) != "cpu":
-        return model_device
-    return _cuda_device() or model_device or first_device
-
-
-def _input_embedding_device(model: Any) -> Any | None:
-    if not hasattr(model, "get_input_embeddings"):
-        return None
-    embeddings = model.get_input_embeddings()
-    return getattr(getattr(embeddings, "weight", None), "device", None)
-
-
-def _cuda_device() -> Any | None:
-    try:
-        torch = import_module("torch")
-    except ModuleNotFoundError:
-        return None
-    cuda = getattr(torch, "cuda", None)
-    if cuda is None or not cuda.is_available():
-        return None
-    return torch.device("cuda:0")
-
-
-def _zero_grad(model: Any) -> None:
-    try:
-        model.zero_grad(set_to_none=True)
-    except TypeError:
-        model.zero_grad()
-
-
-def _squared_norm(gradient: Any) -> float:
-    return float(gradient.detach().float().pow(2).sum().item())

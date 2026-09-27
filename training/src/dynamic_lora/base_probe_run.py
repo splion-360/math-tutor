@@ -11,9 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from dynamic_lora.base_layer_probe import (
-    bootstrap_topk_frequency,
     compare_probe_rankings,
     measure_base_layer_gradient_energy,
+    measure_lora_subset_gradient_energy,
+    selection_frequency,
 )
 from dynamic_lora.constants import FROZEN_MODEL_ID, FROZEN_MODEL_REVISION
 from dynamic_lora.data import (
@@ -22,11 +23,12 @@ from dynamic_lora.data import (
     tokenize_training_batch,
     validate_training_dataset,
 )
-from dynamic_lora.layer_selection import measure_lora_layer_gradient_energy
 
 
 @dataclass(frozen=True)
 class BaseProbeConfig:
+    """Inputs, artifacts, and tracking identity for a BF16 base-gradient probe."""
+
     train_path: Path
     holdout_path: Path
     metadata_path: Path
@@ -240,18 +242,30 @@ def run_base_probe(config: BaseProbeConfig) -> dict[str, Any]:
             top_k=config.top_k,
             target_modules=config.target_modules,
         )
-        module_frequency = bootstrap_topk_frequency(
-            probe["sample_module_energy"], top_k=config.top_k, repeats=200, seed=config.seed
+        group_count = min(4, len(probe["sample_indices"]))
+        stability_groups: list[dict[str, Any]] = []
+        for offset in range(group_count):
+            source_indices = probe["sample_indices"][offset::group_count]
+            group_probe = measure_base_layer_gradient_energy(
+                model=model,
+                tokenized_dataset=tokenized.select(source_indices),
+                data_collator=collator,
+                sample_count=len(source_indices),
+                top_k=config.top_k,
+                target_modules=config.target_modules,
+            )
+            stability_groups.append(
+                {
+                    "source_indices": source_indices,
+                    "selected_modules": group_probe["selected_modules"],
+                    "selected_layers": group_probe["selected_layers"],
+                }
+            )
+        module_frequency = selection_frequency(
+            [group["selected_modules"] for group in stability_groups]
         )
-        sample_layer_energy: list[dict[str, float]] = []
-        for sample in probe["sample_module_energy"]:
-            layer_energy: dict[str, float] = {}
-            for module_key, energy in sample.items():
-                layer_key = module_key.split(".", maxsplit=1)[0]
-                layer_energy[layer_key] = layer_energy.get(layer_key, 0.0) + energy
-            sample_layer_energy.append(layer_energy)
-        layer_frequency = bootstrap_topk_frequency(
-            sample_layer_energy, top_k=config.top_k, repeats=200, seed=config.seed
+        layer_frequency = selection_frequency(
+            [group["selected_layers"] for group in stability_groups]
         )
         historical_comparison = compare_probe_rankings(
             base_modules=probe["selected_modules"], lora_modules=old_modules
@@ -265,16 +279,17 @@ def run_base_probe(config: BaseProbeConfig) -> dict[str, Any]:
             task_type=peft.TaskType.CAUSAL_LM,
         )
         adapted_model = peft.get_peft_model(model, lora_config)
-        matched_lora_probe = measure_lora_layer_gradient_energy(
+        matched_lora_probe = measure_lora_subset_gradient_energy(
             model=adapted_model,
             tokenized_dataset=tokenized,
             data_collator=collator,
             sample_count=config.sample_count,
             top_k=config.top_k,
+            target_modules=config.target_modules,
         )
         matched_comparison = compare_probe_rankings(
             base_modules=probe["selected_modules"],
-            lora_modules=matched_lora_probe["selected_layers"],
+            lora_modules=matched_lora_probe["selected_modules"],
         )
         metrics = {
             f"base_probe/module_energy/{key}": energy
@@ -289,13 +304,13 @@ def run_base_probe(config: BaseProbeConfig) -> dict[str, Any]:
         metrics.update(
             {
                 f"matched_lora_probe/module_energy/{key}": energy
-                for key, energy in matched_lora_probe["energy_by_layer"].items()
+                for key, energy in matched_lora_probe["module_energy"].items()
             }
         )
         run.log(metrics)
         run.summary["selected_layers"] = probe["selected_layers"]
         run.summary["selected_modules"] = probe["selected_modules"]
-        run.summary["matched_lora_top_modules"] = matched_lora_probe["selected_layers"]
+        run.summary["matched_lora_top_modules"] = matched_lora_probe["selected_modules"]
         run.summary["matched_top_module_overlap"] = matched_comparison["overlap"]
         run.summary["modal_artifact_path"] = config.modal_artifact_path
         result = {
@@ -313,6 +328,7 @@ def run_base_probe(config: BaseProbeConfig) -> dict[str, Any]:
             "probe": probe,
             "module_topk_frequency": module_frequency,
             "layer_topk_frequency": layer_frequency,
+            "stability_groups": stability_groups,
             "matched_lora_probe": matched_lora_probe,
             "comparison_with_matched_lora_probe": matched_comparison,
             "comparison_with_historical_lora_probe": historical_comparison,

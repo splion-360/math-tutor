@@ -20,6 +20,8 @@ SYSTEM_PROMPT = (
 
 
 class ChatTemplateTokenizer(Protocol):
+    """Tokenizer contract needed to render supervised Manim chat records."""
+
     eos_token: str | None
 
     def apply_chat_template(
