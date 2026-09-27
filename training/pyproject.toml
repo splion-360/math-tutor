@@ -8,7 +8,7 @@ dependencies = []
 
 [project.optional-dependencies]
 train = [
-    "accelerate>=0.34,<1",
+    "accelerate>=1.1,<2",
     "bitsandbytes>=0.43,<1",
     "datasets>=2.21,<3",
     "peft>=0.12,<1",

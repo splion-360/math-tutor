@@ -22,6 +22,16 @@ APP_NAME = "dream-ai-shared-lora-training-smoke"
 HF_CACHE_VOLUME = "dream-ai-huggingface-cache"
 TRAINING_ARTIFACT_VOLUME = "dream-ai-training-artifacts"
 WANDB_SECRET_NAME = "WANDB_API_KEY"
+TRAIN_REQUIREMENTS_FALLBACK = (
+    "accelerate>=1.1,<2",
+    "bitsandbytes>=0.43,<1",
+    "datasets>=2.21,<3",
+    "peft>=0.12,<1",
+    "safetensors>=0.4,<1",
+    "torch>=2.4,<3",
+    "transformers>=4.51,<5",
+    "wandb>=0.18,<1",
+)
 
 REPO_ROOT = Path(__file__).parents[1]
 TRAINING_SOURCE = REPO_ROOT / "training"
@@ -37,7 +47,10 @@ REMOTE_ARTIFACT_ROOT = Path("/artifacts")
 
 
 def _train_requirements() -> tuple[str, ...]:
-    pyproject = tomllib.loads((TRAINING_SOURCE / "pyproject.toml").read_text(encoding="utf-8"))
+    pyproject_path = TRAINING_SOURCE / "pyproject.toml"
+    if not pyproject_path.exists():
+        return TRAIN_REQUIREMENTS_FALLBACK
+    pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
     return tuple(pyproject["project"]["optional-dependencies"]["train"])
 
 
@@ -45,13 +58,16 @@ def _source_version() -> str:
     env_revision = os.environ.get("GIT_REVISION") or os.environ.get("GITHUB_SHA")
     if env_revision:
         return env_revision
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=REPO_ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return "unknown"
     return result.stdout.strip() if result.returncode == 0 else "unknown"
 
 
