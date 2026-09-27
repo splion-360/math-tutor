@@ -195,13 +195,13 @@ def run_base_weight_probe() -> dict[str, Any]:
     secrets=[modal.Secret.from_name(WANDB_SECRET_NAME)],
 )
 def run_placement_arm(arm_name: str) -> dict[str, Any]:
-    """Train and evaluate one preselected four-module placement arm.
+    """Train and validate one preselected four-module placement arm.
 
     Args:
         arm_name: Discovered, low_energy, random_1, or random_2.
 
     Returns:
-        Run identity, validation loss, generation count, and artifact paths.
+        Run identity, validation loss, and adapter artifact path.
     """
     from dynamic_lora.placement_run import load_placement_config, run_placement_arm as run_arm
 
@@ -213,7 +213,7 @@ def run_placement_arm(arm_name: str) -> dict[str, Any]:
         "selected_modules": result["selected_modules"],
         "trainable_parameters": result["trainable_parameters"],
         "validation_code_loss": result["validation_metrics"]["eval_loss"],
-        "generation_count": result["dataset"]["generation_count"],
+        "adapter_path": result["adapter_path"],
         "wandb_run_url": result["wandb_run_url"],
         "metadata_path": str(config.artifact_root / arm_name / "run_metadata.json"),
     }

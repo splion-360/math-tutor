@@ -11,7 +11,7 @@ import pytest
 from dynamic_lora.placement_run import load_placement_config, validate_placement_probe
 
 
-def test_placement_config_requires_bounded_training_and_generation(tmp_path: Path) -> None:
+def test_placement_config_requires_bounded_training(tmp_path: Path) -> None:
     config_path = tmp_path / "placement.json"
     config_path.write_text(
         json.dumps(
@@ -23,7 +23,6 @@ def test_placement_config_requires_bounded_training_and_generation(tmp_path: Pat
                 "seed": 42,
                 "max_steps": 64,
                 "max_seq_length": 1024,
-                "max_new_tokens": 4096,
                 "lora_r": 16,
                 "lora_alpha": 32,
                 "lora_dropout": 0.05,
@@ -37,7 +36,6 @@ def test_placement_config_requires_bounded_training_and_generation(tmp_path: Pat
     config = load_placement_config(config_path)
 
     assert config.max_steps == 64
-    assert config.max_new_tokens == 4096
     assert config.train_path == tmp_path / "train.jsonl"
 
 

@@ -1,5 +1,5 @@
-"""Train and evaluate one fixed LoRA placement on Modal.
-The run keeps datasets, optimizer settings, and generation prompts equal across arms."""
+"""Train and validate one fixed LoRA placement on Modal.
+The run keeps datasets and optimizer settings equal across all arms."""
 
 from __future__ import annotations
 
@@ -8,12 +8,10 @@ import os
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
-from time import monotonic
 from typing import Any
 
 from dynamic_lora.constants import FROZEN_MODEL_ID, FROZEN_MODEL_REVISION
 from dynamic_lora.data import (
-    format_training_prompt,
     load_training_records,
     tokenize_completion_record,
     validate_training_dataset,
@@ -36,7 +34,6 @@ class PlacementConfig:
     seed: int
     max_steps: int
     max_seq_length: int
-    max_new_tokens: int
     lora_r: int
     lora_alpha: int
     lora_dropout: float
@@ -96,7 +93,6 @@ def load_placement_config(path: Path) -> PlacementConfig:
         seed=positive_int("seed"),
         max_steps=positive_int("max_steps"),
         max_seq_length=max_seq_length,
-        max_new_tokens=positive_int("max_new_tokens"),
         lora_r=positive_int("lora_r"),
         lora_alpha=positive_int("lora_alpha"),
         lora_dropout=float(dropout),
@@ -133,14 +129,14 @@ def validate_placement_probe(
 
 
 def run_placement_arm(config: PlacementConfig, arm_name: str) -> dict[str, Any]:
-    """Train one exact four-module arm and record loss plus direct code generations.
+    """Train one exact four-module arm and record completion-only validation loss.
 
     Args:
         config: Frozen placement experiment settings.
         arm_name: One of discovered, low_energy, random_1, or random_2.
 
     Returns:
-        Run metadata including train/validation metrics and output locations.
+        Run metadata including train/validation metrics and the adapter path.
 
     Raises:
         ValueError: If inputs differ from the probe or the arm is unknown.
@@ -230,7 +226,6 @@ def run_placement_arm(config: PlacementConfig, arm_name: str) -> dict[str, Any]:
             "seed": config.seed,
             "max_steps": config.max_steps,
             "max_seq_length": config.max_seq_length,
-            "max_new_tokens": config.max_new_tokens,
             "lora_r": config.lora_r,
             "lora_alpha": config.lora_alpha,
             "lora_dropout": config.lora_dropout,
@@ -266,51 +261,10 @@ def run_placement_arm(config: PlacementConfig, arm_name: str) -> dict[str, Any]:
         validation_metrics = trainer.evaluate()
         model.save_pretrained(run_dir / "adapter")
         tokenizer.save_pretrained(run_dir / "adapter")
-        model.config.use_cache = True
-        model.eval()
-        evaluation_records = [
-            json.loads(line)
-            for line in config.holdout_path.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
-        generations: list[dict[str, Any]] = []
-        for record in evaluation_records:
-            prompt = format_training_prompt(record, tokenizer)
-            inputs = tokenizer(prompt, add_special_tokens=False, return_tensors="pt").to(
-                model.device
-            )
-            started = monotonic()
-            with torch.no_grad():
-                output = model.generate(
-                    **inputs,
-                    max_new_tokens=config.max_new_tokens,
-                    do_sample=False,
-                    pad_token_id=tokenizer.eos_token_id,
-                    use_cache=True,
-                )
-            completion = output[0][inputs["input_ids"].shape[-1] :]
-            generations.append(
-                {
-                    "id": record["id"],
-                    "difficulty": record["difficulty"],
-                    "topic": record["topic"],
-                    "prompt": record["prompt"],
-                    "response": tokenizer.decode(completion, skip_special_tokens=True),
-                    "completion_tokens": len(completion),
-                    "hit_token_limit": len(completion) >= config.max_new_tokens,
-                    "generation_latency_seconds": monotonic() - started,
-                }
-            )
-            (run_dir / "generations.jsonl").write_text(
-                "".join(json.dumps(item, sort_keys=True) + "\n" for item in generations),
-                encoding="utf-8",
-            )
         wandb_run.log(
             {
                 "placement/validation_code_loss": validation_metrics["eval_loss"],
                 "placement/train_loss": train_result.metrics.get("train_loss"),
-                "placement/generation_count": len(generations),
-                "placement/token_limit_count": sum(item["hit_token_limit"] for item in generations),
             }
         )
         result = {
@@ -325,19 +279,17 @@ def run_placement_arm(config: PlacementConfig, arm_name: str) -> dict[str, Any]:
                 "holdout_content_sha256": report.holdout_content_sha256,
                 "training_count": len(train_dataset),
                 "validation_count": len(validation_dataset),
-                "generation_count": len(generations),
             },
             "trainable_tensors": trainable_tensors,
             "trainable_parameters": trainable_parameters,
             "training_metrics": train_result.metrics,
             "validation_metrics": validation_metrics,
             "max_steps": config.max_steps,
-            "max_new_tokens": config.max_new_tokens,
             "seed": config.seed,
             "git_revision": os.environ.get("SOURCE_VERSION", "unknown"),
             "wandb_run_url": getattr(wandb_run, "url", None),
             "adapter_path": str(run_dir / "adapter"),
-            "generations_path": str(run_dir / "generations.jsonl"),
+            "generation_status": "not_run",
         }
         (run_dir / "run_metadata.json").write_text(
             json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
