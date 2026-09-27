@@ -184,13 +184,58 @@ def run_base_weight_probe() -> dict[str, Any]:
     }
 
 
+@app.function(
+    image=train_image,
+    gpu="L4",
+    timeout=90 * 60,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        str(REMOTE_ARTIFACT_ROOT): training_artifacts,
+    },
+    secrets=[modal.Secret.from_name(WANDB_SECRET_NAME)],
+)
+def run_placement_arm(arm_name: str) -> dict[str, Any]:
+    """Train and evaluate one preselected four-module placement arm.
+
+    Args:
+        arm_name: Discovered, low_energy, random_1, or random_2.
+
+    Returns:
+        Run identity, validation loss, generation count, and artifact paths.
+    """
+    from dynamic_lora.placement_run import load_placement_config, run_placement_arm as run_arm
+
+    config = load_placement_config(REMOTE_CONFIG_DIR / "modal_placement_ablation_qwen3_4b.json")
+    result = run_arm(config, arm_name)
+    training_artifacts.commit()
+    return {
+        "arm": result["arm"],
+        "selected_modules": result["selected_modules"],
+        "trainable_parameters": result["trainable_parameters"],
+        "validation_code_loss": result["validation_metrics"]["eval_loss"],
+        "generation_count": result["dataset"]["generation_count"],
+        "wandb_run_url": result["wandb_run_url"],
+        "metadata_path": str(config.artifact_root / arm_name / "run_metadata.json"),
+    }
+
+
 @app.local_entrypoint()
-def main(full_probe: bool = False, signatures: bool = False, base_probe: bool = False) -> None:
+def main(
+    full_probe: bool = False,
+    signatures: bool = False,
+    base_probe: bool = False,
+    placement_arm: str = "",
+) -> None:
     """Choose the tiny fixture or one full-dataset diagnostic run."""
-    if sum((full_probe, signatures, base_probe)) > 1:
+    if sum((full_probe, signatures, base_probe, bool(placement_arm))) > 1:
         raise ValueError("choose only one full-dataset diagnostic mode")
-    if (full_probe or signatures or base_probe) and not FULL_TRAINING_DATA_SOURCE.exists():
+    if (full_probe or signatures or base_probe or placement_arm) and not FULL_TRAINING_DATA_SOURCE.exists():
         raise FileNotFoundError(FULL_TRAINING_DATA_SOURCE)
+    if placement_arm:
+        if placement_arm not in {"discovered", "low_energy", "random_1", "random_2"}:
+            raise ValueError(f"unknown placement arm: {placement_arm}")
+        print(json.dumps(run_placement_arm.remote(placement_arm), indent=2, sort_keys=True))
+        return
     if base_probe:
         print(json.dumps(run_base_weight_probe.remote(), indent=2, sort_keys=True))
         return

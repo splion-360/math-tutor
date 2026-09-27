@@ -33,6 +33,35 @@ class ChatTemplateTokenizer(Protocol):
     ) -> str: ...
 
 
+def _task_messages(record: dict[str, Any]) -> list[dict[str, str]]:
+    return [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"Difficulty: {record['difficulty']}\n"
+                f"Topic: {record['topic']}\n"
+                f"Task: {record['prompt']}"
+            ),
+        },
+    ]
+
+
+def format_training_prompt(record: dict[str, Any], tokenizer: ChatTemplateTokenizer) -> str:
+    """Render the generation prefix used by both placement training and evaluation.
+
+    Args:
+        record: A supervised lesson or prompt-only evaluation record.
+        tokenizer: Qwen tokenizer providing its chat template.
+
+    Returns:
+        System and user turns followed by the assistant generation marker.
+    """
+    return tokenizer.apply_chat_template(
+        _task_messages(record), tokenize=False, add_generation_prompt=True
+    )
+
+
 def format_training_record(
     record: dict[str, Any], tokenizer: ChatTemplateTokenizer
 ) -> dict[str, str]:
@@ -46,15 +75,7 @@ def format_training_record(
         A text field suitable for the training tokenizer.
     """
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {
-            "role": "user",
-            "content": (
-                f"Difficulty: {record['difficulty']}\n"
-                f"Topic: {record['topic']}\n"
-                f"Task: {record['prompt']}"
-            ),
-        },
+        *_task_messages(record),
         {"role": "assistant", "content": str(record["manim_code"])},
     ]
     text = tokenizer.apply_chat_template(
@@ -65,6 +86,47 @@ def format_training_record(
     if tokenizer.eos_token is not None and not text.rstrip().endswith(tokenizer.eos_token):
         text = text.rstrip() + tokenizer.eos_token
     return {"text": text}
+
+
+def tokenize_completion_record(
+    record: dict[str, Any], tokenizer: Any, *, max_seq_length: int
+) -> dict[str, list[int]]:
+    """Tokenize a lesson while masking the prompt from supervised code loss.
+
+    Args:
+        record: Validated training record with target Manim code.
+        tokenizer: Tokenizer for the frozen Qwen revision.
+        max_seq_length: Maximum sequence length including the final EOS token.
+
+    Returns:
+        Input IDs, attention mask, and labels with prompt tokens set to -100.
+
+    Raises:
+        ValueError: If truncation removes the target code or templates do not align.
+    """
+    if max_seq_length < 2:
+        raise ValueError("max_seq_length must be at least 2")
+    prompt = format_training_prompt(record, tokenizer)
+    full = format_training_record(record, tokenizer)["text"]
+    prompt_ids: list[int] = tokenizer(prompt, add_special_tokens=False)["input_ids"]
+    full_ids: list[int] = tokenizer(
+        full,
+        add_special_tokens=False,
+        truncation=True,
+        max_length=max_seq_length - 1,
+    )["input_ids"]
+    if full_ids[: len(prompt_ids)] != prompt_ids or len(full_ids) <= len(prompt_ids):
+        raise ValueError(f"prompt and completion tokens do not align for {record['id']}")
+    labels = [-100] * len(prompt_ids) + full_ids[len(prompt_ids) :]
+    eos_token_id = tokenizer.eos_token_id
+    if eos_token_id is not None and full_ids[-1] != eos_token_id:
+        full_ids.append(eos_token_id)
+        labels.append(eos_token_id)
+    return {
+        "input_ids": full_ids,
+        "attention_mask": [1] * len(full_ids),
+        "labels": labels,
+    }
 
 
 def tokenize_training_batch(

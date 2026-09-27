@@ -7,6 +7,8 @@ import pytest
 
 from dynamic_lora.data import (
     DatasetValidationError,
+    format_training_prompt,
+    tokenize_completion_record,
     tokenize_training_batch,
     validate_training_dataset,
 )
@@ -23,6 +25,38 @@ def test_tokenize_training_batch_appends_eos_after_truncation() -> None:
     encoded = tokenize_training_batch({"text": ["example"]}, Tokenizer(), max_seq_length=8)
 
     assert encoded == {"input_ids": [[1, 2, 99]], "attention_mask": [[1, 1, 1]]}
+
+
+def test_completion_record_masks_prompt_and_keeps_code_and_eos() -> None:
+    class Tokenizer:
+        eos_token = "!"
+        eos_token_id = 99
+
+        def apply_chat_template(
+            self,
+            messages: list[dict[str, str]],
+            *,
+            tokenize: bool,
+            add_generation_prompt: bool,
+        ) -> str:
+            assert tokenize is False
+            content = "|".join(message["content"] for message in messages[:2])
+            completion = "" if add_generation_prompt else messages[2]["content"]
+            return content + "|assistant:" + completion
+
+        def __call__(self, text: str, **_kwargs: object) -> dict[str, list[int]]:
+            return {"input_ids": [ord(character) for character in text]}
+
+    tokenizer = Tokenizer()
+    record = valid_record("test-1", "foundational")
+    prompt = format_training_prompt(record, tokenizer)
+    encoded = tokenize_completion_record(record, tokenizer, max_seq_length=1024)
+
+    assert encoded["input_ids"][: len(prompt)] == [ord(character) for character in prompt]
+    assert encoded["labels"][: len(prompt)] == [-100] * len(prompt)
+    assert encoded["labels"][len(prompt)] != -100
+    assert encoded["input_ids"][-1] == 99
+    assert encoded["labels"][-1] == 99
 
 
 def write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
