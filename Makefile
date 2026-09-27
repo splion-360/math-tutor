@@ -1,0 +1,54 @@
+# Provides short commands for local setup, development, and verification.
+# Keeps Docker Compose and package-specific tools as the underlying sources of truth.
+
+.DEFAULT_GOAL := help
+
+.PHONY: help setup up down logs renderer test lint typecheck check
+
+help:
+	@printf '%s\n' \
+		'make setup      Create backend/.env without overwriting it' \
+		'make up         Build and start the frontend and backend' \
+		'make down       Stop the local application' \
+		'make logs       Follow frontend and backend logs' \
+		'make renderer   Build the optional narration renderer' \
+		'make test       Run backend, frontend, and training tests' \
+		'make lint       Run Python lint checks' \
+		'make typecheck  Run Python and frontend type checks' \
+		'make check      Run all tests, lint checks, and type checks'
+
+setup:
+	@if [ -f backend/.env ]; then \
+		printf '%s\n' 'backend/.env already exists; leaving it unchanged.'; \
+	else \
+		cp backend/.env.example backend/.env; \
+		printf '%s\n' 'Created backend/.env. Add the credentials you want to use.'; \
+	fi
+
+up:
+	docker compose up --build
+
+down:
+	docker compose down
+
+logs:
+	docker compose logs --follow backend frontend
+
+renderer:
+	docker compose --profile renderer-build build manim-voiceover
+
+test:
+	cd backend && uv run pytest -q
+	cd frontend && npm test
+	cd training && uv run pytest -q
+
+lint:
+	cd backend && uv run ruff check src tests
+	cd training && uv run ruff check src tests
+
+typecheck:
+	cd backend && uv run mypy src
+	cd frontend && npm run typecheck
+	cd training && uv run mypy src
+
+check: test lint typecheck

@@ -12,6 +12,7 @@ It is designed for more than elementary math. The same product can explain geome
 
 - Git
 - Docker Desktop or another Docker installation with Compose
+- Make
 - At least 1 GB of memory available for each Manim render
 
 The full local app runs through Docker Compose. Python, Node, and the application dependencies are installed inside the development containers.
@@ -25,10 +26,10 @@ cd math-tutor
 
 ### 2. Configure local credentials
 
-Create the ignored backend environment file:
+Create the ignored backend environment file. This leaves an existing file unchanged:
 
 ```bash
-cp backend/.env.example backend/.env
+make setup
 ```
 
 Add only the integrations you want to use:
@@ -49,7 +50,7 @@ Training credentials and experiment tracking are covered separately in the [trai
 This step is only needed when `ELEVENLABS_API_KEY` is configured:
 
 ```bash
-docker compose --profile renderer-build build manim-voiceover
+make renderer
 ```
 
 ### 4. Start the app
@@ -57,7 +58,7 @@ docker compose --profile renderer-build build manim-voiceover
 Run this from the repository root:
 
 ```bash
-docker compose up --build
+make up
 ```
 
 Open:
@@ -70,8 +71,10 @@ The frontend waits for the backend health check before starting. Generated lesso
 ### 5. Stop the app
 
 ```bash
-docker compose down
+make down
 ```
+
+Use `make logs` in another terminal when you need to follow the frontend and backend output.
 
 ## From question to lesson
 
@@ -116,33 +119,22 @@ More detailed instructions live with each part of the repository:
 
 ## Local checks
 
-Backend:
+Install the local development dependencies once before running checks:
 
 ```bash
 cd backend
 uv sync
-uv run pytest -q
-uv run ruff check src tests
-uv run mypy src
-```
-
-Frontend:
-
-```bash
-cd frontend
+cd ../frontend
 npm ci
-npm test
-npm run typecheck
+cd ../training
+uv sync
+cd ..
 ```
 
-Dynamic LoRA training modules:
+Then run all tests, lint checks, and type checks from the repository root:
 
 ```bash
-cd training
-uv sync
-uv run pytest -q
-uv run ruff check src tests
-uv run mypy src
+make check
 ```
 
 ## The goal
