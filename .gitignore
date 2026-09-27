@@ -231,6 +231,7 @@ node_modules/
 # Local artifacts
 .playwright-mcp/
 docs/*
+.tmp/
 !docs/.gitkeep
 docs/superpowers/
 # Downloaded and converted training corpora

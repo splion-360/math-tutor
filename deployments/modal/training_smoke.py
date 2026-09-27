@@ -34,7 +34,8 @@ TRAIN_REQUIREMENTS_FALLBACK = (
     "wandb>=0.18,<1",
 )
 
-REPO_ROOT = Path(__file__).parents[2]
+MODULE_PATH = Path(__file__).resolve()
+REPO_ROOT = MODULE_PATH.parents[2] if len(MODULE_PATH.parents) > 2 else Path("/workspace")
 TRAINING_SOURCE = REPO_ROOT / "training"
 TRAINING_SRC_SOURCE = TRAINING_SOURCE / "src"
 TRAINING_FIXTURES_SOURCE = TRAINING_SOURCE / "fixtures"
