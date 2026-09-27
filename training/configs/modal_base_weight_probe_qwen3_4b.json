@@ -1,0 +1,14 @@
+{
+  "train_path": "/workspace/training/data/bespoke_manim_train.jsonl",
+  "holdout_path": "/workspace/backend/data/evaluation/manim_eval_v1.jsonl",
+  "metadata_path": "/artifacts/base_weight_probe_16/run_metadata.json",
+  "reference_metadata_path": "/artifacts/shared_lora_signatures_64/run_metadata.json",
+  "seed": 42,
+  "sample_count": 16,
+  "top_k": 4,
+  "max_seq_length": 1024,
+  "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+  "wandb_project": "math-tutor-dynamic-lora",
+  "wandb_run_name": "modal-base-weight-probe-16",
+  "modal_artifact_path": "modal-volume://dream-ai-training-artifacts/base_weight_probe_16"
+}

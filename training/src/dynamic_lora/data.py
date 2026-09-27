@@ -8,11 +8,95 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from dynamic_lora.constants import ALLOWED_DIFFICULTIES
 
 ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+SYSTEM_PROMPT = (
+    "You generate concise, runnable Manim Community Edition Python scenes for math tutoring. "
+    "Return only Python code."
+)
+
+
+class ChatTemplateTokenizer(Protocol):
+    eos_token: str | None
+
+    def apply_chat_template(
+        self,
+        conversation: list[dict[str, str]],
+        *,
+        tokenize: bool,
+        add_generation_prompt: bool,
+    ) -> str: ...
+
+
+def format_training_record(
+    record: dict[str, Any], tokenizer: ChatTemplateTokenizer
+) -> dict[str, str]:
+    """Format one Manim record with the shared supervised chat template.
+
+    Args:
+        record: Validated training record containing prompt, topic, difficulty, and code.
+        tokenizer: Tokenizer that renders chat messages to text.
+
+    Returns:
+        A text field suitable for the training tokenizer.
+    """
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"Difficulty: {record['difficulty']}\n"
+                f"Topic: {record['topic']}\n"
+                f"Task: {record['prompt']}"
+            ),
+        },
+        {"role": "assistant", "content": str(record["manim_code"])},
+    ]
+    text = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=False,
+    )
+    if tokenizer.eos_token is not None and not text.rstrip().endswith(tokenizer.eos_token):
+        text = text.rstrip() + tokenizer.eos_token
+    return {"text": text}
+
+
+def tokenize_training_batch(
+    batch: dict[str, list[str]], tokenizer: Any, *, max_seq_length: int
+) -> dict[str, Any]:
+    """Tokenize formatted lessons with the same truncation and EOS contract.
+
+    Args:
+        batch: Text fields produced by ``format_training_record``.
+        tokenizer: Tokenizer for the frozen Qwen revision.
+        max_seq_length: Maximum token count including the final EOS token.
+
+    Returns:
+        Token IDs and attention masks suitable for causal-LM collation.
+
+    Raises:
+        ValueError: If the context length cannot contain content and EOS.
+    """
+    if max_seq_length < 2:
+        raise ValueError("max_seq_length must be at least 2")
+    encoded: dict[str, Any] = tokenizer(
+        batch["text"],
+        truncation=True,
+        max_length=max_seq_length - 1,
+        padding=False,
+    )
+    eos_token_id = tokenizer.eos_token_id
+    if eos_token_id is not None:
+        for index, input_ids in enumerate(encoded["input_ids"]):
+            if not input_ids or input_ids[-1] != eos_token_id:
+                input_ids.append(eos_token_id)
+                if "attention_mask" in encoded:
+                    encoded["attention_mask"][index].append(1)
+    return encoded
 
 
 @dataclass(frozen=True)

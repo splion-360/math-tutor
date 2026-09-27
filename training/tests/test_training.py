@@ -12,7 +12,8 @@ from typing import Any
 import pytest
 
 from dynamic_lora.config import TrainingConfig
-from dynamic_lora.training import _format_record, train_shared_lora
+from dynamic_lora.data import format_training_record
+from dynamic_lora.training import train_shared_lora
 
 
 def training_record(record_id: str, difficulty: str) -> dict[str, object]:
@@ -60,7 +61,9 @@ class FakeTokenizer:
 def test_format_record_uses_chat_template_and_ends_with_eos() -> None:
     tokenizer = FakeTokenizer()
 
-    formatted = _format_record(training_record("train-foundational-001", "foundational"), tokenizer)
+    formatted = format_training_record(
+        training_record("train-foundational-001", "foundational"), tokenizer
+    )
 
     assert formatted["text"].startswith("<|im_start|>system\n")
     assert "<|im_start|>user\nDifficulty: foundational" in formatted["text"]

@@ -1,11 +1,11 @@
-"""Run shared-LoRA training smoke and layer-probe jobs on Modal.
+"""Run shared-LoRA training and base-weight probe jobs on Modal.
 
 Run this from the repository root with:
 
     modal run deployments/modal/training_smoke.py
 
-The default job uses the tiny checked-in fixture. Pass --full-probe for layer
-energy diagnostics or --signatures for later-step gradient capture.
+The default job uses the tiny checked-in fixture. Full-dataset modes provide
+LoRA-gradient diagnostics, signatures, or a separate base-weight probe.
 """
 
 from __future__ import annotations
@@ -143,13 +143,57 @@ def run_smoke(config_name: str = "modal_smoke_qwen3_4b.json") -> dict[str, Any]:
     }
 
 
+@app.function(
+    image=train_image,
+    gpu="A100-40GB",
+    timeout=45 * 60,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        str(REMOTE_ARTIFACT_ROOT): training_artifacts,
+    },
+    secrets=[modal.Secret.from_name(WANDB_SECRET_NAME)],
+)
+def run_base_weight_probe() -> dict[str, Any]:
+    """Measure BF16 base-weight gradients without training or attaching LoRA.
+
+    Returns:
+        Ranked layers and modules, overlap with the prior LoRA probe, and run URLs.
+    """
+    from dynamic_lora.base_probe_run import load_base_probe_config, run_base_probe
+
+    config = load_base_probe_config(REMOTE_CONFIG_DIR / "modal_base_weight_probe_qwen3_4b.json")
+    result = run_base_probe(config)
+    training_artifacts.commit()
+    return {
+        "model_id": result["model_id"],
+        "model_revision": result["model_revision"],
+        "gradient_source": result["gradient_source"],
+        "optimizer_steps": result["optimizer_steps"],
+        "selected_layers": result["probe"]["selected_layers"],
+        "selected_modules": result["probe"]["selected_modules"],
+        "matched_lora_modules": result["matched_lora_probe"]["selected_layers"],
+        "comparison_with_matched_lora_probe": result[
+            "comparison_with_matched_lora_probe"
+        ],
+        "comparison_with_historical_lora_probe": result[
+            "comparison_with_historical_lora_probe"
+        ],
+        "wandb_run_url": result["wandb_run_url"],
+        "modal_artifact_path": result["modal_artifact_path"],
+        "metadata_path": str(config.metadata_path),
+    }
+
+
 @app.local_entrypoint()
-def main(full_probe: bool = False, signatures: bool = False) -> None:
-    """Choose the tiny smoke fixture or a full-dataset diagnostic run."""
-    if full_probe and signatures:
-        raise ValueError("choose either full_probe or signatures")
-    if (full_probe or signatures) and not FULL_TRAINING_DATA_SOURCE.exists():
+def main(full_probe: bool = False, signatures: bool = False, base_probe: bool = False) -> None:
+    """Choose the tiny fixture or one full-dataset diagnostic run."""
+    if sum((full_probe, signatures, base_probe)) > 1:
+        raise ValueError("choose only one full-dataset diagnostic mode")
+    if (full_probe or signatures or base_probe) and not FULL_TRAINING_DATA_SOURCE.exists():
         raise FileNotFoundError(FULL_TRAINING_DATA_SOURCE)
+    if base_probe:
+        print(json.dumps(run_base_weight_probe.remote(), indent=2, sort_keys=True))
+        return
     if signatures:
         config_name = "modal_signatures_qwen3_4b.json"
     elif full_probe:

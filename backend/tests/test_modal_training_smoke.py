@@ -14,7 +14,7 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
     env_values: dict[str, str] = {}
     local_dirs: list[tuple[str, str]] = []
     local_files: list[tuple[str, str]] = []
-    function_options: dict[str, object] = {}
+    function_options: list[dict[str, object]] = []
     secret_names: list[str] = []
 
     class FakeImage:
@@ -46,7 +46,7 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
             pass
 
         def function(self, **kwargs: object) -> Any:
-            function_options.update(kwargs)
+            function_options.append(kwargs)
             return lambda function: function
 
         def local_entrypoint(self) -> Any:
@@ -82,9 +82,11 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
         "evaluation",
         "/workspace/backend/data/evaluation",
     ) in mounted_dirs
-    assert function_options["gpu"] == "L4"
-    assert function_options["volumes"] == {
+    assert {options["gpu"] for options in function_options} == {"L4", "A100-40GB"}
+    expected_volumes = {
         "/root/.cache/huggingface": "volume:dream-ai-huggingface-cache",
         "/artifacts": "volume:dream-ai-training-artifacts",
     }
-    assert function_options["secrets"] == ["secret:WANDB_API_KEY"]
+    for options in function_options:
+        assert options["volumes"] == expected_volumes
+        assert options["secrets"] == ["secret:WANDB_API_KEY"]

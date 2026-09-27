@@ -5,11 +5,15 @@ from __future__ import annotations
 
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
 from dynamic_lora.config import TrainingConfig
 from dynamic_lora.constants import FROZEN_MODEL_ID, FROZEN_MODEL_REVISION
-from dynamic_lora.data import load_training_records
+from dynamic_lora.data import (
+    format_training_record,
+    load_training_records,
+    tokenize_training_batch,
+)
 from dynamic_lora.gradient_signatures import (
     GradientSignatureCallback,
     build_gradient_signature_callback,
@@ -26,24 +30,6 @@ from dynamic_lora.run_plan import (
     write_run_metadata,
 )
 from dynamic_lora.tracking import start_experiment_tracking
-
-SYSTEM_PROMPT = (
-    "You generate concise, runnable Manim Community Edition Python scenes for math tutoring. "
-    "Return only Python code."
-)
-
-
-class ChatTemplateTokenizer(Protocol):
-    eos_token: str | None
-    eos_token_id: int | None
-
-    def apply_chat_template(
-        self,
-        conversation: list[dict[str, str]],
-        *,
-        tokenize: bool,
-        add_generation_prompt: bool,
-    ) -> str: ...
 
 
 def train_shared_lora(config: TrainingConfig) -> RunPlan:
@@ -99,27 +85,13 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
         trainable_parameters, total_parameters = model.get_nb_trainable_parameters()
 
         dataset = datasets.Dataset.from_list(
-            [_format_record(record, tokenizer) for record in records]
+            [format_training_record(record, tokenizer) for record in records]
         )
 
         def tokenize(batch: dict[str, list[str]]) -> dict[str, Any]:
-            encoded = cast(
-                dict[str, Any],
-                tokenizer(
-                    batch["text"],
-                    truncation=True,
-                    max_length=config.max_seq_length - 1,
-                    padding=False,
-                ),
+            return tokenize_training_batch(
+                batch, tokenizer, max_seq_length=config.max_seq_length
             )
-            eos_token_id = tokenizer.eos_token_id
-            if eos_token_id is not None:
-                for index, input_ids in enumerate(encoded["input_ids"]):
-                    if not input_ids or input_ids[-1] != eos_token_id:
-                        input_ids.append(eos_token_id)
-                        if "attention_mask" in encoded:
-                            encoded["attention_mask"][index].append(1)
-            return encoded
 
         tokenized = dataset.map(tokenize, batched=True, remove_columns=["text"])
         training_args = transformers.TrainingArguments(
@@ -205,31 +177,6 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
         return plan
     finally:
         tracking_run.finish()
-
-
-def _format_record(
-    record: dict[str, Any], tokenizer: ChatTemplateTokenizer
-) -> dict[str, str]:
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {
-            "role": "user",
-            "content": (
-                f"Difficulty: {record['difficulty']}\n"
-                f"Topic: {record['topic']}\n"
-                f"Task: {record['prompt']}"
-            ),
-        },
-        {"role": "assistant", "content": str(record["manim_code"])},
-    ]
-    text = tokenizer.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=False,
-    )
-    if tokenizer.eos_token is not None and not text.rstrip().endswith(tokenizer.eos_token):
-        text = text.rstrip() + tokenizer.eos_token
-    return {"text": text}
 
 
 def _distribution_version(distribution: str) -> str:

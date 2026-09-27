@@ -5,7 +5,24 @@ from pathlib import Path
 
 import pytest
 
-from dynamic_lora.data import DatasetValidationError, validate_training_dataset
+from dynamic_lora.data import (
+    DatasetValidationError,
+    tokenize_training_batch,
+    validate_training_dataset,
+)
+
+
+def test_tokenize_training_batch_appends_eos_after_truncation() -> None:
+    class Tokenizer:
+        eos_token_id = 99
+
+        def __call__(self, _text: list[str], **kwargs: object) -> dict[str, list[list[int]]]:
+            assert kwargs["max_length"] == 7
+            return {"input_ids": [[1, 2]], "attention_mask": [[1, 1]]}
+
+    encoded = tokenize_training_batch({"text": ["example"]}, Tokenizer(), max_seq_length=8)
+
+    assert encoded == {"input_ids": [[1, 2, 99]], "attention_mask": [[1, 1, 1]]}
 
 
 def write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
