@@ -75,6 +75,7 @@ def test_seed_is_set_before_model_and_adapter_initialization(
     training_args_kwargs: dict[str, object] = {}
     tokenized_batches: list[dict[str, object]] = []
     evaluated: list[object] = []
+    probe_calls: list[dict[str, object]] = []
     tokenizer = FakeTokenizer()
 
     class FakeModel:
@@ -138,6 +139,24 @@ def test_seed_is_set_before_model_and_adapter_initialization(
     monkeypatch.setattr(
         "shared_lora_baseline.trainer.import_module", lambda name: modules[name]
     )
+    monkeypatch.setattr(
+        "shared_lora_baseline.trainer.measure_lora_layer_gradient_energy",
+        lambda **kwargs: probe_calls.append(kwargs)
+        or {
+            "enabled": True,
+            "sample_count": 1,
+            "top_k": 2,
+            "grouping": "transformer_layer_from_lora_parameter_name",
+            "observed_lora_parameters": 4,
+            "energy_by_layer": {"layer_7.q_proj": 25.0},
+            "ranked_layers": [{"layer": "layer_7.q_proj", "gradient_energy": 25.0}],
+            "selected_layers": ["layer_7.q_proj"],
+        },
+    )
+    monkeypatch.setattr(
+        "shared_lora_baseline.trainer.gradient_probe_metrics",
+        lambda _probe: {"gradient_probe/enabled": 1},
+    )
 
     train_path = tmp_path / "train.jsonl"
     holdout_path = tmp_path / "holdout.jsonl"
@@ -157,6 +176,7 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         metadata_path=tmp_path / "run.json",
         load_in_4bit=False,
         run_smoke_eval=True,
+        layer_energy_probe_top_k=2,
     )
 
     plan = train_shared_lora(config)
@@ -179,6 +199,9 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         "dataset": "tokenized_training_fixture",
         "purpose": "modal_trainer_smoke",
     }
+    assert probe_calls[0]["sample_count"] == 1
+    assert probe_calls[0]["top_k"] == 2
+    assert plan.metadata["layer_energy_probe"]["selected_layers"] == ["layer_7.q_proj"]
     assert len(evaluated) == 1
     assert set(plan.metadata["runtime_versions"]) == {
         "accelerate",

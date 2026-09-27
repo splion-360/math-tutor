@@ -13,6 +13,10 @@ from shared_lora_baseline.dry_run import (
     build_run_plan,
     write_run_metadata,
 )
+from shared_lora_baseline.gradient_probe import (
+    gradient_probe_metrics,
+    measure_lora_layer_gradient_energy,
+)
 from shared_lora_baseline.tracking import start_experiment_tracking
 from shared_lora_baseline.validation import load_training_records
 
@@ -130,6 +134,16 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
             train_dataset=tokenized,
             data_collator=collator,
         )
+        if config.layer_energy_probe_top_k > 0:
+            probe = measure_lora_layer_gradient_energy(
+                model=model,
+                tokenized_dataset=tokenized,
+                data_collator=collator,
+                sample_count=config.layer_energy_probe_sample_count,
+                top_k=config.layer_energy_probe_top_k,
+            )
+            plan.metadata["layer_energy_probe"] = probe
+            tracking_run.log_metrics(gradient_probe_metrics(probe))
         train_output = trainer.train()
         tracking_run.log_metrics(getattr(train_output, "metrics", {}))
         if config.run_smoke_eval:

@@ -62,6 +62,8 @@ class TrainingConfig:
     )
     load_in_4bit: bool = True
     run_smoke_eval: bool = False
+    layer_energy_probe_top_k: int = 0
+    layer_energy_probe_sample_count: int = 1
     tracking: ExperimentTrackingConfig = field(default_factory=ExperimentTrackingConfig)
 
 
@@ -101,6 +103,12 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
         value = raw.get(name, default)
         if not isinstance(value, int) or value <= 0:
             raise ConfigError(f"{name} must be a positive integer")
+        return value
+
+    def non_negative_int_field(name: str, default: int) -> int:
+        value = raw.get(name, default)
+        if not isinstance(value, int) or value < 0:
+            raise ConfigError(f"{name} must be a non-negative integer")
         return value
 
     def float_field(name: str, default: float) -> float:
@@ -149,6 +157,8 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
         target_modules=tuple(target_modules_raw),
         load_in_4bit=load_in_4bit,
         run_smoke_eval=run_smoke_eval,
+        layer_energy_probe_top_k=non_negative_int_field("layer_energy_probe_top_k", 0),
+        layer_energy_probe_sample_count=int_field("layer_energy_probe_sample_count", 1),
         tracking=_tracking_config(raw.get("tracking")),
     )
 

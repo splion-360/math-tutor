@@ -15,6 +15,8 @@
   "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
   "load_in_4bit": true,
   "run_smoke_eval": true,
+  "layer_energy_probe_top_k": 4,
+  "layer_energy_probe_sample_count": 1,
   "tracking": {
     "mode": "online",
     "project": "math-tutor-dynamic-lora",

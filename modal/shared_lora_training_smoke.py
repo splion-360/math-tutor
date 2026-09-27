@@ -121,6 +121,7 @@ def run_smoke() -> dict[str, Any]:
         "wandb_run_url": metadata["tracking"].get("run_url"),
         "weights_loaded": metadata["weights_loaded"],
         "smoke_eval": metadata.get("smoke_eval"),
+        "layer_energy_probe": metadata.get("layer_energy_probe"),
         "trainable_parameters": metadata["parameter_budget"]["trainable_parameters"],
         "plan": plan.redacted_text,
     }
