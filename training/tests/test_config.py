@@ -97,6 +97,49 @@ def test_gradient_signatures_require_selected_layers(tmp_path: Path) -> None:
         load_config(config_path)
 
 
+def test_gradient_signatures_accept_base_probe_reference(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "train_path": "train.jsonl",
+                "holdout_path": "holdout.jsonl",
+                "output_dir": "adapter",
+                "metadata_path": "run.json",
+                "gradient_signature_dim": 256,
+                "signature_probe_metadata_path": "probe.json",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.layer_energy_probe_top_k == 0
+    assert config.signature_probe_metadata_path == tmp_path / "probe.json"
+
+
+def test_signature_probe_reference_cannot_be_combined_with_lora_probe(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "train_path": "train.jsonl",
+                "holdout_path": "holdout.jsonl",
+                "output_dir": "adapter",
+                "metadata_path": "run.json",
+                "gradient_signature_dim": 256,
+                "layer_energy_probe_top_k": 4,
+                "signature_probe_metadata_path": "probe.json",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="exactly one"):
+        load_config(config_path)
+
+
 def test_gradient_signatures_start_step_must_fit_training_run(tmp_path: Path) -> None:
     config_path = tmp_path / "config.json"
     config_path.write_text(

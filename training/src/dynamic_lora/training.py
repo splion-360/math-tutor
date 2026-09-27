@@ -29,11 +29,27 @@ from dynamic_lora.run_plan import (
     build_run_plan,
     write_run_metadata,
 )
+from dynamic_lora.signature_selection import select_base_probe_modules
 from dynamic_lora.tracking import start_experiment_tracking
 
 
 def train_shared_lora(config: TrainingConfig) -> RunPlan:
     plan = build_run_plan(config)
+    reference_layers: tuple[str, ...] = ()
+    if config.signature_probe_metadata_path is not None:
+        reference_layers = select_base_probe_modules(
+            config.signature_probe_metadata_path,
+            train_hash=plan.metadata["dataset"]["training_content_sha256"],
+            holdout_hash=plan.metadata["dataset"]["holdout_content_sha256"],
+            max_seq_length=config.max_seq_length,
+            seed=config.seed,
+            target_modules=config.target_modules,
+        )
+        plan.metadata["signature_selection"] = {
+            "source": "no_update_base_weight_probe",
+            "selected_modules": list(reference_layers),
+            "reference_path": str(config.signature_probe_metadata_path),
+        }
     tracking_run = start_experiment_tracking(config, plan)
     plan = add_tracking_metadata(plan, tracking_run.metadata)
     write_run_metadata(plan, config.metadata_path)
@@ -115,6 +131,7 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
             data_collator=collator,
         )
         signature_callback: GradientSignatureCallback | None = None
+        selected_layers = reference_layers
         if config.layer_energy_probe_top_k > 0:
             probe = measure_lora_layer_gradient_energy(
                 model=model,
@@ -126,22 +143,22 @@ def train_shared_lora(config: TrainingConfig) -> RunPlan:
             plan.metadata["layer_energy_probe"] = probe
             tracking_run.log_metrics(gradient_probe_metrics(probe))
             selected_layers = tuple(probe.get("selected_layers", ()))
-            if config.gradient_signature_dim > 0 and not selected_layers:
+        if config.gradient_signature_dim > 0:
+            if not selected_layers:
                 raise RuntimeError(
-                    "gradient signatures were requested but no LoRA layers were selected"
+                    "gradient signatures were requested but no LoRA modules were selected"
                 )
-            if config.gradient_signature_dim > 0:
-                signature_callback = build_gradient_signature_callback(
-                    selected_layers=selected_layers,
-                    projection_dim=config.gradient_signature_dim,
-                    every_steps=config.gradient_signature_every_steps,
-                    start_step=config.gradient_signature_start_step,
-                    seed=config.seed,
-                    artifact_dir=config.output_dir / "gradient_signatures",
-                    log_metrics=tracking_run.log_metrics,
-                    callback_base=transformers.TrainerCallback,
-                )
-                trainer.add_callback(signature_callback)
+            signature_callback = build_gradient_signature_callback(
+                selected_layers=selected_layers,
+                projection_dim=config.gradient_signature_dim,
+                every_steps=config.gradient_signature_every_steps,
+                start_step=config.gradient_signature_start_step,
+                seed=config.seed,
+                artifact_dir=config.output_dir / "gradient_signatures",
+                log_metrics=tracking_run.log_metrics,
+                callback_base=transformers.TrainerCallback,
+            )
+            trainer.add_callback(signature_callback)
         train_output = trainer.train()
         tracking_run.log_metrics(getattr(train_output, "metrics", {}))
         if signature_callback is not None:

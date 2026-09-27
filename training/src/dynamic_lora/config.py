@@ -70,6 +70,7 @@ class TrainingConfig:
     gradient_signature_dim: int = 0
     gradient_signature_every_steps: int = 1
     gradient_signature_start_step: int = 1
+    signature_probe_metadata_path: Path | None = None
     tracking: ExperimentTrackingConfig = field(default_factory=ExperimentTrackingConfig)
 
 
@@ -148,11 +149,19 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
 
     layer_energy_probe_top_k = non_negative_int_field("layer_energy_probe_top_k", 0)
     gradient_signature_dim = non_negative_int_field("gradient_signature_dim", 0)
+    signature_probe_metadata_path = (
+        path_field("signature_probe_metadata_path")
+        if "signature_probe_metadata_path" in raw
+        else None
+    )
     max_steps = int_field("max_steps", 1)
     gradient_signature_start_step = int_field("gradient_signature_start_step", 1)
-    if gradient_signature_dim > 0 and layer_energy_probe_top_k == 0:
+    if gradient_signature_dim > 0 and (
+        (layer_energy_probe_top_k > 0) == (signature_probe_metadata_path is not None)
+    ):
         raise ConfigError(
-            "gradient_signature_dim requires layer_energy_probe_top_k to be positive"
+            "gradient_signature_dim requires exactly one of layer_energy_probe_top_k "
+            "or signature_probe_metadata_path"
         )
     if gradient_signature_dim > 0 and gradient_signature_start_step > max_steps:
         raise ConfigError("gradient_signature_start_step cannot exceed max_steps")
@@ -179,6 +188,7 @@ def parse_config(raw: dict[str, Any], *, base_dir: Path) -> TrainingConfig:
         gradient_signature_dim=gradient_signature_dim,
         gradient_signature_every_steps=int_field("gradient_signature_every_steps", 1),
         gradient_signature_start_step=gradient_signature_start_step,
+        signature_probe_metadata_path=signature_probe_metadata_path,
         tracking=_tracking_config(raw.get("tracking")),
     )
 

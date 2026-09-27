@@ -95,6 +95,11 @@ def _metadata(config: TrainingConfig, report: DatasetValidationReport) -> dict[s
             "gradient_signature_dim": config.gradient_signature_dim,
             "gradient_signature_every_steps": config.gradient_signature_every_steps,
             "gradient_signature_start_step": config.gradient_signature_start_step,
+            "signature_probe_metadata_path": (
+                _redact_path(config.signature_probe_metadata_path)
+                if config.signature_probe_metadata_path is not None
+                else None
+            ),
         },
         "lora": {
             "r": config.lora_r,
