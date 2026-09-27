@@ -72,8 +72,9 @@ def test_wandb_tracking_starts_run_and_groups_train_metrics(
     )
 
     tracking_run = start_experiment_tracking(config, plan)
-    tracking_run.log_train_metrics(
+    tracking_run.log_metrics(
         {
+            "eval_loss": 1.1,
             "train_loss": 1.25,
             "train_runtime": 3.5,
             "ignored": object(),
@@ -89,7 +90,7 @@ def test_wandb_tracking_starts_run_and_groups_train_metrics(
     assert init_kwargs["tags"] == ["dynamic-lora", "unit"]
     assert fake_run.summary["modal_artifact_path"] == "modal://dream-ai-training/runs/unit-run"
     assert fake_run.summary["finished"] is True
-    assert logged == [{"train/loss": 1.25, "train/runtime_seconds": 3.5}]
+    assert logged == [{"eval/loss": 1.1, "train/loss": 1.25, "train/runtime_seconds": 3.5}]
 
 
 def test_auto_tracking_stays_inactive_without_api_key(tmp_path: Path, monkeypatch: Any) -> None:

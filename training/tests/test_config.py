@@ -49,6 +49,7 @@ def test_tracking_config_is_loaded_from_nested_object(tmp_path: Path) -> None:
                     "tags": ["dynamic-lora", "smoke"],
                     "modal_artifact_path": "modal://dream-ai-training/runs/smoke-run",
                 },
+                "run_smoke_eval": True,
             }
         ),
         encoding="utf-8",
@@ -61,3 +62,4 @@ def test_tracking_config_is_loaded_from_nested_object(tmp_path: Path) -> None:
     assert config.tracking.run_name == "smoke-run"
     assert config.tracking.tags == ("dynamic-lora", "smoke")
     assert config.tracking.modal_artifact_path == "modal://dream-ai-training/runs/smoke-run"
+    assert config.run_smoke_eval is True

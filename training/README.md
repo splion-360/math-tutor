@@ -75,6 +75,27 @@ metrics are reported to the same W&B run with grouped names such as `train/loss`
 Set `tracking.mode` to `disabled` for local runs that should never contact W&B. Set it to `online`
 when missing W&B setup should fail fast instead of silently falling back to local metadata only.
 
+## Modal Smoke Run
+
+Ticket #19 is covered by `modal/shared_lora_training_smoke.py`. It launches a tiny one-step
+shared-LoRA training job on Modal using `fixtures/tiny_train.jsonl`, runs a smoke eval pass on that
+same supervised fixture, writes artifacts to the `dream-ai-training-artifacts` Modal Volume, and
+logs to the `math-tutor-dynamic-lora` W&B project.
+
+Create a Modal secret named `wandb-api-key` with `WANDB_API_KEY`, then run from the repository root:
+
+```bash
+modal run modal/shared_lora_training_smoke.py
+```
+
+Expected smoke artifacts:
+
+- `modal-volume://dream-ai-training-artifacts/shared_lora_smoke/adapter/`
+- `modal-volume://dream-ai-training-artifacts/shared_lora_smoke/run_metadata.json`
+
+The smoke eval is only a wiring check. It uses the tiny supervised fixture and must not be reported
+as model quality or holdout performance.
+
 ## Assumptions
 
 - The target GPU can load Qwen/Qwen3-4B-Instruct-2507 with 4-bit quantization.
@@ -86,9 +107,8 @@ when missing W&B setup should fail fast instead of silently falling back to loca
 
 ## Current Blocker
 
-Actual launch is blocked on a GPU machine with access to the frozen Qwen checkpoint and the real
-curated training JSONL. This worktree intentionally does not provision cloud resources, call paid
-APIs, download model weights, or run training.
+Real training is blocked on the curated training JSONL and a deliberate GPU budget decision. The
+Modal smoke path above only proves the remote training wiring on the tiny fixture.
 
 ## Inference Integration Contract
 

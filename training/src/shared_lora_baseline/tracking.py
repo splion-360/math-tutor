@@ -27,10 +27,10 @@ class ExperimentTrackingRun:
     metadata: dict[str, Any]
     _wandb_run: WandbRun | None = None
 
-    def log_train_metrics(self, metrics: Mapping[str, object]) -> None:
+    def log_metrics(self, metrics: Mapping[str, object]) -> None:
         if self._wandb_run is None:
             return
-        grouped = _group_train_metrics(metrics)
+        grouped = _group_metrics(metrics)
         if grouped:
             self._wandb_run.log(grouped)
 
@@ -151,7 +151,7 @@ def _wandb_config(
     }
 
 
-def _group_train_metrics(metrics: Mapping[str, object]) -> dict[str, int | float | str]:
+def _group_metrics(metrics: Mapping[str, object]) -> dict[str, int | float | str]:
     grouped: dict[str, int | float | str] = {}
     for key, value in metrics.items():
         if not isinstance(value, int | float | str):
@@ -162,6 +162,10 @@ def _group_train_metrics(metrics: Mapping[str, object]) -> dict[str, int | float
 
 def _metric_name(key: str) -> str:
     replacements = {
+        "eval_loss": "eval/loss",
+        "eval_runtime": "eval/runtime_seconds",
+        "eval_samples_per_second": "eval/samples_per_second",
+        "eval_steps_per_second": "eval/steps_per_second",
         "train_loss": "train/loss",
         "train_runtime": "train/runtime_seconds",
         "train_samples_per_second": "train/samples_per_second",
