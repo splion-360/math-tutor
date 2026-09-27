@@ -8,7 +8,15 @@ from typing import Any
 
 
 def probe_indices(dataset_size: int, sample_count: int) -> list[int]:
-    """Return evenly spaced dataset positions for a bounded probe."""
+    """Return evenly spaced dataset positions for a bounded probe.
+
+    Args:
+        dataset_size: Number of available records.
+        sample_count: Maximum number of records to select.
+
+    Returns:
+        Deterministic positions, or an empty list for an empty dataset.
+    """
     size = min(sample_count, dataset_size)
     if size <= 0:
         return []
@@ -18,7 +26,15 @@ def probe_indices(dataset_size: int, sample_count: int) -> list[int]:
 
 
 def move_to_model_device(batch: Any, model: Any) -> Any:
-    """Move a collated batch to the model's input-embedding device."""
+    """Move a collated batch to the model's input-embedding device.
+
+    Args:
+        batch: Tensor-like batch or mapping of input tensors.
+        model: Model whose embedding location determines the input device.
+
+    Returns:
+        Batch with supported tensor values moved to the input device.
+    """
     device = _model_device(model)
     if device is None:
         return batch
@@ -33,7 +49,11 @@ def move_to_model_device(batch: Any, model: Any) -> Any:
 
 
 def zero_model_grad(model: Any) -> None:
-    """Clear gradients without retaining previous probe allocations."""
+    """Clear gradients without retaining previous probe allocations.
+
+    Args:
+        model: Model exposing ``zero_grad``.
+    """
     try:
         model.zero_grad(set_to_none=True)
     except TypeError:
@@ -41,7 +61,14 @@ def zero_model_grad(model: Any) -> None:
 
 
 def squared_gradient_norm(gradient: Any) -> float:
-    """Return a gradient's squared L2 norm using float accumulation."""
+    """Return a gradient's squared L2 norm using float accumulation.
+
+    Args:
+        gradient: Tensor-like gradient supporting detach, float, pow, and sum.
+
+    Returns:
+        Squared L2 norm as a Python float.
+    """
     return float(gradient.detach().float().pow(2).sum().item())
 
 

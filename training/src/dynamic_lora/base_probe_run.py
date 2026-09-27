@@ -23,6 +23,7 @@ from dynamic_lora.data import (
     tokenize_training_batch,
     validate_training_dataset,
 )
+from dynamic_lora.lora_parameters import is_lora_parameter
 
 
 @dataclass(frozen=True)
@@ -279,6 +280,13 @@ def run_base_probe(config: BaseProbeConfig) -> dict[str, Any]:
             task_type=peft.TaskType.CAUSAL_LM,
         )
         adapted_model = peft.get_peft_model(model, lora_config)
+        adapter_dtypes = sorted(
+            {
+                str(parameter.dtype)
+                for name, parameter in adapted_model.named_parameters()
+                if is_lora_parameter(name)
+            }
+        )
         matched_lora_probe = measure_lora_subset_gradient_energy(
             model=adapted_model,
             tokenized_dataset=tokenized,
@@ -311,6 +319,7 @@ def run_base_probe(config: BaseProbeConfig) -> dict[str, Any]:
         run.summary["selected_layers"] = probe["selected_layers"]
         run.summary["selected_modules"] = probe["selected_modules"]
         run.summary["matched_lora_top_modules"] = matched_lora_probe["selected_modules"]
+        run.summary["matched_lora_parameter_dtypes"] = adapter_dtypes
         run.summary["matched_top_module_overlap"] = matched_comparison["overlap"]
         run.summary["modal_artifact_path"] = config.modal_artifact_path
         result = {
@@ -320,16 +329,27 @@ def run_base_probe(config: BaseProbeConfig) -> dict[str, Any]:
             "gradient_source": "base_weights",
             "precision": "bf16",
             "optimizer_steps": 0,
+            "prompt_includes_difficulty": True,
             "dataset": {
                 "record_count": report.record_count,
+                "training_ids_sha256": report.training_ids_sha256,
                 "training_content_sha256": report.training_content_sha256,
                 "holdout_content_sha256": report.holdout_content_sha256,
+            },
+            "probe_config": {
+                "seed": config.seed,
+                "sample_count": config.sample_count,
+                "top_k": config.top_k,
+                "max_seq_length": config.max_seq_length,
+                "target_modules": list(config.target_modules),
+                "stability_group_count": group_count,
             },
             "probe": probe,
             "module_topk_frequency": module_frequency,
             "layer_topk_frequency": layer_frequency,
             "stability_groups": stability_groups,
             "matched_lora_probe": matched_lora_probe,
+            "matched_lora_parameter_dtypes": adapter_dtypes,
             "comparison_with_matched_lora_probe": matched_comparison,
             "comparison_with_historical_lora_probe": historical_comparison,
             "reference_run_url": reference.get("tracking", {}).get("run_url"),

@@ -218,7 +218,17 @@ def compare_probe_rankings(
 
 
 def selection_frequency(rankings: list[list[str]]) -> dict[str, float]:
-    """Report top-k selection frequency across independently probed subsets."""
+    """Report top-k selection frequency across independently probed subsets.
+
+    Args:
+        rankings: Selected keys for each separate subset probe.
+
+    Returns:
+        Fraction of subset probes selecting each observed key.
+
+    Raises:
+        ValueError: If no subset rankings are provided.
+    """
     if not rankings:
         raise ValueError("rankings must not be empty")
     counts: dict[str, int] = defaultdict(int)
