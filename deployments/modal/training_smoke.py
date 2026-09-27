@@ -35,7 +35,9 @@ TRAIN_REQUIREMENTS_FALLBACK = (
 )
 
 MODULE_PATH = Path(__file__).resolve()
-REPO_ROOT = MODULE_PATH.parents[2] if len(MODULE_PATH.parents) > 2 else Path("/workspace")
+REPO_ROOT = (
+    MODULE_PATH.parents[2] if len(MODULE_PATH.parents) > 2 else Path("/workspace")
+)
 TRAINING_SOURCE = REPO_ROOT / "training"
 TRAINING_SRC_SOURCE = TRAINING_SOURCE / "src"
 TRAINING_FIXTURES_SOURCE = TRAINING_SOURCE / "fixtures"
@@ -77,7 +79,9 @@ def _source_version() -> str:
 
 app = modal.App(APP_NAME)
 hf_cache = modal.Volume.from_name(HF_CACHE_VOLUME, create_if_missing=True)
-training_artifacts = modal.Volume.from_name(TRAINING_ARTIFACT_VOLUME, create_if_missing=True)
+training_artifacts = modal.Volume.from_name(
+    TRAINING_ARTIFACT_VOLUME, create_if_missing=True
+)
 
 train_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
@@ -91,8 +95,12 @@ train_image = (
         }
     )
     .add_local_dir(TRAINING_SRC_SOURCE, remote_path=str(REMOTE_TRAINING_ROOT / "src"))
-    .add_local_dir(TRAINING_FIXTURES_SOURCE, remote_path=str(REMOTE_TRAINING_ROOT / "fixtures"))
-    .add_local_dir(TRAINING_CONFIGS_SOURCE, remote_path=str(REMOTE_TRAINING_ROOT / "configs"))
+    .add_local_dir(
+        TRAINING_FIXTURES_SOURCE, remote_path=str(REMOTE_TRAINING_ROOT / "fixtures")
+    )
+    .add_local_dir(
+        TRAINING_CONFIGS_SOURCE, remote_path=str(REMOTE_TRAINING_ROOT / "configs")
+    )
     .add_local_dir(HOLDOUT_SOURCE, remote_path=str(REMOTE_HOLDOUT_ROOT))
 )
 if FULL_TRAINING_DATA_SOURCE.exists():
@@ -179,6 +187,113 @@ def run_full_corpus_signatures() -> dict[str, Any]:
     }
 
 
+@app.function(
+    image=train_image,
+    gpu="A100-80GB",
+    timeout=90 * 60,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        str(REMOTE_ARTIFACT_ROOT): training_artifacts,
+    },
+)
+def run_validation_gradient_heatmap() -> dict[str, Any]:
+    """Measure held-out LoRA gradient norms at the saved epoch-two checkpoint.
+
+    Returns:
+        Probe output path and validation subject coverage.
+    """
+    from dynamic_lora.validation_gradient_heatmap import (
+        capture_validation_gradient_heatmap,
+    )
+
+    checkpoint = (
+        REMOTE_ARTIFACT_ROOT
+        / "full_corpus_signatures_3_epochs_label_free/checkpoints/checkpoint-1790"
+    )
+    output = REMOTE_ARTIFACT_ROOT / "validation_gradient_heatmap_epoch2/summary.json"
+    summary = capture_validation_gradient_heatmap(
+        train_path=REMOTE_FULL_TRAINING_DATA,
+        checkpoint_path=checkpoint,
+        output_path=output,
+    )
+    training_artifacts.commit()
+    return {
+        "summary_path": str(output),
+        "validation_count": summary["validation_count"],
+        "subject_count": summary["subject_count"],
+    }
+
+
+@app.function(
+    image=train_image,
+    gpu="A100-80GB",
+    timeout=90 * 60,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        str(REMOTE_ARTIFACT_ROOT): training_artifacts,
+    },
+)
+def run_base_validation_gradient_heatmap() -> dict[str, Any]:
+    """Measure original Qwen layer-weight gradients without optimizer steps.
+
+    Returns:
+        Base-probe output path and validation subject coverage.
+    """
+    from dynamic_lora.validation_gradient_heatmap import (
+        capture_base_validation_gradient_heatmap,
+    )
+
+    output = REMOTE_ARTIFACT_ROOT / "base_validation_gradient_heatmap/summary.json"
+    summary = capture_base_validation_gradient_heatmap(
+        train_path=REMOTE_FULL_TRAINING_DATA, output_path=output
+    )
+    training_artifacts.commit()
+    return {
+        "summary_path": str(output),
+        "validation_count": summary["validation_count"],
+        "subject_count": summary["subject_count"],
+    }
+
+
+@app.function(
+    image=train_image,
+    gpu="A100-80GB",
+    timeout=90 * 60,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        str(REMOTE_ARTIFACT_ROOT): training_artifacts,
+    },
+)
+def run_validation_gradient_cosines() -> dict[str, Any]:
+    """Compare held-out LoRA directions at every layer and projection.
+
+    Returns:
+        Saved cosine summary location and validation coverage.
+    """
+    from dynamic_lora.validation_gradient_cosines import (
+        capture_validation_gradient_cosines,
+    )
+
+    checkpoint = (
+        REMOTE_ARTIFACT_ROOT
+        / "full_corpus_signatures_3_epochs_label_free/checkpoints/checkpoint-1790"
+    )
+    output = REMOTE_ARTIFACT_ROOT / "validation_gradient_cosines_epoch2/summary.json"
+    summary = capture_validation_gradient_cosines(
+        train_path=REMOTE_FULL_TRAINING_DATA,
+        checkpoint_path=checkpoint,
+        output_path=output,
+    )
+    training_artifacts.commit()
+    return {
+        "summary_path": str(output),
+        "validation_count": summary["validation_count"],
+        "subject_count": len(summary["subject_counts"]),
+        "layer_count": len(summary["layers"]),
+        "module_count": len(summary["modules"]),
+    }
+
+
 def _run_shared_training(config_name: str) -> dict[str, Any]:
     from dynamic_lora.config import load_config
     from dynamic_lora.training import train_shared_lora
@@ -222,7 +337,9 @@ def run_base_weight_probe() -> dict[str, Any]:
     """
     from dynamic_lora.base_probe_run import load_base_probe_config, run_base_probe
 
-    config = load_base_probe_config(REMOTE_CONFIG_DIR / "modal_base_weight_probe_qwen3_4b.json")
+    config = load_base_probe_config(
+        REMOTE_CONFIG_DIR / "modal_base_weight_probe_qwen3_4b.json"
+    )
     result = run_base_probe(config)
     training_artifacts.commit()
     return {
@@ -267,7 +384,9 @@ def run_placement_arm(arm_name: str) -> dict[str, Any]:
     from dynamic_lora.placement_run import load_placement_config
     from dynamic_lora.placement_run import run_placement_arm as run_arm
 
-    config = load_placement_config(REMOTE_CONFIG_DIR / "modal_placement_ablation_qwen3_4b.json")
+    config = load_placement_config(
+        REMOTE_CONFIG_DIR / "modal_placement_ablation_qwen3_4b.json"
+    )
     result = run_arm(config, arm_name)
     training_artifacts.commit()
     return {
@@ -289,6 +408,9 @@ def main(
     full_corpus_signatures: bool = False,
     base_probe: bool = False,
     placement_arm: str = "",
+    validation_gradient_heatmap: bool = False,
+    base_validation_gradient_heatmap: bool = False,
+    validation_gradient_cosines: bool = False,
 ) -> None:
     """Choose the tiny fixture or one full-dataset diagnostic run."""
     if (
@@ -300,6 +422,9 @@ def main(
                 full_corpus_signatures,
                 base_probe,
                 bool(placement_arm),
+                validation_gradient_heatmap,
+                base_validation_gradient_heatmap,
+                validation_gradient_cosines,
             )
         )
         > 1
@@ -313,6 +438,9 @@ def main(
             full_corpus_signatures,
             base_probe,
             bool(placement_arm),
+            validation_gradient_heatmap,
+            base_validation_gradient_heatmap,
+            validation_gradient_cosines,
         )
     )
     if needs_full_data and not FULL_TRAINING_DATA_SOURCE.exists():
@@ -320,7 +448,32 @@ def main(
     if placement_arm:
         if placement_arm not in {"discovered", "low_energy", "random_1", "random_2"}:
             raise ValueError(f"unknown placement arm: {placement_arm}")
-        print(json.dumps(run_placement_arm.remote(placement_arm), indent=2, sort_keys=True))
+        print(
+            json.dumps(
+                run_placement_arm.remote(placement_arm), indent=2, sort_keys=True
+            )
+        )
+        return
+    if validation_gradient_heatmap:
+        print(
+            json.dumps(
+                run_validation_gradient_heatmap.remote(), indent=2, sort_keys=True
+            )
+        )
+        return
+    if base_validation_gradient_heatmap:
+        print(
+            json.dumps(
+                run_base_validation_gradient_heatmap.remote(), indent=2, sort_keys=True
+            )
+        )
+        return
+    if validation_gradient_cosines:
+        print(
+            json.dumps(
+                run_validation_gradient_cosines.remote(), indent=2, sort_keys=True
+            )
+        )
         return
     if full_corpus_signatures:
         print(json.dumps(run_full_corpus_signatures.remote(), indent=2, sort_keys=True))
@@ -337,7 +490,9 @@ def main(
     else:
         config_name = "modal_smoke_qwen3_4b.json"
     run_function = (
-        run_full_probe if full_probe or signatures or fixed_prompt_signatures else run_smoke
+        run_full_probe
+        if full_probe or signatures or fixed_prompt_signatures
+        else run_smoke
     )
     result = run_function.remote(config_name)
     print(json.dumps(result, indent=2, sort_keys=True))
