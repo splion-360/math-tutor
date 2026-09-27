@@ -96,3 +96,16 @@ The raw-energy top four were `layer_6.down_proj`, `layer_1.up_proj`, `layer_7.up
 Only `layer_6.down_proj` overlaps the earlier LoRA probe's top four. That earlier probe averaged **per-example squared gradient norms** on a four-bit model; this base probe scores the **squared norm of the mean gradient** on a BF16 model. The 1-of-4 overlap cannot be attributed solely to attaching LoRA. The matched BF16 comparison isolates the gradient-source change more cleanly, but neither probe establishes downstream lesson quality.
 
 **Decision:** Use the no-update base probe's four modules as the discovered arm in the matched placement experiment. The low-energy and two random controls keep the same one-`down_proj`, two-`q_proj`, one-`v_proj` module mix, LoRA rank, training steps, and 895/100 train/validation split. Compare held-out code loss before claiming the placement helped; render success still requires a separate check. Probe measurements are preserved in Modal metadata; old W&B diagnostic runs are removed so the W&B project can focus on the four placement arms.
+
+## Matched placement result
+
+**Measured on 2026-09-26:** Four label-free placement arms each trained for 64 steps on the same 895 training records and were evaluated on the same 100 held-out records. Each adapted four modules with 466,944 trainable parameters. Saved metadata confirmed the same data hashes, split IDs, seed, and source revision `5797dabb6eb25199f852a9cf5080ee9d83422183`; all four adapter weight files persisted in `modal-volume://dream-ai-training-artifacts/placement_ablation_64_label_free`.
+
+| Arm | Held-out code loss ↓ | W&B |
+| --- | ---: | --- |
+| Discovered | 0.6199 | [run](https://wandb.ai/splion/math-tutor-dynamic-lora/runs/bnf5fndx) |
+| Low energy | 0.8106 | [run](https://wandb.ai/splion/math-tutor-dynamic-lora/runs/jtzhjknb) |
+| Random 1 | 0.6400 | [run](https://wandb.ai/splion/math-tutor-dynamic-lora/runs/etyzuiiu) |
+| Random 2 | 0.6806 | [run](https://wandb.ai/splion/math-tutor-dynamic-lora/runs/rktuk6k8) |
+
+The discovered arm had the lowest loss in this single-seed comparison, but the margin over Random 1 is only 0.0201. Each arm saw 64 of 895 eligible training examples (about 7% of an epoch). This result supports further testing of the placement; it does not establish statistical reliability, runnable Manim output, lesson quality, or a need for dynamic adapter splitting. The W&B project was verified to contain exactly these four finished placement runs after removal of 21 older diagnostic runs; that W&B deletion is not recoverable there, while their saved Modal artifacts were retained.
