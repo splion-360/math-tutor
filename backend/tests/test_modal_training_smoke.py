@@ -15,6 +15,7 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
     local_dirs: list[tuple[str, str]] = []
     local_files: list[tuple[str, str]] = []
     function_options: list[dict[str, object]] = []
+    function_names: list[str] = []
     remote_calls: list[tuple[str, tuple[object, ...]]] = []
     secret_names: list[str] = []
 
@@ -50,6 +51,7 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
             function_options.append(kwargs)
 
             def decorate(function: Any) -> Any:
+                function_names.append(function.__name__)
                 function.remote = lambda *args: remote_calls.append((function.__name__, args)) or {}
                 return function
 
@@ -89,6 +91,9 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
         "/workspace/backend/data/evaluation",
     ) in mounted_dirs
     assert {options["gpu"] for options in function_options} == {"L4", "A100-40GB", "A100-80GB"}
+    assert dict(zip(function_names, function_options, strict=True))["run_placement_arm"]["gpu"] == (
+        "A100-80GB"
+    )
     expected_volumes = {
         "/root/.cache/huggingface": "volume:dream-ai-huggingface-cache",
         "/artifacts": "volume:dream-ai-training-artifacts",

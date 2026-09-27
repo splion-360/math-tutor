@@ -212,7 +212,7 @@ def run_base_weight_probe() -> dict[str, Any]:
 
 @app.function(
     image=train_image,
-    gpu="L4",
+    gpu="A100-80GB",
     timeout=90 * 60,
     volumes={
         "/root/.cache/huggingface": hf_cache,
