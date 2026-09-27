@@ -230,10 +230,8 @@ node_modules/
 
 # Local artifacts
 .playwright-mcp/
-docs/*
+/docs/
 .tmp/
-!docs/.gitkeep
-docs/superpowers/
 # Downloaded and converted training corpora
 training/data/
 # Downloaded model checkpoints and provider run artifacts
