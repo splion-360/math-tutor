@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
-from shared_lora_baseline.config import TrainingConfig
-from shared_lora_baseline.trainer import _format_record, train_shared_lora
+from dynamic_lora.config import TrainingConfig
+from dynamic_lora.training import _format_record, train_shared_lora
 
 
 def training_record(record_id: str, difficulty: str) -> dict[str, object]:
@@ -140,10 +140,10 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         "transformers": transformers,
     }
     monkeypatch.setattr(
-        "shared_lora_baseline.trainer.import_module", lambda name: modules[name]
+        "dynamic_lora.training.import_module", lambda name: modules[name]
     )
     monkeypatch.setattr(
-        "shared_lora_baseline.trainer.measure_lora_layer_gradient_energy",
+        "dynamic_lora.training.measure_lora_layer_gradient_energy",
         lambda **kwargs: probe_calls.append(kwargs)
         or {
             "enabled": True,
@@ -157,7 +157,7 @@ def test_seed_is_set_before_model_and_adapter_initialization(
         },
     )
     monkeypatch.setattr(
-        "shared_lora_baseline.trainer.gradient_probe_metrics",
+        "dynamic_lora.training.gradient_probe_metrics",
         lambda _probe: {"gradient_probe/enabled": 1},
     )
 
@@ -245,7 +245,7 @@ def test_tracking_metadata_is_written_before_heavy_training_imports(
     def fail_import(name: str) -> object:
         raise ModuleNotFoundError(name)
 
-    monkeypatch.setattr("shared_lora_baseline.trainer.import_module", fail_import)
+    monkeypatch.setattr("dynamic_lora.training.import_module", fail_import)
 
     with pytest.raises(ModuleNotFoundError):
         train_shared_lora(config)

@@ -35,7 +35,7 @@ it is not a credible training corpus and must not be reported as model performan
 From the repository root:
 
 ```bash
-PYTHONPATH=training/src backend/.venv/bin/python -m shared_lora_baseline.cli dry-run \
+PYTHONPATH=training/src backend/.venv/bin/python -m dynamic_lora.cli dry-run \
   --config training/configs/shared_lora_qwen3_4b.json
 ```
 
@@ -53,7 +53,7 @@ the repository root:
 ```bash
 uv sync --project training --extra train --python 3.12
 test -n "${TRAIN_CONFIG:-}" || { echo "Set TRAIN_CONFIG to the curated run config"; exit 2; }
-PYTHONPATH=training/src uv run --project training python -m shared_lora_baseline.cli train \
+PYTHONPATH=training/src uv run --project training python -m dynamic_lora.cli train \
   --config "$TRAIN_CONFIG"
 ```
 
@@ -77,7 +77,7 @@ when missing W&B setup should fail fast instead of silently falling back to loca
 
 ## Modal Smoke Run
 
-Ticket #19 is covered by `modal/shared_lora_training_smoke.py`. It launches a tiny one-step
+Ticket #19 is covered by `deployments/modal/training_smoke.py`. It launches a tiny one-step
 shared-LoRA training job on Modal using `fixtures/tiny_train.jsonl`, runs a smoke eval pass on that
 same supervised fixture, writes artifacts to the `dream-ai-training-artifacts` Modal Volume, and
 logs to the `math-tutor-dynamic-lora` W&B project.
@@ -85,7 +85,7 @@ logs to the `math-tutor-dynamic-lora` W&B project.
 Create a Modal secret named `WANDB_API_KEY`, then run from the repository root:
 
 ```bash
-modal run modal/shared_lora_training_smoke.py
+modal run deployments/modal/training_smoke.py
 ```
 
 Expected smoke artifacts:

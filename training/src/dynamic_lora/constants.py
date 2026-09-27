@@ -1,3 +1,6 @@
+"""Hold frozen model identities and dependency constraints for training runs.
+These constants keep experiment provenance consistent across entrypoints."""
+
 from __future__ import annotations
 
 FROZEN_MODEL_ID = "Qwen/Qwen3-4B-Instruct-2507"

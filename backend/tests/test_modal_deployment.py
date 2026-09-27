@@ -57,7 +57,7 @@ def test_modal_module_does_not_check_the_local_adapter_source_during_remote_impo
         else original_is_dir(path),
     )
 
-    runpy.run_path(Path(__file__).parents[2] / "modal" / "qwen3_lora_vllm.py")
+    runpy.run_path(Path(__file__).parents[2] / "deployments" / "modal" / "inference.py")
 
     assert installed_packages == ["vllm==0.21.0"]
     assert function_options["min_containers"] == 1

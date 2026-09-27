@@ -1,3 +1,6 @@
+"""Connect training runs to experiment tracking through a narrow interface.
+The module keeps W&B-specific behavior outside deterministic training logic."""
+
 from __future__ import annotations
 
 import os
@@ -8,8 +11,8 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, Protocol
 
-from shared_lora_baseline.config import TrainingConfig, tracking_metadata
-from shared_lora_baseline.dry_run import RunPlan
+from dynamic_lora.config import TrainingConfig, tracking_metadata
+from dynamic_lora.run_plan import RunPlan
 
 
 class WandbRun(Protocol):

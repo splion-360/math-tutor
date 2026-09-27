@@ -1,3 +1,6 @@
+"""Build and persist redacted metadata for a training run.
+Run plans capture validated inputs, configuration, provenance, and artifacts."""
+
 from __future__ import annotations
 
 import json
@@ -5,8 +8,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from shared_lora_baseline.config import TrainingConfig, tracking_metadata
-from shared_lora_baseline.constants import (
+from dynamic_lora.config import TrainingConfig, tracking_metadata
+from dynamic_lora.constants import (
     ADAPTER_ID,
     ADAPTER_KIND,
     CONDITION,
@@ -14,7 +17,7 @@ from shared_lora_baseline.constants import (
     FROZEN_MODEL_REVISION,
     TRAIN_DEPENDENCY_CONSTRAINTS,
 )
-from shared_lora_baseline.validation import DatasetValidationReport, validate_training_dataset
+from dynamic_lora.data import DatasetValidationReport, validate_training_dataset
 
 
 @dataclass(frozen=True)

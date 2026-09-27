@@ -1,3 +1,6 @@
+"""Load and validate supervised Manim training records.
+The module owns deterministic dataset validation and content fingerprints."""
+
 from __future__ import annotations
 
 import hashlib
@@ -7,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from shared_lora_baseline.constants import ALLOWED_DIFFICULTIES
+from dynamic_lora.constants import ALLOWED_DIFFICULTIES
 
 ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 

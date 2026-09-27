@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from shared_lora_baseline.validation import DatasetValidationError, validate_training_dataset
+from dynamic_lora.data import DatasetValidationError, validate_training_dataset
 
 
 def write_jsonl(path: Path, records: list[dict[str, object]]) -> None:

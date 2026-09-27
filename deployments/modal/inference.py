@@ -1,6 +1,6 @@
 """Serve Qwen3-4B and the three local PEFT adapters through one vLLM process.
 
-Run this from the repository root with `modal deploy modal/qwen3_lora_vllm.py`.
+Run this from the repository root with `modal deploy deployments/modal/inference.py`.
 The adapter source is deliberately outside this worktree and is mounted read-only at deploy time;
 no weight files are copied into or committed from this repository.
 """

@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from shared_lora_baseline.config import load_config
-from shared_lora_baseline.dry_run import build_run_plan, write_run_metadata
+from dynamic_lora.config import load_config
+from dynamic_lora.run_plan import build_run_plan, write_run_metadata
 
 
 def write_jsonl(path: Path, records: list[dict[str, object]]) -> None:

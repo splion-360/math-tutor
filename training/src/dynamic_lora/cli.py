@@ -1,11 +1,14 @@
+"""Provide command-line entrypoints for planning and running training experiments.
+The CLI translates configuration paths into calls to the training modules."""
+
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
 
-from shared_lora_baseline.config import load_config
-from shared_lora_baseline.dry_run import build_run_plan, write_run_metadata
-from shared_lora_baseline.trainer import train_shared_lora
+from dynamic_lora.config import load_config
+from dynamic_lora.run_plan import build_run_plan, write_run_metadata
+from dynamic_lora.training import train_shared_lora
 
 
 def main() -> None:

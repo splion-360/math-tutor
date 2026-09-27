@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from shared_lora_baseline.config import load_config
+from dynamic_lora.config import load_config
 
 
 def test_relative_paths_resolve_from_config_directory(tmp_path: Path, monkeypatch: object) -> None:

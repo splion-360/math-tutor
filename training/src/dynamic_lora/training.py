@@ -7,21 +7,21 @@ from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Protocol, cast
 
-from shared_lora_baseline.config import TrainingConfig
-from shared_lora_baseline.constants import FROZEN_MODEL_ID, FROZEN_MODEL_REVISION
-from shared_lora_baseline.dry_run import (
+from dynamic_lora.config import TrainingConfig
+from dynamic_lora.constants import FROZEN_MODEL_ID, FROZEN_MODEL_REVISION
+from dynamic_lora.data import load_training_records
+from dynamic_lora.layer_selection import (
+    gradient_probe_metrics,
+    measure_lora_layer_gradient_energy,
+)
+from dynamic_lora.run_plan import (
     RunPlan,
     add_runtime_versions,
     add_tracking_metadata,
     build_run_plan,
     write_run_metadata,
 )
-from shared_lora_baseline.lora_gradient_energy import (
-    gradient_probe_metrics,
-    measure_lora_layer_gradient_energy,
-)
-from shared_lora_baseline.tracking import start_experiment_tracking
-from shared_lora_baseline.validation import load_training_records
+from dynamic_lora.tracking import start_experiment_tracking
 
 SYSTEM_PROMPT = (
     "You generate concise, runnable Manim Community Edition Python scenes for math tutoring. "

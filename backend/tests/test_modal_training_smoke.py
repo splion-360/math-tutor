@@ -59,7 +59,9 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
     )
     monkeypatch.setitem(sys.modules, "modal", fake_modal)
 
-    runpy.run_path(str(Path(__file__).parents[2] / "modal" / "shared_lora_training_smoke.py"))
+    runpy.run_path(
+        str(Path(__file__).parents[2] / "deployments" / "modal" / "training_smoke.py")
+    )
 
     assert "transformers>=4.51,<5" in installed_packages
     assert "wandb>=0.18,<1" in installed_packages

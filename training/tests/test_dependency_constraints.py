@@ -3,7 +3,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from shared_lora_baseline.constants import TRAIN_DEPENDENCY_CONSTRAINTS
+from dynamic_lora.constants import TRAIN_DEPENDENCY_CONSTRAINTS
 
 
 def test_recorded_training_constraints_match_pyproject() -> None:

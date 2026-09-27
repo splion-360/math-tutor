@@ -2,7 +2,7 @@
 
 Run this from the repository root with:
 
-    modal run modal/shared_lora_training_smoke.py
+    modal run deployments/modal/training_smoke.py
 
 The job uses the tiny checked-in training fixture. It is a wiring smoke test, not a quality run.
 """
@@ -33,7 +33,7 @@ TRAIN_REQUIREMENTS_FALLBACK = (
     "wandb>=0.18,<1",
 )
 
-REPO_ROOT = Path(__file__).parents[1]
+REPO_ROOT = Path(__file__).parents[2]
 TRAINING_SOURCE = REPO_ROOT / "training"
 TRAINING_SRC_SOURCE = TRAINING_SOURCE / "src"
 TRAINING_FIXTURES_SOURCE = TRAINING_SOURCE / "fixtures"
@@ -105,8 +105,8 @@ train_image = (
 )
 def run_smoke() -> dict[str, Any]:
     """Train and evaluate one tiny shared-LoRA smoke run."""
-    from shared_lora_baseline.config import load_config
-    from shared_lora_baseline.trainer import train_shared_lora
+    from dynamic_lora.config import load_config
+    from dynamic_lora.training import train_shared_lora
 
     config = load_config(REMOTE_CONFIG_PATH)
     plan = train_shared_lora(config)

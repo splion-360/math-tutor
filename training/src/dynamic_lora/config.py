@@ -1,3 +1,6 @@
+"""Define and parse configuration for dynamic-LoRA training experiments.
+The module validates configuration before model dependencies are loaded."""
+
 from __future__ import annotations
 
 import json

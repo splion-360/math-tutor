@@ -3,7 +3,7 @@ These tests cover layer ranking, metric flattening, and device-independent fake 
 
 from __future__ import annotations
 
-from shared_lora_baseline.lora_gradient_energy import (
+from dynamic_lora.layer_selection import (
     gradient_probe_metrics,
     measure_lora_layer_gradient_energy,
 )

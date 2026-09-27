@@ -72,7 +72,7 @@ The frozen target is `Qwen/Qwen3-4B`. At the time of implementation it was suppo
 
 ## Modal vLLM with difficulty adapters
 
-`modal/qwen3_lora_vllm.py` is the hackathon serving path: one Modal L4 process runs
+`deployments/modal/inference.py` is the hackathon serving path: one Modal L4 process runs
 `Qwen/Qwen3-4B` with all three PEFT adapters loaded through vLLM multi-LoRA. The deployment
 script reads the ignored adapter artifacts only from the primary checkout at
 `training/artifacts/token_factory/`; it never places weights in this worktree or Git.
@@ -80,7 +80,7 @@ script reads the ignored adapter artifacts only from the primary checkout at
 From the repository root, after authenticating the Modal CLI, deploy it with:
 
 ```bash
-modal deploy modal/qwen3_lora_vllm.py
+modal deploy deployments/modal/inference.py
 ```
 
 Copy the resulting URL (including `/v1`) into the backend environment. This deployment requires

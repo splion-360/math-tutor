@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from shared_lora_baseline.config import ExperimentTrackingConfig, TrainingConfig
-from shared_lora_baseline.dry_run import RunPlan
-from shared_lora_baseline.tracking import start_experiment_tracking
+from dynamic_lora.config import ExperimentTrackingConfig, TrainingConfig
+from dynamic_lora.run_plan import RunPlan
+from dynamic_lora.tracking import start_experiment_tracking
 
 
 def test_wandb_tracking_starts_run_and_groups_train_metrics(
@@ -36,7 +36,7 @@ def test_wandb_tracking_starts_run_and_groups_train_metrics(
         return fake_run
 
     monkeypatch.setattr(
-        "shared_lora_baseline.tracking.import_module",
+        "dynamic_lora.tracking.import_module",
         lambda name: SimpleNamespace(init=init) if name == "wandb" else None,
     )
     monkeypatch.setenv("WANDB_API_KEY", "unit-test-key")
