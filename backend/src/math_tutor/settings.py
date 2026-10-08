@@ -1,3 +1,6 @@
+"""Load environment-backed configuration for the Math Tutor service.
+Defaults define local operational policy without containing credentials."""
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -28,6 +31,7 @@ class Settings(BaseSettings):
     artifact_root: Path = Path("artifacts")
     render_timeout_seconds: float = Field(default=90, gt=0)
     max_pending_jobs: int = Field(default=8, gt=0)
+    validation_max_repair_attempts: int = Field(default=1, ge=0)
 
 
 @lru_cache(maxsize=1)

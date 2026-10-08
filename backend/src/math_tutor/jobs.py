@@ -1,3 +1,6 @@
+"""Coordinate queued lesson rendering and in-memory job state transitions.
+Renderers return bounded outcomes that the service exposes through the API."""
+
 from __future__ import annotations
 
 import re
@@ -29,6 +32,7 @@ class RenderOutcome:
     captions_path: Path | None = None
     narration_status: NarrationStatus = NarrationStatus.NOT_REQUESTED
     narration_diagnostics: Mapping[str, object] | None = None
+    validation_diagnostics: Mapping[str, object] | None = None
 
 
 class JobExecutionError(RuntimeError):
@@ -158,6 +162,7 @@ class JobStore:
                     "elapsed_seconds": outcome.elapsed_seconds,
                     "logs": outcome.logs,
                     **dict(outcome.narration_diagnostics or {}),
+                    **dict(outcome.validation_diagnostics or {}),
                 },
             ),
         )

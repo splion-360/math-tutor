@@ -1,3 +1,6 @@
+"""Verify generated-source admission, rendering, validation, and repair.
+The tests preserve evidence and routing behavior across pipeline outcomes."""
+
 from __future__ import annotations
 
 import json
@@ -6,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
+from math_tutor.attempts import RenderedAttempt
 from math_tutor.domain import LessonStage
 from math_tutor.generated_lesson import (
     ExtractionError,
@@ -27,7 +31,12 @@ from math_tutor.generation import (
 )
 from math_tutor.jobs import RenderOutcome
 from math_tutor.narration import NarrationStatus
-from math_tutor.renderer import RenderFailed
+from math_tutor.renderer import RenderFailed, RenderTimedOut
+from math_tutor.validation.models import (
+    ValidationFinding,
+    ValidationReport,
+    ValidationStatus,
+)
 
 VALID_SCENE = """from manim import *
 
@@ -87,6 +96,45 @@ class RecordingSourceRenderer:
         )
 
 
+class SequenceSourceRenderer:
+    def __init__(self, root: Path) -> None:
+        self._root = root
+        self.calls: list[str] = []
+
+    def render_source(self, job_id: str, source: str, scene_class: str) -> RenderOutcome:
+        self.calls.append(job_id)
+        video_path = self._root / f"{job_id}.mp4"
+        video_path.parent.mkdir(parents=True, exist_ok=True)
+        video_path.write_bytes(f"video-{job_id}".encode())
+        return RenderOutcome(video_path, "test", 1, "rendered")
+
+
+class FailingSourceRenderer:
+    def render_source(self, job_id: str, source: str, scene_class: str) -> RenderOutcome:
+        raise RenderFailed("render failed")
+
+
+class TimeoutThenSourceRenderer(SequenceSourceRenderer):
+    def render_source(self, job_id: str, source: str, scene_class: str) -> RenderOutcome:
+        self.calls.append(job_id)
+        if len(self.calls) == 1:
+            raise RenderTimedOut("render timed out")
+        video_path = self._root / f"{job_id}.mp4"
+        video_path.parent.mkdir(parents=True, exist_ok=True)
+        video_path.write_bytes(f"video-{job_id}".encode())
+        return RenderOutcome(video_path, "test", 1, "rendered")
+
+
+class SequenceValidator:
+    expected_checks = ("lesson_duration",)
+
+    def __init__(self, reports: list[ValidationReport]) -> None:
+        self._reports = iter(reports)
+
+    def validate(self, attempt: RenderedAttempt) -> ValidationReport:
+        return next(self._reports)
+
+
 class FailingGenerator:
     def __init__(self) -> None:
         self.config = GenerationConfig()
@@ -106,6 +154,17 @@ class RecordingGenerator:
         if isinstance(self._result, Exception):
             raise self._result
         return self._result
+
+
+class SequenceGenerator:
+    def __init__(self, results: list[GenerationResult]) -> None:
+        self.config = GenerationConfig()
+        self._results = iter(results)
+        self.prompts: list[str] = []
+
+    def generate(self, prompt: str) -> GenerationResult:
+        self.prompts.append(prompt)
+        return next(self._results)
 
 
 class RecordingPromptRenderer:
@@ -342,16 +401,17 @@ def test_pipeline_persists_generation_evidence_before_isolated_render(tmp_path: 
         "inference_model": "Qwen/Qwen3-4B",
     }
     assert source_renderer.received == (
-        "generated-123",
+        "generated-123-attempt-0",
         VALID_SCENE.rstrip(),
         "GeneratedLesson",
     )
     job_dir = tmp_path / "artifacts" / "generated-123"
+    attempt_dir = job_dir / "attempts" / "0"
     assert (job_dir / "prompt.txt").read_text() == ("Explain the derivative of x squared visually.")
-    assert (job_dir / "raw_response.txt").read_text() == response.content
-    assert (job_dir / "provider_response.json").read_text() == response.provider_response
-    assert (job_dir / "extracted_scene.py").read_text() == VALID_SCENE.rstrip()
-    metadata = json.loads((job_dir / "generation.json").read_text())
+    assert (attempt_dir / "raw_response.txt").read_text() == response.content
+    assert (attempt_dir / "provider_response.json").read_text() == response.provider_response
+    assert (attempt_dir / "extracted_scene.py").read_text() == VALID_SCENE.rstrip()
+    metadata = json.loads((attempt_dir / "generation.json").read_text())
     assert metadata == {
         "completion_tokens": 20,
         "elapsed_seconds": 0.5,
@@ -384,6 +444,373 @@ def test_pipeline_reports_each_generation_stage(tmp_path: Path) -> None:
         ("staged-123", LessonStage.VALIDATING_CODE),
         ("staged-123", LessonStage.RENDERING),
     ]
+
+
+def test_pipeline_repairs_one_media_failure_and_preserves_both_attempts(
+    tmp_path: Path,
+) -> None:
+    generator = SequenceGenerator(
+        [
+            _generation(f"```python\n{VALID_SCENE}```"),
+            _generation(f"```python\n{VALID_SCENE}```"),
+        ]
+    )
+    renderer = SequenceSourceRenderer(tmp_path / "rendered")
+    failed_report = ValidationReport(
+        validator="media",
+        status=ValidationStatus.FAIL,
+        findings=(
+            ValidationFinding(
+                code="duration_out_of_range",
+                message="RAW VALIDATOR PROSE MUST NOT ENTER REPAIR PROMPT",
+                evidence={"actual_seconds": 7, "minimum_seconds": 30},
+                repair_instruction="Extend the lesson to at least 30 seconds.",
+            ),
+        ),
+    )
+    validator = SequenceValidator(
+        [failed_report, ValidationReport("media", ValidationStatus.PASS)]
+    )
+    observed: list[LessonStage] = []
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain distance between two points.",
+        generator=generator,
+        renderer=renderer,
+        validator=validator,
+        max_repair_attempts=1,
+        stage_reporter=lambda _job_id, stage: observed.append(stage),
+    )
+
+    outcome = pipeline.render("repair-123")
+
+    assert renderer.calls == ["repair-123-attempt-0", "repair-123-attempt-1"]
+    assert generator.prompts[0] == "Explain distance between two points."
+    assert "duration_out_of_range" in generator.prompts[1]
+    assert "Extend the lesson to at least 30 seconds." in generator.prompts[1]
+    assert "RAW VALIDATOR PROSE" not in generator.prompts[1]
+    assert "Preserve the original mathematical topic" in generator.prompts[1]
+    assert outcome.video_path.read_bytes() == b"video-repair-123-attempt-1"
+    assert outcome.validation_diagnostics == {
+        "attempt_count": 2,
+        "repair_count": 1,
+        "infrastructure_retry_count": 0,
+        "selected_attempt": 1,
+        "validation_status": "pass",
+    }
+    job_dir = tmp_path / "artifacts" / "repair-123"
+    assert json.loads((job_dir / "attempts" / "0" / "validation.json").read_text())[
+        "status"
+    ] == "fail"
+    assert json.loads((job_dir / "attempts" / "1" / "validation.json").read_text())[
+        "status"
+    ] == "pass"
+    selected = json.loads((job_dir / "selected_attempt.json").read_text())
+    assert selected["attempt_number"] == 1
+    assert selected["video_sha256"]
+    manifest = json.loads((job_dir / "attempts" / "1" / "attempt.json").read_text())
+    assert manifest["schema_version"] == "rendered-attempt.v1"
+    assert manifest["expected_checks"] == ["lesson_duration"]
+    assert manifest["original_prompt"]["sha256"]
+    assert manifest["generation_prompt"]["sha256"]
+    assert manifest["raw_response"]["sha256"]
+    assert manifest["provider_response"]["sha256"]
+    assert manifest["source"]["sha256"]
+    assert manifest["media"]["video"]["sha256"] == selected["video_sha256"]
+    assert manifest["provenance"] == {
+        "infrastructure_retry_count": 0,
+        "inference_path": "base_model",
+        "model": "Qwen/Qwen3-4B",
+        "provider": "configured_generator",
+        "renderer": "test",
+    }
+    assert observed == [
+        LessonStage.GENERATING_CODE,
+        LessonStage.VALIDATING_CODE,
+        LessonStage.RENDERING,
+        LessonStage.VALIDATING_OUTPUT,
+        LessonStage.REPAIRING,
+        LessonStage.GENERATING_CODE,
+        LessonStage.VALIDATING_CODE,
+        LessonStage.RENDERING,
+        LessonStage.VALIDATING_OUTPUT,
+    ]
+
+
+def test_pipeline_repairs_static_source_failure_before_rendering(tmp_path: Path) -> None:
+    generator = SequenceGenerator(
+        [
+            _generation("No Python scene was produced."),
+            _generation(f"```python\n{VALID_SCENE}```"),
+        ]
+    )
+    renderer = SequenceSourceRenderer(tmp_path / "rendered")
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain a derivative.",
+        generator=generator,
+        renderer=renderer,
+        validator=SequenceValidator(
+            [ValidationReport("media", ValidationStatus.PASS)]
+        ),
+        max_repair_attempts=1,
+    )
+
+    pipeline.render("source-repair-123")
+
+    assert len(generator.prompts) == 2
+    assert "source_admission_failed" in generator.prompts[1]
+    assert renderer.calls == ["source-repair-123-attempt-1"]
+    first_validation = json.loads(
+        (
+            tmp_path
+            / "artifacts"
+            / "source-repair-123"
+            / "attempts"
+            / "0"
+            / "validation.json"
+        ).read_text()
+    )
+    assert first_validation["status"] == "fail"
+
+
+def test_pipeline_accepts_first_passing_attempt_without_repair(tmp_path: Path) -> None:
+    generator = RecordingGenerator(_generation(f"```python\n{VALID_SCENE}```"))
+    renderer = SequenceSourceRenderer(tmp_path / "rendered")
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain a derivative.",
+        generator=generator,
+        renderer=renderer,
+        validator=SequenceValidator(
+            [ValidationReport("media", ValidationStatus.PASS)]
+        ),
+    )
+
+    outcome = pipeline.render("initial-pass-123")
+
+    assert len(generator.prompts) == 1
+    assert renderer.calls == ["initial-pass-123-attempt-0"]
+    assert outcome.validation_diagnostics == {
+        "attempt_count": 1,
+        "repair_count": 0,
+        "infrastructure_retry_count": 0,
+        "selected_attempt": 0,
+        "validation_status": "pass",
+    }
+
+
+def test_pipeline_preserves_both_attempts_when_repair_also_fails(tmp_path: Path) -> None:
+    generator = SequenceGenerator(
+        [
+            _generation(f"```python\n{VALID_SCENE}```"),
+            _generation(f"```python\n{VALID_SCENE}```"),
+        ]
+    )
+    renderer = SequenceSourceRenderer(tmp_path / "rendered")
+    failure = ValidationReport(
+        validator="media",
+        status=ValidationStatus.FAIL,
+        findings=(
+            ValidationFinding(
+                code="duration_out_of_range",
+                message="Lesson duration is outside the configured range.",
+                repair_instruction="Extend the lesson to at least 30 seconds.",
+            ),
+        ),
+    )
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain a derivative.",
+        generator=generator,
+        renderer=renderer,
+        validator=SequenceValidator([failure, failure]),
+    )
+
+    with pytest.raises(GeneratedLessonError) as caught:
+        pipeline.render("repair-failed-123")
+
+    assert caught.value.diagnostics["attempt_count"] == 2
+    assert caught.value.diagnostics["repair_count"] == 1
+    job_dir = tmp_path / "artifacts" / "repair-failed-123"
+    assert (job_dir / "attempts" / "0" / "attempt.json").is_file()
+    assert (job_dir / "attempts" / "1" / "attempt.json").is_file()
+    assert not (job_dir / "selected_attempt.json").exists()
+    assert len(generator.prompts) == 2
+
+
+def test_pipeline_respects_zero_repair_budget(tmp_path: Path) -> None:
+    generator = RecordingGenerator(_generation(f"```python\n{VALID_SCENE}```"))
+    failure = ValidationReport(
+        validator="media",
+        status=ValidationStatus.FAIL,
+        findings=(
+            ValidationFinding(
+                code="duration_out_of_range",
+                message="Lesson duration is outside the configured range.",
+                repair_instruction="Extend the lesson to at least 30 seconds.",
+            ),
+        ),
+    )
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain a derivative.",
+        generator=generator,
+        renderer=SequenceSourceRenderer(tmp_path / "rendered"),
+        validator=SequenceValidator([failure]),
+        max_repair_attempts=0,
+    )
+
+    with pytest.raises(GeneratedLessonError) as caught:
+        pipeline.render("no-repair-123")
+
+    assert caught.value.diagnostics["attempt_count"] == 1
+    assert caught.value.diagnostics["repair_count"] == 0
+    assert len(generator.prompts) == 1
+    assert not (
+        tmp_path / "artifacts" / "no-repair-123" / "attempts" / "1"
+    ).exists()
+
+
+def test_pipeline_does_not_use_model_repair_for_render_failures(tmp_path: Path) -> None:
+    generator = RecordingGenerator(_generation(f"```python\n{VALID_SCENE}```"))
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain a derivative.",
+        generator=generator,
+        renderer=FailingSourceRenderer(),
+        validator=SequenceValidator(
+            [ValidationReport("media", ValidationStatus.PASS)]
+        ),
+        max_repair_attempts=1,
+    )
+    with pytest.raises(RenderFailed) as caught:
+        pipeline.render("render-failed-123")
+
+    assert len(generator.prompts) == 1
+    assert caught.value.diagnostics["failure_kind"] == "operational"
+    assert caught.value.diagnostics["repair_count"] == 0
+    assert Path(str(caught.value.diagnostics["attempt_manifest"])).is_file()
+
+
+def test_pipeline_retries_transient_render_without_consuming_model_repair(
+    tmp_path: Path,
+) -> None:
+    generator = RecordingGenerator(_generation(f"```python\n{VALID_SCENE}```"))
+    renderer = TimeoutThenSourceRenderer(tmp_path / "rendered")
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain a derivative.",
+        generator=generator,
+        renderer=renderer,
+        validator=SequenceValidator(
+            [ValidationReport("media", ValidationStatus.PASS)]
+        ),
+    )
+
+    outcome = pipeline.render("render-retry-123")
+
+    assert len(generator.prompts) == 1
+    assert renderer.calls == [
+        "render-retry-123-attempt-0",
+        "render-retry-123-attempt-0-retry-1",
+    ]
+    assert outcome.validation_diagnostics == {
+        "attempt_count": 1,
+        "repair_count": 0,
+        "infrastructure_retry_count": 1,
+        "selected_attempt": 0,
+        "validation_status": "pass",
+    }
+    manifest = json.loads(
+        (
+            tmp_path
+            / "artifacts"
+            / "render-retry-123"
+            / "attempts"
+            / "0"
+            / "attempt.json"
+        ).read_text()
+    )
+    assert manifest["provenance"]["infrastructure_retry_count"] == 1
+
+
+def test_pipeline_reports_render_retries_from_attempts_before_selected_attempt(
+    tmp_path: Path,
+) -> None:
+    generator = SequenceGenerator(
+        [
+            _generation(f"```python\n{VALID_SCENE}```"),
+            _generation(f"```python\n{VALID_SCENE}```"),
+        ]
+    )
+    renderer = TimeoutThenSourceRenderer(tmp_path / "rendered")
+    failure = ValidationReport(
+        validator="media",
+        status=ValidationStatus.FAIL,
+        findings=(
+            ValidationFinding(
+                code="duration_out_of_range",
+                message="Duration failed.",
+                repair_instruction="Extend the lesson.",
+            ),
+        ),
+    )
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain a derivative.",
+        generator=generator,
+        renderer=renderer,
+        validator=SequenceValidator(
+            [failure, ValidationReport("media", ValidationStatus.PASS)]
+        ),
+    )
+
+    outcome = pipeline.render("retry-before-repair-123")
+
+    assert outcome.validation_diagnostics == {
+        "attempt_count": 2,
+        "repair_count": 1,
+        "infrastructure_retry_count": 1,
+        "selected_attempt": 1,
+        "validation_status": "pass",
+    }
+    job_dir = tmp_path / "artifacts" / "retry-before-repair-123" / "attempts"
+    first_manifest = json.loads((job_dir / "0" / "attempt.json").read_text())
+    second_manifest = json.loads((job_dir / "1" / "attempt.json").read_text())
+    assert first_manifest["provenance"]["infrastructure_retry_count"] == 1
+    assert second_manifest["provenance"]["infrastructure_retry_count"] == 0
+
+
+def test_pipeline_reports_validator_execution_error_without_model_repair(
+    tmp_path: Path,
+) -> None:
+    generator = RecordingGenerator(_generation(f"```python\n{VALID_SCENE}```"))
+    report = ValidationReport(
+        validator="media",
+        status=ValidationStatus.ERROR,
+        findings=(
+            ValidationFinding(
+                code="media_inspection_failed",
+                message="Rendered media could not be inspected.",
+            ),
+        ),
+    )
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain a derivative.",
+        generator=generator,
+        renderer=SequenceSourceRenderer(tmp_path / "rendered"),
+        validator=SequenceValidator([report]),
+    )
+
+    with pytest.raises(GeneratedLessonError) as caught:
+        pipeline.render("validator-error-123")
+
+    assert caught.value.diagnostics["validation_status"] == "error"
+    assert caught.value.diagnostics["attempt_count"] == 1
+    assert caught.value.diagnostics["repair_count"] == 0
+    assert len(generator.prompts) == 1
 
 
 def test_voiceover_pipeline_marks_rendered_audio_ready(tmp_path: Path) -> None:
@@ -426,14 +853,22 @@ def test_pipeline_preserves_raw_response_when_extraction_fails(tmp_path: Path) -
         renderer=RecordingSourceRenderer(tmp_path / "unused.mp4"),
     )
 
-    with pytest.raises(ExtractionError):
+    with pytest.raises(ExtractionError) as caught:
         pipeline.render("failed-123")
 
     job_dir = tmp_path / "artifacts" / "failed-123"
-    assert (job_dir / "raw_response.txt").read_text() == "I cannot provide code."
-    metadata = json.loads((job_dir / "generation.json").read_text())
+    assert (job_dir / "attempts" / "0" / "raw_response.txt").read_text() == (
+        "I cannot provide code."
+    )
+    assert (job_dir / "attempts" / "1" / "raw_response.txt").read_text() == (
+        "I cannot provide code."
+    )
+    metadata = json.loads((job_dir / "attempts" / "1" / "generation.json").read_text())
     assert metadata["status"] == "extraction_failed"
     assert metadata["model"] == "Qwen/Qwen3-4B"
+    assert caught.value.diagnostics["attempt_count"] == 2
+    assert caught.value.diagnostics["repair_count"] == 1
+    assert Path(str(caught.value.diagnostics["attempt_manifest"])).is_file()
 
 
 def test_pipeline_preserves_timing_and_stage_when_provider_fails(tmp_path: Path) -> None:
@@ -447,13 +882,17 @@ def test_pipeline_preserves_timing_and_stage_when_provider_fails(tmp_path: Path)
     with pytest.raises(GeneratedLessonError) as caught:
         pipeline.render("provider-failed-123")
 
-    assert caught.value.diagnostics == {"failure_stage": "provider"}
+    assert caught.value.diagnostics["failure_stage"] == "provider"
+    assert caught.value.diagnostics["failure_kind"] == "operational"
+    assert caught.value.diagnostics["attempt_count"] == 1
+    assert caught.value.diagnostics["repair_count"] == 0
     job_dir = tmp_path / "artifacts" / "provider-failed-123"
     assert (job_dir / "prompt.txt").read_text() == "Prompt"
-    metadata = json.loads((job_dir / "generation.json").read_text())
+    metadata = json.loads((job_dir / "attempts" / "0" / "generation.json").read_text())
     assert metadata["status"] == "provider_failed"
     assert metadata["failure_stage"] == "provider"
     assert metadata["elapsed_seconds"] >= 0
+    assert (job_dir / "attempts" / "0" / "attempt.json").is_file()
 
 
 def test_pipeline_rejects_unsafe_job_id_before_writing_or_generation(tmp_path: Path) -> None:

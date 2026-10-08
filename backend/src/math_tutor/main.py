@@ -1,3 +1,6 @@
+"""Compose Math Tutor providers, renderers, validators, and HTTP services.
+Runtime configuration enters through Settings and remains outside core logic."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -33,6 +36,7 @@ from math_tutor.renderer import (
     DockerManimRenderer,
 )
 from math_tutor.settings import Settings, get_settings
+from math_tutor.validation.media import MediaValidator
 
 GENERATED_DEMO_PROMPT = """Create a concise visual lesson explaining why the Taylor
 series of e^x equals the function. Show the polynomial approximations building from
@@ -57,6 +61,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     resolved = settings or get_settings()
     package_root = Path(__file__).parent
     job_store = JobStore()
+    media_validator = MediaValidator()
 
     def report_stage(pipeline_job_id: str, stage: LessonStage) -> None:
         job_id = pipeline_job_id
@@ -113,6 +118,9 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         prompt=GENERATED_DEMO_PROMPT,
         generator=silent_model,
         renderer=base_renderer,
+        generation_provider=("nebius_token_factory" if nebius_api_key else "unavailable"),
+        validator=media_validator,
+        max_repair_attempts=resolved.validation_max_repair_attempts,
         stage_reporter=report_stage,
     )
     generated_renderer: PromptLessonRenderer = silent_generated_renderer
@@ -156,6 +164,11 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             generator=voiceover_model,
             renderer=voiceover_renderer,
             voiceover=True,
+            generation_provider=(
+                "nebius_token_factory" if nebius_api_key else "unavailable"
+            ),
+            validator=media_validator,
+            max_repair_attempts=resolved.validation_max_repair_attempts,
             stage_reporter=report_stage,
         )
         generated_renderer = VoiceoverFallbackRenderer(
@@ -196,6 +209,9 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             generator=modal_base_client,
             renderer=modal_base_renderer,
             voiceover=bool(elevenlabs_api_key),
+            generation_provider="modal_vllm",
+            validator=media_validator,
+            max_repair_attempts=resolved.validation_max_repair_attempts,
             stage_reporter=report_stage,
         )
         health_model = modal_base_client

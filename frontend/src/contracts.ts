@@ -1,3 +1,5 @@
+// Define the HTTP contracts shared by the Math Tutor UI and transport.
+// Stage values stay aligned with the backend lesson domain.
 export type LessonStatus = "queued" | "running" | "ready" | "partial" | "failed";
 
 export type LessonStage =
@@ -5,6 +7,8 @@ export type LessonStage =
   | "generating_code"
   | "validating_code"
   | "rendering"
+  | "validating_output"
+  | "repairing"
   | "ready"
   | "failed";
 

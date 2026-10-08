@@ -1,3 +1,6 @@
+"""Run the frozen single-attempt Manim evaluation and aggregate metrics.
+Evaluation artifacts preserve the original baseline contract without repair."""
+
 from __future__ import annotations
 
 import argparse
@@ -228,6 +231,8 @@ def run_evaluation(
                 prompt=example.prompt,
                 generator=client,
                 renderer=renderer,
+                generation_provider="nebius_token_factory",
+                max_repair_attempts=0,
             )
             failure_stage: str | None = None
             timed_out = False
@@ -247,9 +252,11 @@ def run_evaluation(
             except Exception:
                 failure_stage = "error"
 
-            job_dir = attempts_dir / example.id
+            job_dir = attempts_dir / example.id / "attempts" / "0"
             generation = _read_json_if_present(job_dir / "generation.json")
-            render = _read_json_if_present(job_dir / "render.json")
+            render = _read_json_if_present(
+                attempts_dir / f"{example.id}-attempt-0" / "render.json"
+            )
             extraction_success = failure_stage not in {"provider", "extraction"}
             parse_success = extraction_success and failure_stage != "parse"
             attempts.append(

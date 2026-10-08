@@ -1,3 +1,5 @@
+// Render the lesson request, progress, and generated artifact experience.
+// Progress labels mirror the backend lesson-stage contract.
 import { type FormEvent, useRef, useState } from "react";
 
 import type {
@@ -31,6 +33,7 @@ const progressSteps = [
   "Generate code",
   "Validate code",
   "Render + narrate",
+  "Validate output",
 ];
 
 const stageOrder: LessonStage[] = [
@@ -38,6 +41,7 @@ const stageOrder: LessonStage[] = [
   "generating_code",
   "validating_code",
   "rendering",
+  "validating_output",
 ];
 
 const stageLabels: Record<LessonStage, string> = {
@@ -45,6 +49,8 @@ const stageLabels: Record<LessonStage, string> = {
   generating_code: "Generating code",
   validating_code: "Validating code",
   rendering: "Rendering + narrating",
+  validating_output: "Validating output",
+  repairing: "Repairing lesson",
   ready: "Ready",
   failed: "Failed",
 };
@@ -280,7 +286,18 @@ function EmptyVideo() {
 }
 
 function GeneratingVideo({ lesson }: { lesson: LessonJob; busy: boolean }) {
-  const activeStage = stageOrder.indexOf(lesson.stage);
+  const progressState = useRef({ jobId: lesson.id, furthestStage: -1 });
+  if (progressState.current.jobId !== lesson.id) {
+    progressState.current = { jobId: lesson.id, furthestStage: -1 };
+  }
+  const reportedStage = lesson.stage === "repairing"
+    ? stageOrder.length - 1
+    : stageOrder.indexOf(lesson.stage);
+  progressState.current.furthestStage = Math.max(
+    progressState.current.furthestStage,
+    reportedStage,
+  );
+  const activeStage = progressState.current.furthestStage;
   const progress = activeStage < 0 ? 100 : ((activeStage + 0.5) / stageOrder.length) * 100;
   const heading = lesson.status === "queued"
     ? "Queued for a render worker"

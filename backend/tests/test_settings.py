@@ -1,3 +1,6 @@
+"""Verify environment-backed service configuration and safe defaults.
+Tests cover credentials, provider connections, and operational policy."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -23,6 +26,7 @@ def test_settings_loads_secret_and_keeps_operational_code_defaults(
     assert settings.artifact_root == Path("artifacts")
     assert settings.render_timeout_seconds == 90
     assert settings.max_pending_jobs == 8
+    assert settings.validation_max_repair_attempts == 1
 
 
 def test_get_settings_returns_one_cached_settings_object(monkeypatch) -> None:

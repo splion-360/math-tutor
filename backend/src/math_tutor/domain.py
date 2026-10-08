@@ -1,3 +1,6 @@
+"""Define stable lesson job, routing, and progress domain types.
+These records are shared by orchestration, persistence, and the HTTP API."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -26,6 +29,8 @@ class LessonStage(StrEnum):
     GENERATING_CODE = "generating_code"
     VALIDATING_CODE = "validating_code"
     RENDERING = "rendering"
+    VALIDATING_OUTPUT = "validating_output"
+    REPAIRING = "repairing"
     READY = "ready"
     FAILED = "failed"
 
