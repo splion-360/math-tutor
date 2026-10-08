@@ -236,3 +236,7 @@ node_modules/
 training/data/
 # Downloaded model checkpoints and provider run artifacts
 training/artifacts/
+
+# Local HTML analysis reports
+/backend/docs/**/*.html
+/backend/docs/**/*.htm
