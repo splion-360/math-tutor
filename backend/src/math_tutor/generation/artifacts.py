@@ -9,7 +9,7 @@ from hashlib import sha256
 from pathlib import Path
 
 from math_tutor.jobs import RenderOutcome, is_safe_job_id
-from math_tutor.validation.models import RenderedAttempt
+from math_tutor.validation.models import RenderedAttempt, ValidationReport
 
 
 class AttemptArtifactStore:
@@ -60,6 +60,7 @@ class AttemptArtifactStore:
         *,
         expected_checks: tuple[str, ...],
         validation_status: str,
+        validation_report: ValidationReport | None = None,
     ) -> Path:
         """Write the complete evidence manifest for a rendered attempt.
 
@@ -67,6 +68,7 @@ class AttemptArtifactStore:
             attempt: Rendered attempt whose evidence must be indexed.
             expected_checks: Stable checks expected for this attempt.
             validation_status: Final status reported by validation.
+            validation_report: Aggregate report containing ordered axis results.
 
         Returns:
             Path to the written attempt manifest.
@@ -84,26 +86,52 @@ class AttemptArtifactStore:
         )
         manifest.update(
             {
-                "source": self._optional_file_evidence(attempt.artifact_dir / "extracted_scene.py"),
-                "render": {
-                    "renderer": attempt.outcome.renderer,
-                    "elapsed_seconds": attempt.outcome.elapsed_seconds,
-                    "logs": self._optional_file_evidence(attempt.artifact_dir / "render.log"),
-                    "spatial_trace": self._optional_file_evidence(
-                        attempt.outcome.spatial_trace_path
-                    ),
-                },
-                "media": {
-                    "video": self._file_evidence(attempt.outcome.video_path),
-                    "silent_video": self._optional_file_evidence(attempt.outcome.silent_video_path),
-                    "captions": self._optional_file_evidence(attempt.outcome.captions_path),
-                    "narration_required": attempt.narration_required,
-                    "captions_required": attempt.captions_required,
-                },
+                **self._rendered_evidence(attempt),
+                "validation_input": self._optional_file_evidence(attempt.validation_input_path),
                 "validation_artifacts": self._validation_artifacts(attempt.artifact_dir),
             }
         )
+        if validation_report is not None:
+            manifest["validation_axes"] = validation_report.axis_summaries()
         return self._write_manifest(attempt.artifact_dir, manifest)
+
+    def write_validation_input(
+        self,
+        attempt: RenderedAttempt,
+        *,
+        expected_checks: tuple[str, ...],
+    ) -> Path:
+        """Persist the immutable rendered-attempt input shared by all validators.
+
+        Args:
+            attempt: Completed render that is ready for output validation.
+            expected_checks: Stable checks expected for this attempt.
+
+        Returns:
+            Path to the immutable validation input manifest.
+
+        Raises:
+            FileExistsError: If the validation input was already written.
+        """
+        manifest = self._base_manifest(
+            attempt_dir=attempt.artifact_dir,
+            number=attempt.number,
+            status="ready_for_validation",
+            generation_model=attempt.generation_model,
+            generation_provider=attempt.generation_provider,
+            inference_path=attempt.inference_path,
+            renderer=attempt.outcome.renderer,
+            infrastructure_retry_count=attempt.infrastructure_retry_count,
+            expected_checks=expected_checks,
+        )
+        manifest["schema_version"] = "validation-input.v1"
+        manifest.pop("validation_status")
+        manifest.update(self._rendered_evidence(attempt))
+        path = attempt.artifact_dir / "validation_input.json"
+        if path.exists():
+            raise FileExistsError(path)
+        path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+        return path
 
     def write_failed_attempt_manifest(
         self,
@@ -163,6 +191,7 @@ class AttemptArtifactStore:
         validation_status: str,
         infrastructure_retry_count: int,
         validation_advisories: list[dict[str, object]] | None = None,
+        validation_report: ValidationReport | None = None,
     ) -> RenderOutcome:
         """Record and return the only attempt accepted for publication.
 
@@ -171,11 +200,15 @@ class AttemptArtifactStore:
             validation_status: Passing status recorded in the selection summary.
             infrastructure_retry_count: Total render retries across the lesson job.
             validation_advisories: Non-blocking validation evidence to expose.
+            validation_report: Aggregate report containing ordered axis results.
 
         Returns:
             Render outcome augmented with validation and repair diagnostics.
         """
         video_evidence = self._file_evidence(attempt.outcome.video_path)
+        generation_provenance = self._generation_provenance(attempt)
+        validation_axes = validation_report.axis_summaries() if validation_report else []
+        narration_status = attempt.outcome.narration_status.value
         summary = {
             "attempt_number": attempt.number,
             "attempt_count": attempt.number + 1,
@@ -185,6 +218,9 @@ class AttemptArtifactStore:
             "video_path": video_evidence["path"],
             "video_sha256": video_evidence["sha256"],
             "attempt_manifest": str((attempt.artifact_dir / "attempt.json").resolve()),
+            "validation_axes": validation_axes,
+            "generation_provenance": generation_provenance,
+            "narration_status": narration_status,
         }
         if validation_advisories:
             summary["validation_advisories"] = validation_advisories
@@ -198,6 +234,9 @@ class AttemptArtifactStore:
             "infrastructure_retry_count": infrastructure_retry_count,
             "selected_attempt": attempt.number,
             "validation_status": validation_status,
+            "validation_axes": validation_axes,
+            "generation_provenance": generation_provenance,
+            "narration_status": narration_status,
         }
         if validation_advisories:
             diagnostics["validation_advisories"] = validation_advisories
@@ -238,6 +277,35 @@ class AttemptArtifactStore:
             },
             "expected_checks": list(expected_checks),
             "validation_status": status,
+        }
+
+    def _rendered_evidence(self, attempt: RenderedAttempt) -> dict[str, object]:
+        """Return hashed source, render, and media evidence for one attempt."""
+        return {
+            "source": self._optional_file_evidence(attempt.artifact_dir / "extracted_scene.py"),
+            "render": {
+                "renderer": attempt.outcome.renderer,
+                "elapsed_seconds": attempt.outcome.elapsed_seconds,
+                "logs": self._optional_file_evidence(attempt.artifact_dir / "render.log"),
+                "spatial_trace": self._optional_file_evidence(attempt.outcome.spatial_trace_path),
+            },
+            "media": {
+                "video": self._file_evidence(attempt.outcome.video_path),
+                "silent_video": self._optional_file_evidence(attempt.outcome.silent_video_path),
+                "captions": self._optional_file_evidence(attempt.outcome.captions_path),
+                "narration_required": attempt.narration_required,
+                "captions_required": attempt.captions_required,
+                "narration_status": attempt.outcome.narration_status.value,
+            },
+        }
+
+    @staticmethod
+    def _generation_provenance(attempt: RenderedAttempt) -> dict[str, object]:
+        """Return the generation identity shared by artifacts and API diagnostics."""
+        return {
+            "model": attempt.generation_model,
+            "provider": attempt.generation_provider,
+            "inference_path": attempt.inference_path,
         }
 
     @staticmethod

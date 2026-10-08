@@ -21,6 +21,11 @@ interface AppProps {
   pollIntervalMs?: number;
 }
 
+interface ValidationAxisSummary {
+  validator: string;
+  status: "pass" | "fail" | "uncertain" | "validator_error";
+}
+
 const examples = [
   "Explain why √2 is irrational",
   "Visualize Euler’s identity",
@@ -401,6 +406,8 @@ function FailedVideo({ lesson: _lesson }: { lesson: LessonJob }) {
 }
 
 function SupportTabs({ lesson }: { lesson: LessonJob | null }) {
+  const axes = lesson ? readValidationAxes(lesson.diagnostics) : [];
+
   return (
     <section className="support-panel">
       <div className="support-content">
@@ -418,6 +425,22 @@ function SupportTabs({ lesson }: { lesson: LessonJob | null }) {
               <h2>Inference trace</h2>
               <InferenceRouting lesson={lesson} />
             </section>
+            {axes.length > 0 && (
+              <section className="detail-card validation-card">
+                <p className="section-kicker">Quality checks</p>
+                <h2>Output validation</h2>
+                <div className="validation-results">
+                  {axes.map((axis) => (
+                    <div key={axis.validator}>
+                      <span>{validatorLabel(axis.validator)}</span>
+                      <strong className={`validation-${axis.status}`}>
+                        {validationStatusLabel(axis.status)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </article>
         ) : (
           <div className="awaiting-content">
@@ -519,6 +542,47 @@ function readText(record: Record<string, unknown>, keys: string[]) {
     if (typeof value === "string" && value.trim()) return value;
   }
   return null;
+}
+
+function readValidationAxes(
+  diagnostics: Record<string, unknown>,
+): ValidationAxisSummary[] {
+  const axes = diagnostics.validation_axes;
+  if (!Array.isArray(axes)) return [];
+  const supportedStatuses = new Set([
+    "pass",
+    "fail",
+    "uncertain",
+    "validator_error",
+  ]);
+  return axes.flatMap((axis) => {
+    if (typeof axis !== "object" || axis === null) return [];
+    const validator = "validator" in axis ? axis.validator : null;
+    const status = "status" in axis ? axis.status : null;
+    if (
+      typeof validator !== "string"
+      || typeof status !== "string"
+      || !supportedStatuses.has(status)
+    ) return [];
+    return [{
+      validator,
+      status: status as ValidationAxisSummary["status"],
+    }];
+  });
+}
+
+function validatorLabel(validator: string) {
+  if (validator === "media") return "Media";
+  if (validator === "spatial") return "Layout";
+  if (validator === "visual_evidence") return "Visual evidence";
+  return validator.replaceAll("_", " ");
+}
+
+function validationStatusLabel(status: ValidationAxisSummary["status"]) {
+  if (status === "pass") return "Passed";
+  if (status === "fail") return "Failed";
+  if (status === "validator_error") return "Check unavailable";
+  return "Uncertain";
 }
 
 const delay = (milliseconds: number) =>

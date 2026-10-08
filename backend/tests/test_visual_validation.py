@@ -168,6 +168,10 @@ def test_visual_validator_returns_controlled_frame_specific_failure(
     )
 
     assert report.status is ValidationStatus.FAIL
+    assert report.provenance == {
+        "model": "Qwen/Qwen3-VL-4B-Instruct",
+        "revision": "ebb281ec70b05090aa6165b016eac8ec08e71b17",
+    }
     assert report.findings[0].code == "visible_cropping_or_truncation"
     assert report.findings[0].evidence == {
         "frames": [

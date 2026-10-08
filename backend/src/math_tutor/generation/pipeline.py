@@ -222,6 +222,13 @@ class GeneratedLessonPipeline:
                 previous_infrastructure_retry_count=infrastructure_retry_count,
             )
             infrastructure_retry_count += attempt.infrastructure_retry_count
+            attempt = replace(
+                attempt,
+                validation_input_path=artifacts.write_validation_input(
+                    attempt,
+                    expected_checks=self._expected_checks,
+                ),
+            )
             if self._validator is None:
                 artifacts.write_attempt_manifest(
                     attempt,
@@ -241,6 +248,7 @@ class GeneratedLessonPipeline:
                 attempt,
                 expected_checks=self._expected_checks,
                 validation_status=report.status.value,
+                validation_report=report,
             )
             if report.status is ValidationStatus.PASS:
                 return artifacts.select_attempt(
@@ -248,22 +256,17 @@ class GeneratedLessonPipeline:
                     validation_status=report.status.value,
                     infrastructure_retry_count=infrastructure_retry_count,
                     validation_advisories=[advisory.to_dict() for advisory in report.advisories],
+                    validation_report=report,
                 )
-            if report.status in {
-                ValidationStatus.ERROR,
-                ValidationStatus.VALIDATOR_ERROR,
-            }:
+            if report.status is ValidationStatus.VALIDATOR_ERROR:
                 raise OutputValidationError(
                     "rendered lesson validation could not be completed",
-                    diagnostics={
-                        "failure_stage": "output_validation",
-                        "validator": report.validator,
-                        "validation_status": report.status.value,
-                        "attempt_count": attempt_number + 1,
-                        "repair_count": attempt_number,
-                        "infrastructure_retry_count": infrastructure_retry_count,
-                        "attempt_manifest": str(manifest.resolve()),
-                    },
+                    diagnostics=self._validation_diagnostics(
+                        attempt=attempt,
+                        report=report,
+                        infrastructure_retry_count=infrastructure_retry_count,
+                        manifest=manifest,
+                    ),
                 )
             if report.repairable_findings and attempt_number < self._max_repair_attempts:
                 self._report_stage(job_id, LessonStage.REPAIRING)
@@ -276,14 +279,13 @@ class GeneratedLessonPipeline:
             raise OutputValidationError(
                 "rendered lesson did not pass output validation",
                 diagnostics={
-                    "failure_stage": "output_validation",
-                    "validator": report.validator,
-                    "validation_status": report.status.value,
+                    **self._validation_diagnostics(
+                        attempt=attempt,
+                        report=report,
+                        infrastructure_retry_count=infrastructure_retry_count,
+                        manifest=manifest,
+                    ),
                     "findings": [finding.to_dict() for finding in report.findings],
-                    "attempt_count": attempt_number + 1,
-                    "repair_count": attempt_number,
-                    "infrastructure_retry_count": infrastructure_retry_count,
-                    "attempt_manifest": str(manifest.resolve()),
                 },
             )
 
@@ -560,6 +562,32 @@ class GeneratedLessonPipeline:
     def _report_stage(self, job_id: str, stage: LessonStage) -> None:
         if self._stage_reporter is not None:
             self._stage_reporter(job_id, stage)
+
+    def _validation_diagnostics(
+        self,
+        *,
+        attempt: RenderedAttempt,
+        report: ValidationReport,
+        infrastructure_retry_count: int,
+        manifest: Path,
+    ) -> dict[str, object]:
+        """Return consistent public diagnostics for a rejected rendered attempt."""
+        return {
+            "failure_stage": "output_validation",
+            "validator": report.validator,
+            "validation_status": report.status.value,
+            "validation_axes": report.axis_summaries(),
+            "attempt_count": attempt.number + 1,
+            "repair_count": attempt.number,
+            "infrastructure_retry_count": infrastructure_retry_count,
+            "attempt_manifest": str(manifest.resolve()),
+            "generation_provenance": {
+                "model": attempt.generation_model,
+                "provider": attempt.generation_provider,
+                "inference_path": attempt.inference_path,
+            },
+            "narration_status": attempt.outcome.narration_status.value,
+        }
 
     @staticmethod
     def _write_metadata(job_dir: Path, metadata: dict[str, object]) -> None:

@@ -106,9 +106,7 @@ def test_media_validator_reports_duration_advisory_with_blocking_audio_finding(
     assert report.status is ValidationStatus.FAIL
     assert [finding.code for finding in report.findings] == ["missing_required_audio"]
     assert report.findings[0].repair_instruction is not None
-    assert [advisory.code for advisory in report.advisories] == [
-        "duration_outside_target"
-    ]
+    assert [advisory.code for advisory in report.advisories] == ["duration_outside_target"]
     assert report.advisories[0].repair_instruction is None
     assert report.advisories[0].evidence == {
         "actual_seconds": 7,
@@ -134,9 +132,7 @@ def test_media_validator_accepts_short_video_with_duration_advisory(
 
     assert report.status is ValidationStatus.PASS
     assert report.findings == ()
-    assert [advisory.code for advisory in report.advisories] == [
-        "duration_outside_target"
-    ]
+    assert [advisory.code for advisory in report.advisories] == ["duration_outside_target"]
 
 
 def test_media_validator_rejects_missing_required_captions_without_model_repair(
@@ -197,13 +193,11 @@ def test_media_validator_reports_inspection_failure_as_validator_error(
         narration_required=False,
         captions_required=False,
     )
-    validator = MediaValidator(
-        inspector=FixedInspector(MediaInspectionError("ffprobe missing"))
-    )
+    validator = MediaValidator(inspector=FixedInspector(MediaInspectionError("ffprobe missing")))
 
     report = validator.validate(attempt)
 
-    assert report.status is ValidationStatus.ERROR
+    assert report.status is ValidationStatus.VALIDATOR_ERROR
     assert report.findings[0].code == "media_inspection_failed"
     assert "ffprobe missing" not in report.findings[0].message
 

@@ -243,7 +243,7 @@ class SpatialValidator:
         if measurement_errors:
             return ValidationReport(
                 validator=self.name,
-                status=ValidationStatus.ERROR,
+                status=ValidationStatus.VALIDATOR_ERROR,
                 findings=(
                     ValidationFinding(
                         code="spatial_measurement_incomplete",
@@ -444,7 +444,7 @@ class SpatialValidator:
     def _trace_error_report(self) -> ValidationReport:
         return ValidationReport(
             validator=self.name,
-            status=ValidationStatus.ERROR,
+            status=ValidationStatus.VALIDATOR_ERROR,
             findings=(
                 ValidationFinding(
                     code="spatial_trace_unavailable",

@@ -192,7 +192,7 @@ def test_text_inside_curve_bounding_box_is_advisory(tmp_path: Path) -> None:
 def test_spatial_validator_reports_missing_trace_as_validator_error(tmp_path: Path) -> None:
     report = SpatialValidator().validate(_attempt(tmp_path, None))
 
-    assert report.status is ValidationStatus.ERROR
+    assert report.status is ValidationStatus.VALIDATOR_ERROR
     assert report.findings[0].code == "spatial_trace_unavailable"
     assert report.findings[0].repair_instruction is None
 
@@ -210,7 +210,7 @@ def test_spatial_validator_reports_unmeasured_object_as_error(tmp_path: Path) ->
 
     report = SpatialValidator().validate(_attempt(tmp_path, trace))
 
-    assert report.status is ValidationStatus.ERROR
+    assert report.status is ValidationStatus.VALIDATOR_ERROR
     assert report.findings[0].code == "spatial_measurement_incomplete"
 
 

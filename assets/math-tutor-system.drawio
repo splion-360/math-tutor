@@ -1,63 +1,38 @@
 <mxfile host="app.diagrams.net">
-  <diagram name="Three-adapter lesson routing" id="math-tutor-system">
-    <mxGraphModel page="1" pageWidth="980" pageHeight="800" background="#ffffff">
+  <diagram name="Validated lesson generation" id="math-tutor-validation-loop">
+    <mxGraphModel page="1" pageWidth="1600" pageHeight="850" background="#ffffff" adaptiveColors="auto">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="backbone" value="Shared backbone" style="swimlane;startSize=34;rounded=1;html=1;fillColor=#f1f5f9;swimlaneFillColor=#f8fafc;strokeColor=#cbd5e1;fontColor=#334155;fontSize=12;align=left;spacingLeft=15;" vertex="1" parent="1">
-          <mxGeometry x="190" y="280" width="600" height="125" as="geometry" />
-        </mxCell>
-        <mxCell id="prompt" value="&lt;b&gt;Lesson request&lt;/b&gt;&lt;br&gt;Prompt + optional difficulty" style="rounded=1;arcSize=15;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#818cf8;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="400" y="40" width="180" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="router" value="&lt;b&gt;Difficulty router&lt;/b&gt;&lt;br&gt;Explicit label or keyword heuristic" style="rounded=1;arcSize=15;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#94a3b8;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="400" y="160" width="180" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="foundational" value="&lt;b&gt;Foundational&lt;/b&gt;&lt;br&gt;Qwen3-4B + LoRA" style="rounded=1;arcSize=15;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#818cf8;fontColor=#0f172a;fontSize=13;" vertex="1" parent="backbone">
-          <mxGeometry x="40" y="40" width="160" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="intermediate" value="&lt;b&gt;Intermediate&lt;/b&gt;&lt;br&gt;Qwen3-4B + LoRA" style="rounded=1;arcSize=15;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#818cf8;fontColor=#0f172a;fontSize=13;" vertex="1" parent="backbone">
-          <mxGeometry x="220" y="40" width="160" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="advanced" value="&lt;b&gt;Advanced&lt;/b&gt;&lt;br&gt;Qwen3-4B + LoRA" style="rounded=1;arcSize=15;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#818cf8;fontColor=#0f172a;fontSize=13;" vertex="1" parent="backbone">
-          <mxGeometry x="400" y="40" width="160" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="normalize" value="&lt;b&gt;Base-model cleanup&lt;/b&gt;&lt;br&gt;Convert the draft into a renderable scene" style="rounded=1;arcSize=15;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#94a3b8;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="400" y="440" width="180" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="render" value="&lt;b&gt;Validate + render&lt;/b&gt;&lt;br&gt;Manim in Docker · optional narration" style="rounded=1;arcSize=15;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#94a3b8;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="400" y="560" width="180" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="video" value="&lt;b&gt;Animated lesson&lt;/b&gt;&lt;br&gt;Video + generated code" style="rounded=1;arcSize=15;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#6ee7b7;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="400" y="680" width="180" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="e0" source="prompt" target="router" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e1" source="router" target="foundational" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e2" source="router" target="intermediate" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e3" source="router" target="advanced" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e4" source="foundational" target="normalize" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e5" source="intermediate" target="normalize" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e6" source="advanced" target="normalize" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e7" source="normalize" target="render" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e8" source="render" target="video" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
+        <mxCell id="prompt" value="&lt;b&gt;Lesson request&lt;/b&gt;&lt;br&gt;Prompt + optional difficulty" style="rounded=1;arcSize=16;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#818cf8;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1"><mxGeometry x="30" y="290" width="165" height="72" as="geometry" /></mxCell>
+        <mxCell id="route" value="&lt;b&gt;Route request&lt;/b&gt;&lt;br&gt;Base or difficulty adapter" style="rounded=1;arcSize=16;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#94a3b8;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1"><mxGeometry x="235" y="290" width="165" height="72" as="geometry" /></mxCell>
+        <mxCell id="generate" value="&lt;b&gt;Generate scene&lt;/b&gt;&lt;br&gt;Manim source" style="rounded=1;arcSize=16;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#818cf8;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1"><mxGeometry x="440" y="290" width="165" height="72" as="geometry" /></mxCell>
+        <mxCell id="source" value="&lt;b&gt;Source admission&lt;/b&gt;&lt;br&gt;Parse · AST · API policy" style="rounded=1;arcSize=16;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#fb923c;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1"><mxGeometry x="645" y="290" width="165" height="72" as="geometry" /></mxCell>
+        <mxCell id="render" value="&lt;b&gt;Isolated render&lt;/b&gt;&lt;br&gt;Video · audio · captions" style="rounded=1;arcSize=16;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#94a3b8;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1"><mxGeometry x="850" y="290" width="165" height="72" as="geometry" /></mxCell>
+        <mxCell id="bundle" value="&lt;b&gt;Immutable validation input&lt;/b&gt;&lt;br&gt;Prompt · source · media&lt;br&gt;timeline · expected checks" style="rounded=1;arcSize=16;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#64748b;fontColor=#0f172a;fontSize=12;" vertex="1" parent="1"><mxGeometry x="1055" y="278" width="190" height="96" as="geometry" /></mxCell>
+        <mxCell id="validators" value="Parallel output validation" style="swimlane;startSize=34;rounded=1;html=1;fillColor=#f8fafc;swimlaneFillColor=#f1f5f9;strokeColor=#cbd5e1;fontColor=#334155;fontSize=12;align=left;spacingLeft=12;" vertex="1" parent="1"><mxGeometry x="1050" y="30" width="410" height="200" as="geometry" /></mxCell>
+        <mxCell id="media" value="&lt;b&gt;Media&lt;/b&gt;&lt;br&gt;Streams · duration&lt;br&gt;audio · captions" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#6ee7b7;fontColor=#0f172a;fontSize=12;" vertex="1" parent="validators"><mxGeometry x="20" y="52" width="110" height="112" as="geometry" /></mxCell>
+        <mxCell id="spatial" value="&lt;b&gt;Spatial&lt;/b&gt;&lt;br&gt;Bounds · margins&lt;br&gt;size · overlap" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#6ee7b7;fontColor=#0f172a;fontSize=12;" vertex="1" parent="validators"><mxGeometry x="150" y="52" width="110" height="112" as="geometry" /></mxCell>
+        <mxCell id="visual" value="&lt;b&gt;Visual evidence&lt;/b&gt;&lt;br&gt;Sampled frames&lt;br&gt;bounded VLM checks" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#6ee7b7;fontColor=#0f172a;fontSize=12;" vertex="1" parent="validators"><mxGeometry x="280" y="52" width="110" height="112" as="geometry" /></mxCell>
+        <mxCell id="aggregate" value="&lt;b&gt;Deterministic aggregator&lt;/b&gt;&lt;br&gt;Ordered statuses + structured evidence" style="rounded=1;arcSize=16;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#fb923c;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1"><mxGeometry x="1270" y="290" width="190" height="72" as="geometry" /></mxCell>
+        <mxCell id="publish" value="&lt;b&gt;Publish lesson&lt;/b&gt;&lt;br&gt;Video + validation summary" style="rounded=1;arcSize=16;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#22c55e;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1"><mxGeometry x="1270" y="455" width="190" height="72" as="geometry" /></mxCell>
+        <mxCell id="repair" value="&lt;b&gt;One repair attempt&lt;/b&gt;&lt;br&gt;Confirmed repairable findings only" style="rounded=1;arcSize=16;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#818cf8;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1"><mxGeometry x="850" y="580" width="205" height="72" as="geometry" /></mxCell>
+        <mxCell id="stop" value="&lt;b&gt;Stop publication&lt;/b&gt;&lt;br&gt;Uncertain · validator error · failed repair" style="rounded=1;arcSize=16;whiteSpace=wrap;html=1;fillColor=#fef2f2;strokeColor=#f87171;fontColor=#0f172a;fontSize=13;" vertex="1" parent="1"><mxGeometry x="1270" y="580" width="190" height="72" as="geometry" /></mxCell>
+        <mxCell id="e1" source="prompt" target="route" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e2" source="route" target="generate" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e3" source="generate" target="source" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e4" source="source" target="render" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e5" source="render" target="bundle" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e6" source="bundle" target="media" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e7" source="bundle" target="spatial" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e8" source="bundle" target="visual" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e9" source="media" target="aggregate" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e10" source="spatial" target="aggregate" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e11" source="visual" target="aggregate" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e12" value="pass" source="aggregate" target="publish" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#16a34a;fontColor=#166534;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e13" value="repairable fail · attempt 0" source="aggregate" target="repair" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6366f1;fontColor=#4338ca;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e14" value="regenerate" source="repair" target="generate" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#6366f1;fontColor=#4338ca;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="520" y="616" /></Array></mxGeometry></mxCell>
+        <mxCell id="e15" value="no supported repair" source="aggregate" target="stop" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#dc2626;fontColor=#991b1b;strokeWidth=1.5;endArrow=classic;"><mxGeometry relative="1" as="geometry" /></mxCell>
       </root>
     </mxGraphModel>
   </diagram>

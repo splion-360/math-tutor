@@ -37,6 +37,11 @@ from math_tutor.settings import Settings, get_settings
 from math_tutor.validation.media import MediaValidator
 from math_tutor.validation.spatial import SpatialValidationPolicy, SpatialValidator
 from math_tutor.validation.suite import ValidatorSuite
+from math_tutor.validation.visual import FfmpegFrameSampler, VisualEvidenceValidator, VisualModel
+from math_tutor.validation.visual_provider import (
+    ModalVisualModelClient,
+    UnavailableVisualModelClient,
+)
 
 GENERATED_DEMO_PROMPT = """Create a concise visual lesson explaining why the Taylor
 series of e^x equals the function. Show the polynomial approximations building from
@@ -70,6 +75,22 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     resolved = settings or get_settings()
     package_root = Path(__file__).parent
     job_store = JobStore()
+    visual_api_key = (
+        resolved.modal_visual_model_api_key.get_secret_value()
+        if resolved.modal_visual_model_api_key is not None
+        else ""
+    )
+    configured_visual_client: ModalVisualModelClient | None = None
+    visual_model: VisualModel
+    if resolved.modal_visual_model_base_url:
+        configured_visual_client = ModalVisualModelClient(
+            base_url=resolved.modal_visual_model_base_url,
+            api_key=visual_api_key,
+            timeout_seconds=resolved.modal_visual_model_timeout_seconds,
+        )
+        visual_model = configured_visual_client
+    else:
+        visual_model = UnavailableVisualModelClient()
     output_validator = ValidatorSuite(
         (
             MediaValidator(),
@@ -81,6 +102,10 @@ def build_app(settings: Settings | None = None) -> FastAPI:
                     severe_overlap_ratio=resolved.spatial_severe_overlap_ratio,
                     persistent_checkpoints=resolved.spatial_persistent_checkpoints,
                 )
+            ),
+            VisualEvidenceValidator(
+                sampler=FfmpegFrameSampler(),
+                model=visual_model,
             ),
         )
     )
@@ -235,6 +260,8 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         """Close each configured generation client."""
         for configured_model in models_to_close:
             configured_model.close()
+        if configured_visual_client is not None:
+            configured_visual_client.close()
 
     return create_app(
         LessonService(

@@ -9,22 +9,32 @@ Math Tutor is a simple agentic application that turns a math prompt into an anim
 
 ## How it works
 
-Math Tutor takes a question and turns it into an animated explanation. The validator
-records a 30–45 second target as an advisory measurement, so otherwise valid lessons
-are not rejected solely because their rendered duration falls outside that range.
+Math Tutor turns a question into a Manim scene and renders it as an animated lesson.
+The generation model was LoRA fine-tuned on
+[Bespoke-Manim](https://huggingface.co/datasets/bespokelabs/bespoke-manim), a dataset
+of prompts paired with animation plans, narration, and Manim code. The project also
+contains foundational, intermediate, and advanced adapters for studying difficulty-based
+routing. Requests can use an explicit difficulty or the application's routing heuristic.
 
-The adapter-based system uses a **Qwen3-4B** backbone fine-tuned with LoRA on
-[Bespoke-Manim](https://huggingface.co/datasets/bespokelabs/bespoke-manim). This
-synthetic dataset contains 1,000 educational animation examples, pairing questions
-with narration, visual descriptions, and Python code for [Manim](https://www.manim.community/).
+Generated source must pass deterministic admission checks before it can run in an
+isolated renderer. A successful render produces one immutable validation input containing
+the prompt, admitted source, video, optional audio and captions, spatial timeline, and the
+checks expected for that attempt.
 
-The initial setup trained three stand-alone adapters: **foundational**, **intermediate**, and
-**advanced** based on the question difficulty which was inferred from the dataset. The API endpoint accepts an explicit difficulty label for _oracle routing_.
+Three output validators then run in parallel. The media validator checks the files and
+audio/video metadata. The spatial validator evaluates the renderer's object-bound traces
+for cropping, unsafe margins, oversized objects, and persistent intersections. The visual
+validator samples a small set of frames and asks a separately hosted vision model for
+bounded, frame-specific findings such as visible truncation, missing requested visuals,
+rendering corruption, caption mismatch, or severe clutter.
 
-The flow looks like this, __selected adapter__ produces a draft &rarr; __cleanup__ step turns that draft
-into the scene format expected by the renderer &rarr; generated code is validated for compilation correctness &rarr; renders it the app with optional synchronized narration and captions.
+A deterministic aggregator combines those reports. A passing attempt is published. A
+confirmed repairable failure can return structured feedback to the generator once; the
+repaired video must pass the same checks. Uncertain results and validator failures stop
+publication because they do not provide enough evidence for a safe repair. Lesson length
+remains an advisory measurement rather than a hard generation requirement.
 
-![Math Tutor routes each request to a foundational, intermediate, or advanced LoRA adapter sharing one backbone, then cleans up, validates, and renders the generated scene.](assets/math-tutor-system.drawio.svg)
+![Math Tutor generates and renders a lesson, runs media, spatial, and visual validation in parallel, and permits one evidence-based repair.](assets/math-tutor-system.drawio.svg)
 
 
 ## Setup
@@ -48,7 +58,12 @@ Edit `backend/.env` to configure lesson generation:
 | --- | --- |
 | `MODAL_VLLM_BASE_URL` | An existing Modal inference endpoint, including `/v1`; selects the three-adapter serving path |
 | `MODAL_VLLM_API_KEY` | Authentication with that endpoint |
+| `MODAL_VISUAL_MODEL_BASE_URL` | An existing Modal vision endpoint, including `/v1`, used for sampled-frame checks |
+| `MODAL_VISUAL_MODEL_API_KEY` | Authentication with the vision endpoint |
 | `ELEVENLABS_API_KEY` | Optional narration and captions |
+
+The service stops publication when the visual endpoint is not configured or cannot
+complete its check. This produces a `validator_error`; it does not consume the repair attempt.
 
 ### Run
 
@@ -61,47 +76,6 @@ Python, Node.js, and FFmpeg are included in the containers.
 
 Stop the app with `docker compose down`. Generated files are saved in
 `backend/artifacts/` and excluded from Git.
-
-## Reproduce the experiment figures
-
-With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed, run:
-
-```bash
-make evidence-data
-make evidence-figures
-```
-
-These CPU commands download the pinned dataset and public evidence, check their
-hashes, reconstruct the split IDs, and generate the plots in
-`training/artifacts/evidence/figures/`. No Modal credentials are required.
-The [evidence release](https://github.com/splion-360/math-tutor/releases/tag/evidence-v1)
-includes the numeric summaries and shared adapter checkpoint. The
-[manifest](training/evidence/manifest.json) records their provenance and missing
-evidence: original split metadata and completion of the third training epoch
-could not be verified.
-
-The [paired pilot release](https://github.com/splion-360/math-tutor/releases/tag/paired-pilot-v2)
-contains the saved responses, render results, videos, and review worksheet.
-Human review of mathematical correctness and prompt adherence is pending.
-
-To run another paired lesson pilot, first run `make evidence-data`, then:
-
-```bash
-export EVALUATION_RUN=paired-pilot-$(date -u +%Y%m%dT%H%M%SZ)
-make evaluation-freeze
-make evaluation-generate  # Requires Modal authentication and uses GPU credits
-make evaluation-download
-make evaluation-render   # Requires Docker
-```
-
-Freeze the plan once and reuse it for additional run IDs. It records prompts,
-overlap checks, token measurements, and renderer versions. Outputs include raw
-responses, render diagnostics, and a human-review
-CSV in `training/artifacts/$EVALUATION_RUN/evaluation/`.
-Watch the rendered videos and fill in the reviewer, UTC timestamp, duration,
-judgments, and evidence notes in `human_review_bound.csv`. Run
-`make evaluation-review` to create a separate reviewed report; the automatic
-results are preserved.
 
 ## Project structure
 
