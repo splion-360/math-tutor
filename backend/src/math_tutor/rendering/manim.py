@@ -81,6 +81,7 @@ class DockerManimRenderer:
         self._artifact_root = artifact_root.resolve()
         self._scene_path = scene_path.resolve()
         self._validation_script = Path(__file__).parent / "scenes" / "render_known.py"
+        self._spatial_trace_script = Path(__file__).parent / "scenes" / "spatial_trace.py"
         self._image = image
         self._timeout_seconds = timeout_seconds
         self._run_command = command_runner
@@ -107,9 +108,11 @@ class DockerManimRenderer:
         job_dir.mkdir(parents=True, exist_ok=True)
         scene_snapshot = job_dir / "scene.py"
         validator_snapshot = job_dir / "render_known.py"
+        spatial_trace_snapshot = job_dir / "spatial_trace.py"
         try:
             scene_snapshot.write_text(source, encoding="utf-8")
             shutil.copyfile(self._validation_script, validator_snapshot)
+            shutil.copyfile(self._spatial_trace_script, spatial_trace_snapshot)
         except OSError as error:
             self._write_metadata(
                 job_dir,
@@ -134,6 +137,7 @@ class DockerManimRenderer:
         command = self._render_command(
             scene_snapshot,
             validator_snapshot,
+            spatial_trace_snapshot,
             output_dir,
             container_name,
             scene_class,
@@ -264,6 +268,33 @@ class DockerManimRenderer:
             )
             raise self._failed("unsafe rendered video path", "unsafe rendered video path")
 
+        trace_path = output_dir / "spatial_trace.json"
+        safe_trace = False
+        try:
+            resolved_trace = trace_path.resolve(strict=True)
+            resolved_trace.relative_to(output_dir.resolve())
+            safe_trace = not trace_path.is_symlink() and resolved_trace.is_file()
+        except (OSError, ValueError):
+            resolved_trace = trace_path
+        if not safe_trace:
+            self._write_metadata(
+                job_dir,
+                status="failed",
+                command=command,
+                started_at=started_at,
+                elapsed_seconds=elapsed,
+                exit_code=result.returncode,
+                stdout=stdout,
+                stderr="spatial trace is missing or unsafe",
+                scene_sha256=scene_digest,
+                validator_sha256=validator_digest,
+                scene_class=scene_class,
+            )
+            raise self._failed(
+                "spatial trace is missing or unsafe",
+                "spatial trace is missing or unsafe",
+            )
+
         self._write_metadata(
             job_dir,
             status="ready",
@@ -282,12 +313,14 @@ class DockerManimRenderer:
             renderer=f"docker:{self._image}",
             elapsed_seconds=elapsed,
             logs="\n".join(part for part in (stdout, stderr) if part),
+            spatial_trace_path=resolved_trace,
         )
 
     def _render_command(
         self,
         scene_snapshot: Path,
         validator_snapshot: Path,
+        spatial_trace_snapshot: Path,
         output_dir: Path,
         container_name: str,
         scene_class: str,
@@ -326,6 +359,8 @@ class DockerManimRenderer:
             f"{scene_snapshot.resolve()}:/work/scene.py:ro",
             "--volume",
             f"{validator_snapshot.resolve()}:/work/render_known.py:ro",
+            "--volume",
+            f"{spatial_trace_snapshot.resolve()}:/work/spatial_trace.py:ro",
             "--volume",
             f"{output_dir.resolve()}:/work/output:rw",
             "--workdir",
@@ -377,6 +412,8 @@ class DockerManimRenderer:
             "scene_sha256": scene_sha256,
             "validator": "render_known.py",
             "validator_sha256": validator_sha256,
+            "spatial_trace_recorder": "spatial_trace.py",
+            "spatial_trace_recorder_sha256": _optional_sha256(job_dir / "spatial_trace.py"),
             "scene_class": scene_class,
             "command": command,
             "started_at": started_at.isoformat(),
@@ -414,3 +451,7 @@ def _as_text(value: str | bytes | None) -> str:
     if isinstance(value, bytes):
         return _trim(value.decode(errors="replace"))
     return _trim(value)
+
+
+def _optional_sha256(path: Path) -> str | None:
+    return sha256(path.read_bytes()).hexdigest() if path.is_file() else None

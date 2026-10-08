@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     render_timeout_seconds: float = Field(default=90, gt=0)
     max_pending_jobs: int = Field(default=8, gt=0)
     validation_max_repair_attempts: int = Field(default=1, ge=0)
+    spatial_unsafe_margin: float = Field(default=0.25, ge=0)
+    spatial_max_width_ratio: float = Field(default=0.9, gt=0, le=1)
+    spatial_max_height_ratio: float = Field(default=0.9, gt=0, le=1)
+    spatial_severe_overlap_ratio: float = Field(default=0.35, gt=0, le=1)
+    spatial_persistent_checkpoints: int = Field(default=2, gt=0)
 
 
 @lru_cache(maxsize=1)

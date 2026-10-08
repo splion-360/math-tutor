@@ -84,24 +84,19 @@ class AttemptArtifactStore:
         )
         manifest.update(
             {
-                "source": self._optional_file_evidence(
-                    attempt.artifact_dir / "extracted_scene.py"
-                ),
+                "source": self._optional_file_evidence(attempt.artifact_dir / "extracted_scene.py"),
                 "render": {
                     "renderer": attempt.outcome.renderer,
                     "elapsed_seconds": attempt.outcome.elapsed_seconds,
-                    "logs": self._optional_file_evidence(
-                        attempt.artifact_dir / "render.log"
+                    "logs": self._optional_file_evidence(attempt.artifact_dir / "render.log"),
+                    "spatial_trace": self._optional_file_evidence(
+                        attempt.outcome.spatial_trace_path
                     ),
                 },
                 "media": {
                     "video": self._file_evidence(attempt.outcome.video_path),
-                    "silent_video": self._optional_file_evidence(
-                        attempt.outcome.silent_video_path
-                    ),
-                    "captions": self._optional_file_evidence(
-                        attempt.outcome.captions_path
-                    ),
+                    "silent_video": self._optional_file_evidence(attempt.outcome.silent_video_path),
+                    "captions": self._optional_file_evidence(attempt.outcome.captions_path),
                     "narration_required": attempt.narration_required,
                     "captions_required": attempt.captions_required,
                 },
@@ -152,9 +147,7 @@ class AttemptArtifactStore:
         )
         manifest.update(
             {
-                "source": self._optional_file_evidence(
-                    attempt_dir / "extracted_scene.py"
-                ),
+                "source": self._optional_file_evidence(attempt_dir / "extracted_scene.py"),
                 "render": None,
                 "media": None,
                 "failure": failure,

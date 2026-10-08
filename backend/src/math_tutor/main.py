@@ -35,6 +35,8 @@ from math_tutor.rendering.media import FfmpegMediaAssembler, probe_audio_duratio
 from math_tutor.rendering.narration import NarratingRenderer, NarrationPlan, NarrationSegment
 from math_tutor.settings import Settings, get_settings
 from math_tutor.validation.media import MediaValidator
+from math_tutor.validation.spatial import SpatialValidationPolicy, SpatialValidator
+from math_tutor.validation.suite import ValidatorSuite
 
 GENERATED_DEMO_PROMPT = """Create a concise visual lesson explaining why the Taylor
 series of e^x equals the function. Show the polynomial approximations building from
@@ -68,7 +70,20 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     resolved = settings or get_settings()
     package_root = Path(__file__).parent
     job_store = JobStore()
-    media_validator = MediaValidator()
+    output_validator = ValidatorSuite(
+        (
+            MediaValidator(),
+            SpatialValidator(
+                policy=SpatialValidationPolicy(
+                    unsafe_margin=resolved.spatial_unsafe_margin,
+                    max_width_ratio=resolved.spatial_max_width_ratio,
+                    max_height_ratio=resolved.spatial_max_height_ratio,
+                    severe_overlap_ratio=resolved.spatial_severe_overlap_ratio,
+                    persistent_checkpoints=resolved.spatial_persistent_checkpoints,
+                )
+            ),
+        )
+    )
 
     def report_stage(pipeline_job_id: str, stage: LessonStage) -> None:
         """Map internal attempt suffixes back to the service job identifier."""
@@ -147,7 +162,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         generator=silent_model,
         renderer=base_renderer,
         generation_provider=("modal_vllm" if resolved.modal_vllm_base_url else "unavailable"),
-        validator=media_validator,
+        validator=output_validator,
         max_repair_attempts=resolved.validation_max_repair_attempts,
         stage_reporter=report_stage,
     )
@@ -183,7 +198,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             renderer=voiceover_renderer,
             voiceover=True,
             generation_provider=("modal_vllm" if resolved.modal_vllm_base_url else "unavailable"),
-            validator=media_validator,
+            validator=output_validator,
             max_repair_attempts=resolved.validation_max_repair_attempts,
             stage_reporter=report_stage,
         )

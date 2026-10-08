@@ -96,12 +96,14 @@ class ValidationReport:
         status: Overall validation result.
         findings: Blocking evidence-bearing findings produced by the validator.
         advisories: Non-blocking measurements retained for diagnostics.
+        component_reports: Ordered reports from independently run validators.
     """
 
     validator: str
     status: ValidationStatus
     findings: tuple[ValidationFinding, ...] = ()
     advisories: tuple[ValidationFinding, ...] = ()
+    component_reports: tuple[ValidationReport, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.validator.strip():
@@ -116,9 +118,7 @@ class ValidationReport:
     @property
     def repairable_findings(self) -> tuple[ValidationFinding, ...]:
         """Return findings that can be sent to the generator for repair."""
-        return tuple(
-            finding for finding in self.findings if finding.repair_instruction is not None
-        )
+        return tuple(finding for finding in self.findings if finding.repair_instruction is not None)
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-serializable representation of the report."""
@@ -127,6 +127,7 @@ class ValidationReport:
             "status": self.status.value,
             "findings": [finding.to_dict() for finding in self.findings],
             "advisories": [advisory.to_dict() for advisory in self.advisories],
+            "component_reports": [component.to_dict() for component in self.component_reports],
         }
 
 

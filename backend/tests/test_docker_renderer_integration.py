@@ -3,6 +3,7 @@ These integration checks verify media output beyond the mocked command boundary.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from time import monotonic, sleep
 
@@ -52,3 +53,7 @@ def test_known_scene_job_returns_mp4_from_locked_down_container(tmp_path: Path) 
     assert len(video.content) > 1_000
     assert b"ftyp" in video.content[:32]
     assert (tmp_path / "artifacts" / job_id / "render.json").is_file()
+    trace_path = tmp_path / "artifacts" / job_id / "output" / "spatial_trace.json"
+    trace = json.loads(trace_path.read_text())
+    assert trace["schema_version"] == "manim-spatial-trace.v1"
+    assert trace["checkpoints"]
