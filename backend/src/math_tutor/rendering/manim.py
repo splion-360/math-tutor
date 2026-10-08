@@ -21,7 +21,7 @@ CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 DEFAULT_MANIM_IMAGE = (
     "manimcommunity/manim@sha256:ab5ad56cf685d89da96e5d459e0cde3743fbdf2141be4dcff6c26566b5ca3191"
 )
-VOICEOVER_MANIM_IMAGE = "dream-ai-manim-voiceover:local"
+VOICEOVER_MANIM_IMAGE = "math-tutor-manim-voiceover:local"
 _DIGEST_PINNED_IMAGE = re.compile(r"^.+@sha256:[0-9a-f]{64}$")
 _ENVIRONMENT_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _LOG_LIMIT = 32_000

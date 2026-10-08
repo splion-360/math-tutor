@@ -49,7 +49,7 @@ def test_tracking_config_is_loaded_from_nested_object(tmp_path: Path) -> None:
                     "project": "math-tutor-dynamic-lora",
                     "run_name": "smoke-run",
                     "tags": ["dynamic-lora", "smoke"],
-                    "modal_artifact_path": "modal://dream-ai-training/runs/smoke-run",
+                    "modal_artifact_path": "modal://math-tutor-training/runs/smoke-run",
                 },
                 "run_smoke_eval": True,
                 "max_steps": 8,
@@ -69,7 +69,7 @@ def test_tracking_config_is_loaded_from_nested_object(tmp_path: Path) -> None:
     assert config.tracking.project == "math-tutor-dynamic-lora"
     assert config.tracking.run_name == "smoke-run"
     assert config.tracking.tags == ("dynamic-lora", "smoke")
-    assert config.tracking.modal_artifact_path == "modal://dream-ai-training/runs/smoke-run"
+    assert config.tracking.modal_artifact_path == "modal://math-tutor-training/runs/smoke-run"
     assert config.run_smoke_eval is True
     assert config.layer_energy_probe_top_k == 4
     assert config.layer_energy_probe_sample_count == 2

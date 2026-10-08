@@ -26,6 +26,6 @@
     "project": "math-tutor-dynamic-lora",
     "run_name": "modal-fixed-prompt-signatures-64-label-free",
     "tags": ["shared-lora", "fixed-prompt-gradient-signatures"],
-    "modal_artifact_path": "modal-volume://dream-ai-training-artifacts/shared_lora_fixed_prompt_signatures_64_label_free"
+    "modal_artifact_path": "modal-volume://math-tutor-training-artifacts/shared_lora_fixed_prompt_signatures_64_label_free"
   }
 }

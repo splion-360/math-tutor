@@ -727,7 +727,7 @@ wheels = [
 ]
 
 [[package]]
-name = "dream-ai-dynamic-lora"
+name = "math-tutor-training"
 version = "0.1.0"
 source = { editable = "." }
 

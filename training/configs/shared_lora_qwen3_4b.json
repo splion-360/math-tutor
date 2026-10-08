@@ -19,6 +19,6 @@
     "project": "math-tutor-dynamic-lora",
     "run_name": "shared-lora-qwen3-4b-smoke-label-free",
     "tags": ["shared-lora", "smoke"],
-    "modal_artifact_path": "modal://dream-ai-training/shared_lora_qwen3_4b_label_free"
+    "modal_artifact_path": "modal://math-tutor-training/shared_lora_qwen3_4b_label_free"
   }
 }

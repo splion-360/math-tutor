@@ -10,5 +10,5 @@
   "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
   "wandb_project": "math-tutor-dynamic-lora",
   "wandb_run_name": "modal-base-weight-probe-16-label-free",
-  "modal_artifact_path": "modal-volume://dream-ai-training-artifacts/base_weight_probe_16_label_free"
+  "modal_artifact_path": "modal-volume://math-tutor-training-artifacts/base_weight_probe_16_label_free"
 }

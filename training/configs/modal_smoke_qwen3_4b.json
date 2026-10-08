@@ -24,6 +24,6 @@
     "project": "math-tutor-dynamic-lora",
     "run_name": "modal-shared-lora-multi-sample-smoke-label-free",
     "tags": ["shared-lora", "modal-smoke"],
-    "modal_artifact_path": "modal-volume://dream-ai-training-artifacts/shared_lora_smoke_multi_sample_label_free"
+    "modal_artifact_path": "modal-volume://math-tutor-training-artifacts/shared_lora_smoke_multi_sample_label_free"
   }
 }

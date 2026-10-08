@@ -50,7 +50,7 @@ def test_wandb_tracking_starts_run_and_groups_train_metrics(
             project="math-tutor-dynamic-lora",
             run_name="unit-run",
             tags=("dynamic-lora", "unit"),
-            modal_artifact_path="modal://dream-ai-training/runs/unit-run",
+            modal_artifact_path="modal://math-tutor-training/runs/unit-run",
         ),
     )
     plan = RunPlan(
@@ -88,7 +88,7 @@ def test_wandb_tracking_starts_run_and_groups_train_metrics(
     assert init_kwargs["project"] == "math-tutor-dynamic-lora"
     assert init_kwargs["name"] == "unit-run"
     assert init_kwargs["tags"] == ["dynamic-lora", "unit"]
-    assert fake_run.summary["modal_artifact_path"] == "modal://dream-ai-training/runs/unit-run"
+    assert fake_run.summary["modal_artifact_path"] == "modal://math-tutor-training/runs/unit-run"
     assert fake_run.summary["finished"] is True
     assert logged == [
         (3, {"eval/loss": 1.1, "train/loss": 1.25, "train/runtime_seconds": 3.5})

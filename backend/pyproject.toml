@@ -1,5 +1,5 @@
 [project]
-name = "dream-ai-math-tutor"
+name = "math-tutor"
 version = "0.1.0"
 description = "AI math tutor lesson orchestration and isolated Manim rendering"
 requires-python = ">=3.11"
