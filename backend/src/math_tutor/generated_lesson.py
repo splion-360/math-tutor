@@ -711,7 +711,7 @@ class GeneratedLessonPipeline:
                 self._report_stage(job_id, LessonStage.REPAIRING)
                 effective_prompt = build_repair_prompt(
                     original_prompt=original_prompt,
-                    previous_output=extracted.source,
+                    previous_output=result.content,
                     report=report,
                 )
                 continue

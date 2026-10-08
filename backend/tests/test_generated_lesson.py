@@ -490,6 +490,7 @@ def test_pipeline_repairs_one_media_failure_and_preserves_both_attempts(
     assert "Extend the lesson to at least 30 seconds." in generator.prompts[1]
     assert "RAW VALIDATOR PROSE" not in generator.prompts[1]
     assert "Preserve the original mathematical topic" in generator.prompts[1]
+    assert f"```python\n{VALID_SCENE}```" in generator.prompts[1]
     assert outcome.video_path.read_bytes() == b"video-repair-123-attempt-1"
     assert outcome.validation_diagnostics == {
         "attempt_count": 2,

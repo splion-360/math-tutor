@@ -106,6 +106,10 @@ def test_media_validator_returns_repairable_duration_and_audio_findings(
         "missing_required_audio",
     ]
     assert all(finding.repair_instruction for finding in report.findings)
+    assert report.findings[0].repair_instruction == (
+        "Increase the total animation and narration runtime by at least 23 seconds so the "
+        "rendered lesson lasts between 30 and 45 seconds."
+    )
 
 
 def test_media_validator_rejects_missing_required_captions_without_model_repair(
