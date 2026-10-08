@@ -111,6 +111,31 @@ def test_figures_require_verified_numeric_inputs(tmp_path: Path) -> None:
     assert not (tmp_path / "figures").exists()
 
 
+def test_figures_accept_verified_supporting_metadata(tmp_path: Path, monkeypatch: Any) -> None:
+    """Supporting provenance is verified along with the three plotted summaries."""
+    entries = []
+    for name in ("base_norms.json", "lora_norms.json", "lora_cosines.json", "provenance.json"):
+        (tmp_path / name).write_bytes(b"verified")
+        entries.append({"path": name, "sha256": _sha(b"verified")})
+    calls: list[Path] = []
+
+    def plot(source: Path, output: Path) -> None:
+        calls.append(source)
+
+    monkeypatch.setattr(evidence.runpy, "run_path", lambda path: {
+        "plot_heatmap": plot, "plot_cosines": plot,
+    })
+    evidence.render_figures({"artifacts": entries}, tmp_path, tmp_path)
+    assert [path.name for path in calls] == [
+        "base_norms.json", "lora_norms.json", "lora_cosines.json",
+    ]
+    (tmp_path / "provenance.json").write_bytes(b"altered")
+    calls.clear()
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        evidence.render_figures({"artifacts": entries}, tmp_path, tmp_path)
+    assert calls == []
+
+
 def _dataset_fixture(tmp_path: Path, monkeypatch: Any) -> evidence.EvidenceManifest:
     """Provide a small corpus and CPU conversion seam for split-publication checks."""
     import json

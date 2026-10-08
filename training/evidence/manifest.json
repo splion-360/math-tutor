@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "release_status": "awaiting_private_artifact_recovery",
+  "release_status": "public_release_with_explicit_provenance_gaps",
   "dataset": {
     "repository": "bespokelabs/bespoke-manim",
     "revision": "4542ab8b32483c30d1772946dacae2ad1ae9274c",
@@ -14,45 +14,77 @@
     "epochs": 3,
     "training_count": 895,
     "validation_count": 100,
-    "split_status": "deterministic_reconstruction_pending_saved_metadata_comparison"
+    "split_status": "deterministic_reconstruction_original_split_metadata_missing",
+    "split_id_artifact": "split_ids.json"
   },
   "model": {
     "id": "Qwen/Qwen3-4B-Instruct-2507",
     "revision": "1b4199c4f36b0cef378bfb12390c18780c18af4c",
-    "identity_source": "training/src/dynamic_lora/constants.py",
+    "identity_source": "Base probe verifies model ID/revision; adapter config verifies ID only; training revision follows source configuration.",
     "saved_metadata_verified": false
   },
   "checkpoint": {
     "name": "checkpoint-1790",
     "epoch": 2,
     "modal_path": "full_corpus_signatures_3_epochs_label_free/checkpoints/checkpoint-1790",
-    "sha256": null,
-    "status": "recorded_in_local_report_not_recovered"
+    "sha256": "306632928890db4135ee987187195c7978c98cadc8cf962eec807dd92e11872d",
+    "status": "adapter_bytes_recovered_and_hashed",
+    "url": "https://github.com/splion-360/math-tutor/releases/download/evidence-v1/adapter_model.safetensors",
+    "adapter_config_url": "https://github.com/splion-360/math-tutor/releases/download/evidence-v1/adapter_config.json",
+    "selection_status": "best_at_epoch_2_third_epoch_completion_unverified"
   },
   "artifacts": [
     {
       "path": "base_norms.json",
       "sha256": "027d03936bb7b6cc3c8babfabaed0f3074e6463a3851ed5db0eebc6c74bdb33c",
-      "url": null,
+      "url": "https://github.com/splion-360/math-tutor/releases/download/evidence-v1/base_norms.json",
       "modal_path": "base_validation_gradient_heatmap/summary.json",
       "kind": "base_weight_norms",
-      "status": "report_hash_only_bytes_not_recovered"
+      "status": "recovered_original_bytes_match_report_hash"
     },
     {
       "path": "lora_norms.json",
       "sha256": "7d273c308b1eabbcff151ff25e26ae8b74f1d2ceeecd891ce3e198940a637eef",
-      "url": null,
+      "url": "https://github.com/splion-360/math-tutor/releases/download/evidence-v1/lora_norms.json",
       "modal_path": "validation_gradient_heatmap_epoch2/summary.json",
       "kind": "same_checkpoint_lora_norms",
-      "status": "report_hash_only_bytes_not_recovered"
+      "status": "recovered_original_bytes_match_report_hash"
     },
     {
       "path": "lora_cosines.json",
       "sha256": "c21d4398a7be61cd0ab2de99a8fb03da428327a644168c710d799cae06a05baa",
-      "url": null,
+      "url": "https://github.com/splion-360/math-tutor/releases/download/evidence-v1/lora_cosines.json",
       "modal_path": "validation_gradient_cosines_epoch2/summary.json",
       "kind": "exact_same_checkpoint_cosines",
-      "status": "report_hash_only_bytes_not_recovered"
+      "status": "recovered_original_bytes_match_report_hash"
+    },
+    {
+      "path": "trainer_state.json",
+      "sha256": "3b3b0823bcee67edd5cc775f32de3bf16f9a199b93e810a926c9caeef9e13075",
+      "url": "https://github.com/splion-360/math-tutor/releases/download/evidence-v1/trainer_state.json",
+      "kind": "saved_checkpoint_training_state",
+      "status": "recovered_original_bytes"
+    },
+    {
+      "path": "adapter_config.json",
+      "sha256": "6aeaf9f256d93d19235fd428270f67ab00e66369d383e2519c2300f65c5c0f20",
+      "url": "https://github.com/splion-360/math-tutor/releases/download/evidence-v1/adapter_config.json",
+      "kind": "saved_adapter_configuration",
+      "status": "recovered_original_bytes"
+    },
+    {
+      "path": "provenance.json",
+      "sha256": "a245a741c95e4d6718ef3ca5a16dc70e20527b3845392da6a2eef00f7354443a",
+      "url": "https://github.com/splion-360/math-tutor/releases/download/evidence-v1/provenance.json",
+      "kind": "verified_settings_and_missing_evidence",
+      "status": "derived_inventory_not_original_run_metadata"
+    },
+    {
+      "path": "split_ids.json",
+      "sha256": "cfc1f4563c48b0e195638950f34c8836b3c92a9f09777f2fcaa5e376c761770e",
+      "url": "https://github.com/splion-360/math-tutor/releases/download/evidence-v1/split_ids.json",
+      "kind": "reconstructed_split_ids",
+      "status": "derived_inventory_not_original_run_metadata"
     }
   ],
   "experiments": [
@@ -66,17 +98,17 @@
       "configuration": "training/configs/modal_full_corpus_signatures_qwen3_4b.json",
       "source_revision": "d1dc54edbed5b8a59d512950ab2ae8877d44269a",
       "metadata_modal_path": "full_corpus_signatures_3_epochs_label_free/run_metadata.json",
-      "status": "saved_metadata_and_checkpoint_not_recovered"
+      "status": "checkpoint_recovered_run_metadata_missing_third_epoch_unverified"
     },
     {
       "kind": "base_weight_probes",
       "description": "Original BF16 base weights, zero optimizer steps; norms of gradients of base parameters.",
-      "status": "numeric_summary_not_recovered"
+      "status": "original_numeric_summary_recovered_and_hash_verified"
     },
     {
       "kind": "exact_same_checkpoint_cosines",
       "description": "Held-out examples at checkpoint-1790; exact LoRA A/B vectors across seven projections.",
-      "status": "numeric_summary_not_recovered"
+      "status": "original_numeric_summary_recovered_and_hash_verified"
     },
     {
       "kind": "consecutive_step_signatures",
@@ -90,5 +122,24 @@
       "description": "Repeated fixed prompts across checkpoints; projected signatures, not exact vectors.",
       "status": "saved_stream_and_manifest_not_recovered"
     }
+  ],
+  "release_url": "https://github.com/splion-360/math-tutor/releases/tag/evidence-v1",
+  "optional_artifacts": [
+    {
+      "path": "full_corpus_signatures.jsonl",
+      "url": "https://github.com/splion-360/math-tutor/releases/download/evidence-v1/full_corpus_signatures.jsonl",
+      "sha256": "6fbea5c90a87c9f8d8f745539ee22bd7ffe420cf66117bea933dff75d1e86173",
+      "kind": "incomplete_projected_training_example_stream",
+      "record_count": 481,
+      "step": 1790
+    }
+  ],
+  "limitations": [
+    "The full-corpus run_metadata.json was absent from the saved volume.",
+    "Split IDs are deterministic reconstructions from the hash-matching corpus, not recovered split metadata. A saved projected stream contains 481 training IDs, all in the reconstructed training split; it provides no validation IDs.",
+    "The epoch-2 trainer state does not establish completion of epoch 3 or selection against its evaluation.",
+    "The saved adapter configuration contains no base model revision. The unadapted base probe confirms the pinned model revision; its use in adapter training is supported by the source configuration, not recovered run metadata.",
+    "The saved full-corpus projected stream covers 481 of 895 training examples at step 1790; it is incomplete.",
+    "Exploratory placement and short consecutive/fixed-prompt experiment outputs are not included in this release."
   ]
 }

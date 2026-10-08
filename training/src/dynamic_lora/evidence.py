@@ -231,7 +231,7 @@ def render_figures(manifest: EvidenceManifest, root: Path, repository: Path) -> 
     """
     verify_artifacts(manifest, root)
     required = {"base_norms.json", "lora_norms.json", "lora_cosines.json"}
-    if {entry["path"] for entry in manifest["artifacts"]} != required:
+    if not required.issubset({entry["path"] for entry in manifest["artifacts"]}):
         raise ValueError("figure manifest must identify the three original probe summaries")
     import matplotlib
 
