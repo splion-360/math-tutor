@@ -13,6 +13,7 @@ from math_tutor.domain import LessonStage
 from math_tutor.generation.errors import (
     ExtractionError,
     GeneratedLessonError,
+    OutputValidationError,
     SceneValidationError,
 )
 from math_tutor.generation.pipeline import (
@@ -802,6 +803,41 @@ def test_pipeline_respects_zero_repair_budget(tmp_path: Path) -> None:
     assert not (tmp_path / "artifacts" / "no-repair-123" / "attempts" / "1").exists()
 
 
+def test_pipeline_does_not_repair_an_uncertain_aggregate(tmp_path: Path) -> None:
+    generator = RecordingGenerator(_generation(f"```python\n{VALID_SCENE}```"))
+    report = ValidationReport(
+        validator="validation_suite",
+        status=ValidationStatus.UNCERTAIN,
+        findings=(
+            ValidationFinding(
+                code="object_off_frame",
+                message="Object is outside the frame.",
+                repair_instruction="Move the object inside the frame.",
+            ),
+            ValidationFinding(
+                code="visual_evidence_uncertain",
+                message="Sampled frames are inconclusive.",
+            ),
+        ),
+    )
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain a derivative.",
+        generator=generator,
+        renderer=SequenceSourceRenderer(tmp_path / "rendered"),
+        validator=SequenceValidator([report]),
+        max_repair_attempts=1,
+    )
+
+    with pytest.raises(GeneratedLessonError) as caught:
+        pipeline.render("uncertain-123")
+
+    assert caught.value.diagnostics["validation_status"] == "uncertain"
+    assert caught.value.diagnostics["repair_count"] == 0
+    assert len(generator.prompts) == 1
+    assert not (tmp_path / "artifacts" / "uncertain-123" / "attempts" / "1").exists()
+
+
 def test_pipeline_does_not_use_model_repair_for_render_failures(tmp_path: Path) -> None:
     generator = RecordingGenerator(_generation(f"```python\n{VALID_SCENE}```"))
     pipeline = GeneratedLessonPipeline(
@@ -957,6 +993,29 @@ def test_voiceover_pipeline_marks_rendered_audio_ready(tmp_path: Path) -> None:
     outcome = pipeline.render("voiceover-123")
 
     assert outcome.narration_status is NarrationStatus.READY
+
+
+def test_pipeline_records_silent_fallback_status_in_artifacts(tmp_path: Path) -> None:
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain circles.",
+        generator=FixedGenerator(_generation(f"```python\n{VALID_SCENE}```")),
+        renderer=RecordingSourceRenderer(tmp_path / "lesson.mp4"),
+        narration_status_override=NarrationStatus.UNAVAILABLE,
+    )
+
+    outcome = pipeline.render("silent-fallback-123")
+
+    job_dir = tmp_path / "artifacts" / "silent-fallback-123"
+    validation_input = json.loads(
+        (job_dir / "attempts" / "0" / "validation_input.json").read_text()
+    )
+    selected = json.loads((job_dir / "selected_attempt.json").read_text())
+    assert outcome.narration_status is NarrationStatus.UNAVAILABLE
+    assert validation_input["media"]["narration_status"] == "unavailable"
+    assert selected["narration_status"] == "unavailable"
+    assert outcome.validation_diagnostics is not None
+    assert outcome.validation_diagnostics["narration_status"] == "unavailable"
 
 
 def test_pipeline_reports_explicit_lora_route(tmp_path: Path) -> None:
@@ -1205,6 +1264,38 @@ def test_normalization_failure_retries_original_prompt_through_base_model(
         "specialist_model": "advanced",
         "normalization_error": "normalized scene was invalid",
     }
+
+
+def test_specialist_does_not_fallback_after_output_validation_rejects_attempt_one(
+    tmp_path: Path,
+) -> None:
+    specialist = RecordingGenerator(_generation("raw scene", model="advanced"))
+    rejected = OutputValidationError(
+        "rendered lesson did not pass output validation",
+        diagnostics={
+            "failure_stage": "output_validation",
+            "attempt_count": 2,
+            "repair_count": 1,
+            "validation_status": "fail",
+        },
+    )
+    normalizer = SequencePromptRenderer(
+        [
+            rejected,
+            RenderOutcome(tmp_path / "must-not-render.mp4", "test", 1, "rendered"),
+        ]
+    )
+    pipeline = SpecialistGuidedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        specialist=specialist,
+        normalizer=normalizer,
+    )
+
+    with pytest.raises(OutputValidationError) as caught:
+        pipeline.render("job-validation-rejected", "Explain eigenvectors visually.")
+
+    assert caught.value is rejected
+    assert len(normalizer.calls) == 1
 
 
 def test_failed_base_fallback_reports_pipeline_context(tmp_path: Path) -> None:

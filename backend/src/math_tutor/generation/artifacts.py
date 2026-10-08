@@ -206,7 +206,7 @@ class AttemptArtifactStore:
             Render outcome augmented with validation and repair diagnostics.
         """
         video_evidence = self._file_evidence(attempt.outcome.video_path)
-        generation_provenance = self._generation_provenance(attempt)
+        generation_provenance = attempt.generation_provenance()
         validation_axes = validation_report.axis_summaries() if validation_report else []
         narration_status = attempt.outcome.narration_status.value
         summary = {
@@ -280,7 +280,14 @@ class AttemptArtifactStore:
         }
 
     def _rendered_evidence(self, attempt: RenderedAttempt) -> dict[str, object]:
-        """Return hashed source, render, and media evidence for one attempt."""
+        """Build hashed source, render, and media evidence for one attempt.
+
+        Args:
+            attempt: Rendered attempt whose evidence files are indexed.
+
+        Returns:
+            Structured evidence containing paths, hashes, sizes, and render metadata.
+        """
         return {
             "source": self._optional_file_evidence(attempt.artifact_dir / "extracted_scene.py"),
             "render": {
@@ -297,15 +304,6 @@ class AttemptArtifactStore:
                 "captions_required": attempt.captions_required,
                 "narration_status": attempt.outcome.narration_status.value,
             },
-        }
-
-    @staticmethod
-    def _generation_provenance(attempt: RenderedAttempt) -> dict[str, object]:
-        """Return the generation identity shared by artifacts and API diagnostics."""
-        return {
-            "model": attempt.generation_model,
-            "provider": attempt.generation_provider,
-            "inference_path": attempt.inference_path,
         }
 
     @staticmethod

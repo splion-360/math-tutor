@@ -10,10 +10,16 @@ from time import monotonic, sleep
 import pytest
 from fastapi.testclient import TestClient
 
-from math_tutor.api import create_app
+from math_tutor.api import create_app, to_response
 from math_tutor.domain import Difficulty
 from math_tutor.generation.provider import ModelHealth, ProviderError
-from math_tutor.jobs import JobExecutionError, LessonService, PartialOutcome, RenderOutcome
+from math_tutor.jobs import (
+    JobExecutionError,
+    JobStore,
+    LessonService,
+    PartialOutcome,
+    RenderOutcome,
+)
 from math_tutor.rendering.narration import NarrationStatus
 
 
@@ -178,6 +184,28 @@ def test_render_failure_exposes_bounded_diagnostics() -> None:
         "logs": "container exited 42",
         "metadata_file": "render.json",
     }
+
+
+def test_failed_render_exposes_the_completed_attempt_narration_status() -> None:
+    store = JobStore()
+    job = store.create("Explain limits.", narration_requested=True)
+    store.mark_running(job.id)
+
+    failed = store.mark_failed(
+        job.id,
+        JobExecutionError(
+            "output validation failed",
+            diagnostics={
+                "validation_status": "validator_error",
+                "narration_status": "ready",
+            },
+        ),
+    )
+    response = to_response(failed)
+
+    assert failed.narration_status is NarrationStatus.READY
+    assert response.narration_status is NarrationStatus.READY
+    assert response.diagnostics["narration_status"] == "ready"
 
 
 def test_useful_incomplete_result_reaches_terminal_partial_state() -> None:

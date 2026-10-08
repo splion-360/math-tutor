@@ -28,11 +28,12 @@ validator samples a small set of frames and asks a separately hosted vision mode
 bounded, frame-specific findings such as visible truncation, missing requested visuals,
 rendering corruption, caption mismatch, or severe clutter.
 
-A deterministic aggregator combines those reports. A passing attempt is published. A
-confirmed repairable failure can return structured feedback to the generator once; the
-repaired video must pass the same checks. Uncertain results and validator failures stop
-publication because they do not provide enough evidence for a safe repair. Lesson length
-remains an advisory measurement rather than a hard generation requirement.
+A deterministic aggregator combines those reports in this order: validator error,
+uncertain, confirmed failure, then pass. A passing attempt is published. A confirmed
+repairable failure can return structured feedback to the generator once; the repaired
+video must pass the same checks. Uncertain results and validator failures stop publication
+because they do not provide enough evidence for a safe repair. Lesson length remains an
+advisory measurement rather than a hard generation requirement.
 
 ![Math Tutor generates and renders a lesson, runs media, spatial, and visual validation in parallel, and permits one evidence-based repair.](assets/math-tutor-system.drawio.svg)
 

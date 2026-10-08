@@ -48,6 +48,18 @@ class RenderedAttempt:
     infrastructure_retry_count: int = 0
     validation_input_path: Path | None = None
 
+    def generation_provenance(self) -> dict[str, object]:
+        """Return the generation identity shared by artifacts and API diagnostics.
+
+        Returns:
+            Model, provider, and routing path for this attempt.
+        """
+        return {
+            "model": self.generation_model,
+            "provider": self.generation_provider,
+            "inference_path": self.inference_path,
+        }
+
 
 class ValidationStatus(StrEnum):
     """Final status reported by one validator."""
@@ -137,7 +149,11 @@ class ValidationReport:
         }
 
     def axis_summaries(self) -> list[dict[str, object]]:
-        """Return ordered public summaries for the independent validation axes."""
+        """Return ordered public summaries for the independent validation axes.
+
+        Returns:
+            Bounded status, count, and provenance fields for each component report.
+        """
         reports = self.component_reports or (self,)
         return [
             {

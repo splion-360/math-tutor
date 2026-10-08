@@ -101,6 +101,7 @@ class GeneratedLessonPipeline:
         validator: Independent rendered-attempt validator.
         max_repair_attempts: Maximum model regenerations after the initial attempt.
         stage_reporter: Optional job progress callback.
+        narration_status_override: Status recorded for a successful silent fallback.
     """
 
     def __init__(
@@ -117,6 +118,7 @@ class GeneratedLessonPipeline:
         validator: AttemptValidator | None = None,
         max_repair_attempts: int = 1,
         stage_reporter: Callable[[str, LessonStage], None] | None = None,
+        narration_status_override: NarrationStatus | None = None,
     ) -> None:
         if max_repair_attempts < 0:
             raise ValueError("max_repair_attempts must not be negative")
@@ -131,6 +133,7 @@ class GeneratedLessonPipeline:
         self._validator = validator
         self._max_repair_attempts = max_repair_attempts
         self._stage_reporter = stage_reporter
+        self._narration_status_override = narration_status_override
 
     def render(self, job_id: str, prompt: str | None = None) -> RenderOutcome:
         """Produce the first accepted rendered attempt for a lesson job.
@@ -268,7 +271,11 @@ class GeneratedLessonPipeline:
                         manifest=manifest,
                     ),
                 )
-            if report.repairable_findings and attempt_number < self._max_repair_attempts:
+            if (
+                report.status is ValidationStatus.FAIL
+                and report.repairable_findings
+                and attempt_number < self._max_repair_attempts
+            ):
                 self._report_stage(job_id, LessonStage.REPAIRING)
                 effective_prompt = build_repair_prompt(
                     original_prompt=original_prompt,
@@ -477,7 +484,9 @@ class GeneratedLessonPipeline:
         outcome = replace(
             outcome,
             narration_status=(
-                NarrationStatus.READY if self._voiceover else outcome.narration_status
+                NarrationStatus.READY
+                if self._voiceover
+                else self._narration_status_override or outcome.narration_status
             ),
             narration_diagnostics={
                 **dict(outcome.narration_diagnostics or {}),
@@ -571,7 +580,17 @@ class GeneratedLessonPipeline:
         infrastructure_retry_count: int,
         manifest: Path,
     ) -> dict[str, object]:
-        """Return consistent public diagnostics for a rejected rendered attempt."""
+        """Build public diagnostics for a rejected rendered attempt.
+
+        Args:
+            attempt: Rendered attempt that could not be published.
+            report: Aggregate output-validation report.
+            infrastructure_retry_count: Total render retries for the lesson job.
+            manifest: Final evidence manifest for the rejected attempt.
+
+        Returns:
+            Bounded attempt, validation, provenance, and narration diagnostics.
+        """
         return {
             "failure_stage": "output_validation",
             "validator": report.validator,
@@ -581,11 +600,7 @@ class GeneratedLessonPipeline:
             "repair_count": attempt.number,
             "infrastructure_retry_count": infrastructure_retry_count,
             "attempt_manifest": str(manifest.resolve()),
-            "generation_provenance": {
-                "model": attempt.generation_model,
-                "provider": attempt.generation_provider,
-                "inference_path": attempt.inference_path,
-            },
+            "generation_provenance": attempt.generation_provenance(),
             "narration_status": attempt.outcome.narration_status.value,
         }
 

@@ -214,9 +214,35 @@ class JobStore:
                 stage=LessonStage.FAILED,
                 completed_at=utc_now(),
                 error=str(error),
+                narration_status=self._failure_narration_status(
+                    job.narration_status,
+                    diagnostics,
+                ),
                 diagnostics={**dict(job.diagnostics), **diagnostics},
             ),
         )
+
+    @staticmethod
+    def _failure_narration_status(
+        current: NarrationStatus,
+        diagnostics: Mapping[str, object],
+    ) -> NarrationStatus:
+        """Read a completed attempt's bounded narration status on failure.
+
+        Args:
+            current: Narration state recorded before the terminal failure.
+            diagnostics: Bounded failure diagnostics from the renderer pipeline.
+
+        Returns:
+            Recognized attempt narration status, otherwise the existing job status.
+        """
+        value = diagnostics.get("narration_status")
+        if not isinstance(value, str):
+            return current
+        try:
+            return NarrationStatus(value)
+        except ValueError:
+            return current
 
     def mark_partial(self, job_id: str, outcome: PartialOutcome) -> LessonJob:
         """Record a useful but incomplete terminal outcome."""
