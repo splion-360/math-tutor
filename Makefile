@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down logs renderer evidence-data evidence-figures evaluation-freeze evaluation-generate evaluation-download evaluation-render test lint typecheck check
+.PHONY: help setup up down logs renderer evidence-data evidence-figures evaluation-freeze evaluation-generate evaluation-download evaluation-render evaluation-review test lint typecheck check
 
 MODAL_PROFILE ?= splion-360
 EVALUATION_RUN ?= paired-pilot-v2-greedy
@@ -22,6 +22,7 @@ help:
 		'make evaluation-generate  Run the frozen paired pilot on Modal (uses GPU credits)' \
 		'make evaluation-download  Download the completed paired run' \
 		'make evaluation-render  Render raw first attempts and prepare human review' \
+		'make evaluation-review  Import completed human video judgments' \
 		'make test       Run backend, frontend, and training tests' \
 		'make lint       Run Python lint checks' \
 		'make typecheck  Run Python and frontend type checks' \
@@ -68,6 +69,10 @@ evaluation-download:
 
 evaluation-render:
 	uv run --frozen --project backend python -m math_tutor.paired_evaluation --run $(EVALUATION_DIR)
+	uv run --frozen --project backend python -m math_tutor.paired_review --evaluation $(EVALUATION_DIR)/evaluation --prepare
+
+evaluation-review:
+	uv run --frozen --project backend python -m math_tutor.paired_review --evaluation $(EVALUATION_DIR)/evaluation --reviews $(EVALUATION_DIR)/evaluation/human_review_bound.csv
 
 test:
 	cd backend && uv run pytest -q

@@ -91,6 +91,10 @@ make evaluation-render   # Requires Docker
 The frozen plan records prompts, overlap checks, token measurements, and renderer
 versions. Outputs include raw responses, render diagnostics, and a human-review
 CSV in `training/artifacts/paired-pilot-v2-greedy/evaluation/`.
+Watch the rendered videos and fill in the reviewer, UTC timestamp, duration,
+judgments, and evidence notes in `human_review_bound.csv`. Run
+`make evaluation-review` to create a separate reviewed report; the automatic
+results are preserved.
 
 ## Project structure
 
