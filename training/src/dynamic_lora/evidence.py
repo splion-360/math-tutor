@@ -12,11 +12,42 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import TypedDict, cast
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
 from dynamic_lora.full_corpus_plan import build_full_corpus_plan
+
+
+class DatasetIdentity(TypedDict):
+    """Pinned source bytes and deterministic corpus/split expectations."""
+
+    url: str
+    parquet_sha256: str
+    parquet_size_bytes: int
+    prepared_sha256: str
+    prepared_records: int
+    seed: int
+    epochs: int
+    training_count: int
+    validation_count: int
+
+
+class NumericArtifact(TypedDict):
+    """Original artifact identity and an optional anonymous download URL."""
+
+    path: str
+    sha256: str
+    url: str | None
+
+
+class EvidenceManifest(TypedDict):
+    """Inputs required by CPU dataset and numeric-evidence reproduction."""
+
+    schema_version: int
+    dataset: DatasetIdentity
+    artifacts: list[NumericArtifact]
+
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _MAX_DOWNLOAD_BYTES = 512 * 1024 * 1024
@@ -116,7 +147,7 @@ def artifact_path(root: Path, relative_path: str) -> Path:
     return path
 
 
-def verify_artifacts(manifest: dict[str, Any], root: Path) -> None:
+def verify_artifacts(manifest: EvidenceManifest, root: Path) -> None:
     """Require every numeric artifact to match its recorded hash.
 
     Args:
@@ -140,7 +171,7 @@ def verify_artifacts(manifest: dict[str, Any], root: Path) -> None:
         verify_file(path, entry["sha256"])
 
 
-def prepare_dataset(manifest: dict[str, Any], root: Path, repository: Path) -> None:
+def prepare_dataset(manifest: EvidenceManifest, root: Path, repository: Path) -> None:
     """Rebuild the original corpus and write a deterministic split for comparison.
 
     Args:
@@ -154,6 +185,8 @@ def prepare_dataset(manifest: dict[str, Any], root: Path, repository: Path) -> N
         subprocess.CalledProcessError: If CPU dataset conversion fails.
     """
     dataset = manifest["dataset"]
+    split_path = root / "split.json"
+    split_path.unlink(missing_ok=True)
     parquet = root / "source.parquet"
     download_verified(dataset["url"], parquet, dataset["parquet_sha256"])
     if parquet.stat().st_size != dataset["parquet_size_bytes"]:
@@ -181,10 +214,10 @@ def prepare_dataset(manifest: dict[str, Any], root: Path, repository: Path) -> N
         "training_ids": list(plan.training_ids),
         "validation_ids": list(plan.validation_ids),
     }
-    (root / "split.json").write_text(json.dumps(split, indent=2, sort_keys=True) + "\n")
+    split_path.write_text(json.dumps(split, indent=2, sort_keys=True) + "\n")
 
 
-def render_figures(manifest: dict[str, Any], root: Path, repository: Path) -> None:
+def render_figures(manifest: EvidenceManifest, root: Path, repository: Path) -> None:
     """Regenerate the reported plots after checking the original numeric artifacts.
 
     Args:
@@ -197,6 +230,9 @@ def render_figures(manifest: dict[str, Any], root: Path, repository: Path) -> No
         OSError: If files cannot be read or figures cannot be written.
     """
     verify_artifacts(manifest, root)
+    required = {"base_norms.json", "lora_norms.json", "lora_cosines.json"}
+    if {entry["path"] for entry in manifest["artifacts"]} != required:
+        raise ValueError("figure manifest must identify the three original probe summaries")
     import matplotlib
 
     matplotlib.use("Agg")
@@ -214,10 +250,14 @@ def main() -> None:
     parser.add_argument("command", choices=("dataset", "fetch", "verify", "figures"))
     parser.add_argument("--manifest", type=Path, default=Path("training/evidence/manifest.json"))
     parser.add_argument("--output", type=Path, default=Path("training/artifacts/evidence"))
+    parser.add_argument("--repository", type=Path, default=Path.cwd())
     args = parser.parse_args()
-    manifest = json.loads(args.manifest.read_text())
-    repository = args.manifest.resolve().parents[2]
     try:
+        raw = json.loads(args.manifest.read_text())
+        if not isinstance(raw, dict) or raw.get("schema_version") != 1:
+            raise ValueError("expected an evidence manifest with schema_version 1")
+        manifest = cast(EvidenceManifest, raw)
+        repository = args.repository.resolve()
         if args.command == "dataset":
             prepare_dataset(manifest, args.output, repository)
         elif args.command == "fetch":
@@ -226,14 +266,16 @@ def main() -> None:
                 raise ValueError("public artifact URLs unavailable: " + ", ".join(unpublished))
             for entry in manifest["artifacts"]:
                 download_verified(
-                    entry["url"], artifact_path(args.output, entry["path"]), entry["sha256"]
+                    cast(str, entry["url"]),
+                    artifact_path(args.output, entry["path"]),
+                    entry["sha256"],
                 )
             verify_artifacts(manifest, args.output)
         elif args.command == "verify":
             verify_artifacts(manifest, args.output)
         else:
             render_figures(manifest, args.output, repository)
-    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Evidence check failed: {error}\n")
     print(f"Evidence {args.command} completed: {args.output}")
 

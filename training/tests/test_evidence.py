@@ -109,3 +109,115 @@ def test_figures_require_verified_numeric_inputs(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="missing original"):
         evidence.render_figures(manifest, tmp_path, tmp_path)
     assert not (tmp_path / "figures").exists()
+
+
+def _dataset_fixture(tmp_path: Path, monkeypatch: Any) -> evidence.EvidenceManifest:
+    """Provide a small corpus and CPU conversion seam for split-publication checks."""
+    import json
+
+    rows = [
+        {"id": f"{difficulty}-{index}", "difficulty": difficulty}
+        for difficulty in ("foundational", "intermediate", "advanced")
+        for index in range(2)
+    ]
+    prepared = b"".join(json.dumps(row).encode() + b"\n" for row in rows)
+    root = tmp_path / "evidence"
+    root.mkdir()
+    (root / "source.parquet").write_bytes(b"parquet")
+
+    def convert(command: list[str], *, check: bool) -> None:
+        assert check
+        Path(command[command.index("--internal-output") + 1]).write_bytes(prepared)
+
+    monkeypatch.setattr(evidence.subprocess, "run", convert)
+    return {
+        "schema_version": 1,
+        "dataset": {
+            "url": "https://example.com/source.parquet",
+            "parquet_sha256": _sha(b"parquet"),
+            "parquet_size_bytes": 7,
+            "prepared_sha256": _sha(prepared),
+            "prepared_records": 6,
+            "seed": 42,
+            "epochs": 3,
+            "training_count": 3,
+            "validation_count": 3,
+        },
+        "artifacts": [],
+    }
+
+
+def test_dataset_publishes_disjoint_reconstructed_ids(tmp_path: Path, monkeypatch: Any) -> None:
+    """A matching corpus publishes all IDs once and labels their reconstructed status."""
+    import json
+
+    manifest = _dataset_fixture(tmp_path, monkeypatch)
+    root = tmp_path / "evidence"
+    evidence.prepare_dataset(manifest, root, tmp_path)
+    split = json.loads((root / "split.json").read_text())
+    assert len(split["training_ids"]) == len(split["validation_ids"]) == 3
+    assert not set(split["training_ids"]) & set(split["validation_ids"])
+    assert len(set(split["training_ids"] + split["validation_ids"])) == 6
+    assert split["source_sha256"] == manifest["dataset"]["prepared_sha256"]
+    assert split["status"] == "reconstructed_pending_saved_metadata_comparison"
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("parquet_size_bytes", 8, "Parquet size"),
+        ("prepared_sha256", _sha(b"different"), "SHA-256 mismatch"),
+        ("training_count", 4, "split counts"),
+        ("prepared_records", 7, "split counts"),
+    ],
+)
+def test_dataset_rejects_mismatches_before_split_publication(
+    tmp_path: Path, monkeypatch: Any, field: str, value: Any, message: str
+) -> None:
+    """Corrupt source identity or changed coverage cannot publish a valid-looking split."""
+    manifest = _dataset_fixture(tmp_path, monkeypatch)
+    manifest["dataset"][field] = value
+    root = tmp_path / "evidence"
+    with pytest.raises(ValueError, match=message):
+        evidence.prepare_dataset(manifest, root, tmp_path)
+    assert not (root / "split.json").exists()
+
+
+def test_missing_manifest_is_a_cli_error(tmp_path: Path, monkeypatch: Any, capsys: Any) -> None:
+    """A missing input manifest produces a concise expected error rather than a traceback."""
+    monkeypatch.setattr(
+        evidence.sys, "argv", ["evidence", "verify", "--manifest", str(tmp_path / "missing.json")]
+    )
+    with pytest.raises(SystemExit) as error:
+        evidence.main()
+    assert error.value.code == 1
+    assert "Evidence check failed:" in capsys.readouterr().err
+
+
+def test_dataset_invalidates_stale_split_on_failure(tmp_path: Path, monkeypatch: Any) -> None:
+    """A failed rebuild cannot leave a previous split looking like the new result."""
+    manifest = _dataset_fixture(tmp_path, monkeypatch)
+    manifest["dataset"]["training_count"] = 4
+    root = tmp_path / "evidence"
+    (root / "split.json").write_text('{"status":"old"}')
+    with pytest.raises(ValueError, match="split counts"):
+        evidence.prepare_dataset(manifest, root, tmp_path)
+    assert not (root / "split.json").exists()
+
+
+def test_manifest_location_does_not_change_repository(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    """A copied manifest still uses the explicitly selected checkout for conversion."""
+    import json
+
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps({"schema_version": 1, "dataset": {}, "artifacts": []}))
+    repository = tmp_path / "checkout"
+    selected: list[Path] = []
+    monkeypatch.setattr(evidence, "prepare_dataset", lambda m, r, repo: selected.append(repo))
+    monkeypatch.setattr(evidence.sys, "argv", [
+        "evidence", "dataset", "--manifest", str(manifest_path), "--repository", str(repository)
+    ])
+    evidence.main()
+    assert selected == [repository.resolve()]

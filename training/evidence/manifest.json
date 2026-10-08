@@ -70,7 +70,7 @@
     },
     {
       "kind": "base_weight_probes",
-      "description": "Original BF16 base weights, zero optimizer steps; norms of base parameters.",
+      "description": "Original BF16 base weights, zero optimizer steps; norms of gradients of base parameters.",
       "status": "numeric_summary_not_recovered"
     },
     {
