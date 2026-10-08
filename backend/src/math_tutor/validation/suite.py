@@ -3,6 +3,7 @@ The suite retains per-axis evidence and exposes confirmed findings to repair log
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 
@@ -47,6 +48,18 @@ class ValidatorSuite:
 
     def validate(self, attempt: RenderedAttempt) -> ValidationReport:
         """Run each validator and return one repair-compatible aggregate report."""
+        manifest_error = self._validation_input_error(attempt)
+        if manifest_error is not None:
+            return self._aggregate(
+                tuple(
+                    ValidationReport(
+                        validator=validator.name,
+                        status=ValidationStatus.VALIDATOR_ERROR,
+                        findings=(manifest_error,),
+                    )
+                    for validator in self._validators
+                )
+            )
         with ThreadPoolExecutor(
             max_workers=len(self._validators),
             thread_name_prefix="lesson-validator",
@@ -58,6 +71,54 @@ class ValidatorSuite:
                 self._resolve_report(validator, future)
                 for validator, future in zip(self._validators, futures, strict=True)
             )
+        return self._aggregate(reports)
+
+    def _validation_input_error(
+        self,
+        attempt: RenderedAttempt,
+    ) -> ValidationFinding | None:
+        """Check the immutable manifest shared by every configured validator.
+
+        Args:
+            attempt: Rendered attempt carrying the validation-input manifest path.
+
+        Returns:
+            Controlled finding when the manifest is absent or does not declare the
+            configured required checks; otherwise ``None``.
+        """
+        path = attempt.validation_input_path
+        if path is None:
+            return ValidationFinding(
+                code="validation_input_missing",
+                message="The shared validation input is missing.",
+            )
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return ValidationFinding(
+                code="validation_input_invalid",
+                message="The shared validation input could not be read.",
+            )
+        if (
+            not isinstance(payload, dict)
+            or payload.get("schema_version") != "validation-input.v1"
+            or payload.get("expected_checks") != list(self.expected_checks)
+        ):
+            return ValidationFinding(
+                code="validation_input_contract_mismatch",
+                message="The shared validation input does not match the required checks.",
+            )
+        return None
+
+    def _aggregate(self, reports: tuple[ValidationReport, ...]) -> ValidationReport:
+        """Combine ordered axis reports using deterministic status precedence.
+
+        Args:
+            reports: Component reports in validator declaration order.
+
+        Returns:
+            Repair-compatible aggregate with flattened findings and advisories.
+        """
         status = ValidationStatus.PASS
         for candidate in _STATUS_PRECEDENCE:
             if any(report.status is candidate for report in reports):

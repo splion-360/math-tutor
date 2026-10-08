@@ -124,6 +124,9 @@ class SpecialistGuidedLessonPipeline:
         except OutputValidationError:
             raise
         except (GeneratedLessonError, RenderError) as normalization_error:
+            attempt_count = normalization_error.diagnostics.get("attempt_count")
+            if isinstance(attempt_count, int) and attempt_count >= 2:
+                raise
             try:
                 fallback = self._normalizer.render(f"{job_id}-base", prompt)
             except (GeneratedLessonError, RenderError) as fallback_error:
