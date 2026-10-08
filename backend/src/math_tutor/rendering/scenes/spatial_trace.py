@@ -60,6 +60,8 @@ class SpatialTraceRecorder:
         for mobject in scene.mobjects:
             object_id = self._object_id(mobject)
             object_type = type(mobject).__name__
+            if not _is_visible(mobject):
+                continue
             try:
                 left = _coordinate(mobject, "get_left", 0)
                 bottom = _coordinate(mobject, "get_bottom", 1)
@@ -134,3 +136,30 @@ def _coordinate(mobject: object, method_name: str, dimension: int) -> float:
     if not math.isfinite(coordinate):
         raise ValueError("coordinate must be finite")
     return coordinate
+
+
+def _is_visible(mobject: object) -> bool:
+    family_members = getattr(mobject, "family_members_with_points", None)
+    if not callable(family_members):
+        return True
+    try:
+        members = family_members()
+    except (AttributeError, TypeError, ValueError):
+        return True
+    return any(
+        _has_positive_opacity(getattr(member, attribute, None))
+        for member in members
+        for attribute in ("opacity", "fill_opacity", "stroke_opacity")
+    )
+
+
+def _has_positive_opacity(value: object) -> bool:
+    if value is None:
+        return False
+    try:
+        return float(value) > 0
+    except (TypeError, ValueError):
+        try:
+            return any(float(item) > 0 for item in value)  # type: ignore[union-attr]
+        except (TypeError, ValueError):
+            return False

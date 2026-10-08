@@ -18,8 +18,20 @@ from math_tutor.validation.models import (
     ValidationStatus,
 )
 
-_MAX_FINDINGS = 20
 _MAX_MEASUREMENT_ERRORS = 20
+_TEXT_OBJECT_TYPES = {
+    "Code",
+    "DecimalNumber",
+    "Integer",
+    "MarkupText",
+    "Matrix",
+    "MathTex",
+    "Paragraph",
+    "Tex",
+    "Text",
+    "Title",
+    "Variable",
+}
 
 
 class SpatialTraceError(RuntimeError):
@@ -139,6 +151,9 @@ class JsonSpatialTraceLoader:
             indices = [checkpoint.index for checkpoint in checkpoints]
             if indices != sorted(set(indices)):
                 raise ValueError("checkpoint indices must be unique and ordered")
+            times = [checkpoint.time_seconds for checkpoint in checkpoints]
+            if times != sorted(times):
+                raise ValueError("checkpoint times must be ordered")
         except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
             raise SpatialTraceError("spatial trace is unavailable or invalid") from error
         return SpatialTrace(width, height, checkpoints)
@@ -187,7 +202,7 @@ class _Intersection:
     first: TracedObject
     second: TracedObject
     ratio: float
-    time_seconds: float
+    time_ordinal: int
 
 
 class SpatialValidator:
@@ -251,6 +266,7 @@ class SpatialValidator:
         frame_right = trace.frame_width / 2
         frame_bottom = -trace.frame_height / 2
         frame_top = trace.frame_height / 2
+        time_ordinals = _time_ordinals(trace.checkpoints)
 
         for checkpoint in trace.checkpoints:
             for traced in checkpoint.objects:
@@ -291,10 +307,11 @@ class SpatialValidator:
                                 first,
                                 second,
                                 ratio,
-                                checkpoint.time_seconds,
+                                time_ordinals[checkpoint.index],
                             )
                         )
 
+        intersection_findings, intersection_advisories = self._intersection_results(intersections)
         findings = [
             *self._object_findings(
                 "object_off_frame",
@@ -317,26 +334,13 @@ class SpatialValidator:
                 trace,
                 "Scale this object to fit within the configured frame-size ratios.",
             ),
-            *self._intersection_findings(intersections),
+            *intersection_findings,
         ]
-        advisories: tuple[ValidationFinding, ...] = ()
-        if len(findings) > _MAX_FINDINGS:
-            advisories = (
-                ValidationFinding(
-                    code="spatial_findings_truncated",
-                    message="Additional spatial violations were omitted from repair feedback.",
-                    evidence={
-                        "reported_count": _MAX_FINDINGS,
-                        "total_count": len(findings),
-                    },
-                ),
-            )
-            findings = findings[:_MAX_FINDINGS]
         return ValidationReport(
             validator=self.name,
             status=ValidationStatus.FAIL if findings else ValidationStatus.PASS,
             findings=tuple(findings),
-            advisories=advisories,
+            advisories=tuple(intersection_advisories),
         )
 
     def _object_findings(
@@ -377,11 +381,12 @@ class SpatialValidator:
             )
         return findings
 
-    def _intersection_findings(
+    def _intersection_results(
         self,
         grouped: Mapping[tuple[str, str], list[_Intersection]],
-    ) -> list[ValidationFinding]:
+    ) -> tuple[list[ValidationFinding], list[ValidationFinding]]:
         findings: list[ValidationFinding] = []
+        advisories: list[ValidationFinding] = []
         for pair in sorted(grouped):
             for run in _consecutive_runs(grouped[pair]):
                 if len(run) < self._policy.persistent_checkpoints:
@@ -391,24 +396,35 @@ class SpatialValidator:
                     first.first.id: first.first.type,
                     first.second.id: first.second.type,
                 }
-                findings.append(
-                    ValidationFinding(
-                        code="persistent_severe_intersection",
-                        message="Two objects overlap severely across stable checkpoints.",
-                        evidence={
-                            "object_ids": list(pair),
-                            "object_types": [types[object_id] for object_id in pair],
-                            "checkpoint_indices": [item.checkpoint_index for item in run],
-                            "minimum_overlap_ratio": min(item.ratio for item in run),
-                            "thresholds": self._policy_evidence(),
-                        },
-                        repair_instruction=(
-                            "Reposition or resize these objects so their bounding boxes no "
-                            "longer overlap severely."
-                        ),
+                object_types = [types[object_id] for object_id in pair]
+                evidence = {
+                    "object_ids": list(pair),
+                    "object_types": object_types,
+                    "checkpoint_indices": [item.checkpoint_index for item in run],
+                    "minimum_overlap_ratio": min(item.ratio for item in run),
+                    "thresholds": self._policy_evidence(),
+                }
+                if any(_is_text_object(object_type) for object_type in object_types):
+                    findings.append(
+                        ValidationFinding(
+                            code="persistent_severe_intersection",
+                            message="Text overlaps another object across stable checkpoints.",
+                            evidence=evidence,
+                            repair_instruction=(
+                                "Reposition or resize these objects so their bounding boxes "
+                                "no longer overlap severely."
+                            ),
+                        )
                     )
-                )
-        return findings
+                else:
+                    advisories.append(
+                        ValidationFinding(
+                            code="persistent_geometric_intersection",
+                            message=("Non-text object bounds intersect across stable checkpoints."),
+                            evidence=evidence,
+                        )
+                    )
+        return findings, advisories
 
     def _policy_evidence(self) -> dict[str, float | int]:
         return {
@@ -525,15 +541,34 @@ def _overlap_ratio(first: Bounds, second: Bounds) -> float:
 
 
 def _consecutive_runs(values: list[_Intersection]) -> tuple[tuple[_Intersection, ...], ...]:
-    ordered = sorted(values, key=lambda item: item.checkpoint_index)
+    by_time_ordinal: dict[int, _Intersection] = {}
+    for item in sorted(values, key=lambda item: item.checkpoint_index):
+        by_time_ordinal.setdefault(item.time_ordinal, item)
+    ordered = list(by_time_ordinal.values())
     runs: list[list[_Intersection]] = []
     for item in ordered:
-        if (
-            not runs
-            or item.checkpoint_index != runs[-1][-1].checkpoint_index + 1
-            or item.time_seconds <= runs[-1][-1].time_seconds
-        ):
+        if not runs or item.time_ordinal != runs[-1][-1].time_ordinal + 1:
             runs.append([item])
         else:
             runs[-1].append(item)
     return tuple(tuple(run) for run in runs)
+
+
+def _time_ordinals(checkpoints: tuple[SpatialCheckpoint, ...]) -> dict[int, int]:
+    ordinals: dict[int, int] = {}
+    current_ordinal = -1
+    previous_time: float | None = None
+    for checkpoint in checkpoints:
+        if previous_time is None or checkpoint.time_seconds > previous_time:
+            current_ordinal += 1
+        ordinals[checkpoint.index] = current_ordinal
+        previous_time = checkpoint.time_seconds
+    return ordinals
+
+
+def _is_text_object(object_type: str) -> bool:
+    return (
+        object_type in _TEXT_OBJECT_TYPES
+        or object_type.endswith("Tex")
+        or object_type.endswith("Text")
+    )

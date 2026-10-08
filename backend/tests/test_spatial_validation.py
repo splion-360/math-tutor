@@ -127,6 +127,28 @@ def test_spatial_validator_passes_valid_scene(tmp_path: Path) -> None:
     assert report.findings == ()
 
 
+def test_axes_and_plotted_curve_intersection_is_advisory(tmp_path: Path) -> None:
+    axes = _object("axes", "Axes", -3, -2, 3, 2)
+    curve = _object("curve", "ParametricFunction", -3, -2, 3, 2)
+    trace = _write_trace(
+        tmp_path,
+        [
+            _checkpoint(0, axes, curve),
+            _checkpoint(1, axes, curve),
+        ],
+    )
+
+    report = SpatialValidator(policy=_policy(persistent_checkpoints=2)).validate(
+        _attempt(tmp_path, trace)
+    )
+
+    assert report.status is ValidationStatus.PASS
+    assert report.findings == ()
+    assert [advisory.code for advisory in report.advisories] == [
+        "persistent_geometric_intersection"
+    ]
+
+
 def test_spatial_validator_reports_missing_trace_as_validator_error(tmp_path: Path) -> None:
     report = SpatialValidator().validate(_attempt(tmp_path, None))
 
@@ -167,6 +189,26 @@ def test_same_time_final_checkpoint_does_not_make_overlap_persistent(
     )
 
     assert report.status is ValidationStatus.PASS
+
+
+def test_duplicate_wait_checkpoints_do_not_break_longer_persistence(
+    tmp_path: Path,
+) -> None:
+    equation = _object("equation", "MathTex", -1, -1, 1, 1)
+    label = _object("label", "Text", -0.5, -1, 1.5, 1)
+    checkpoints = []
+    for index, time_seconds in enumerate((1, 1, 2, 2, 3, 3)):
+        checkpoint = _checkpoint(index, equation, label)
+        checkpoint["time_seconds"] = time_seconds
+        checkpoints.append(checkpoint)
+    trace = _write_trace(tmp_path, checkpoints)
+
+    report = SpatialValidator(policy=_policy(persistent_checkpoints=3)).validate(
+        _attempt(tmp_path, trace)
+    )
+
+    assert report.status is ValidationStatus.FAIL
+    assert report.findings[0].evidence["checkpoint_indices"] == [0, 2, 4]
 
 
 def test_spatial_policy_rejects_invalid_thresholds() -> None:
