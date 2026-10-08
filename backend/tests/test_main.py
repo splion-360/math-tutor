@@ -4,17 +4,21 @@ The tests inspect provider and renderer wiring through injected settings."""
 from __future__ import annotations
 
 from pathlib import Path
+from time import monotonic, sleep
 
 from fastapi.testclient import TestClient
 
+from math_tutor.domain import Difficulty, LessonStage, LessonStatus
 from math_tutor.generation.provider import (
     FROZEN_MODEL,
     SPECIALIST_SYSTEM_PROMPT,
     GenerationConfig,
     GenerationResult,
     ModelHealth,
+    ProviderError,
 )
-from math_tutor.rendering.manim import VOICEOVER_MANIM_IMAGE
+from math_tutor.jobs import LessonService, RenderOutcome
+from math_tutor.rendering.manim import VOICEOVER_MANIM_IMAGE, RenderError
 from math_tutor.settings import Settings
 
 
@@ -154,9 +158,7 @@ def test_build_app_configures_voiceover_generation_when_elevenlabs_is_available(
         assert client.get("/model/health").status_code == 200
 
     assert len(observed_clients) == 5
-    base_configs = [
-        config for config in observed_clients if config.model == FROZEN_MODEL
-    ]
+    base_configs = [config for config in observed_clients if config.model == FROZEN_MODEL]
     voiceover_config = next(
         config for config in base_configs if "VoiceoverScene" in config.system_prompt
     )
@@ -171,3 +173,81 @@ def test_build_app_configures_voiceover_generation_when_elevenlabs_is_available(
     assert voiceover_renderer["network"] == "bridge"
     assert voiceover_renderer["environment"] == {"ELEVEN_API_KEY": "eleven-secret"}
     assert voiceover_renderer["require_audio"] is True
+
+
+def test_specialist_and_voiceover_fallbacks_report_against_the_root_job(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    video = tmp_path / "silent.mp4"
+    captured_service: list[LessonService] = []
+
+    class FailingSpecialistClient:
+        def __init__(
+            self,
+            *,
+            api_key: str,
+            config: GenerationConfig,
+            base_url: str,
+            timeout_seconds: float = 60,
+        ) -> None:
+            self.config = config
+
+        def generate(self, prompt: str) -> GenerationResult:
+            raise ProviderError("specialist unavailable")
+
+        def health(self) -> ModelHealth:
+            return ModelHealth(True, self.config.model, True)
+
+        def close(self) -> None:
+            return None
+
+    class FallbackPipeline:
+        def __init__(self, **kwargs: object) -> None:
+            self.voiceover = bool(kwargs.get("voiceover", False))
+            self.stage_reporter = kwargs["stage_reporter"]
+
+        def render(self, job_id: str, prompt: str | None = None) -> RenderOutcome:
+            if self.voiceover:
+                raise RenderError("voiceover unavailable")
+            self.stage_reporter(job_id, LessonStage.GENERATING_CODE)
+            video.write_bytes(b"video")
+            return RenderOutcome(video, "silent", 0.1, "rendered")
+
+    import math_tutor.main as main
+
+    def capture_app(service: LessonService, **kwargs: object) -> LessonService:
+        captured_service.append(service)
+        return service
+
+    monkeypatch.setattr(main, "ModalVllmClient", FailingSpecialistClient)
+    monkeypatch.setattr(main, "GeneratedLessonPipeline", FallbackPipeline)
+    monkeypatch.setattr(main, "create_app", capture_app)
+    settings = Settings(
+        _env_file=None,
+        modal_vllm_base_url="https://workspace--qwen.modal.direct/v1",
+        modal_vllm_api_key="modal-secret",
+        elevenlabs_api_key="eleven-secret",
+        artifact_root=tmp_path / "artifacts",
+    )
+
+    main.build_app(settings)
+    service = captured_service[0]
+    try:
+        submitted = service.submit(
+            "Explain fractions.",
+            difficulty=Difficulty.FOUNDATIONAL,
+            routing_policy="explicit_difficulty",
+        )
+        deadline = monotonic() + 2
+        while monotonic() < deadline:
+            lesson = service.get(submitted.id)
+            if lesson.status in {LessonStatus.READY, LessonStatus.FAILED}:
+                break
+            sleep(0.01)
+    finally:
+        service.close()
+
+    assert lesson.status is LessonStatus.READY
+    assert lesson.stage is LessonStage.READY
+    assert lesson.narration_status.value == "unavailable"
