@@ -1,8 +1,11 @@
+"""Verify stream-count requirements for the container render validator.
+The tests cover silent and narrated media contracts independently."""
+
 from __future__ import annotations
 
 import pytest
 
-from math_tutor.scenes.render_known import validate_stream_counts
+from math_tutor.rendering.scenes.render_known import validate_stream_counts
 
 
 def test_voiceover_render_requires_audio_stream() -> None:

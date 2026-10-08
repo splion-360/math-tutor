@@ -10,14 +10,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from math_tutor.evaluation import DIFFICULTIES, load_evaluation_slice
-from math_tutor.generated_lesson import (
-    ExtractionError,
-    SceneValidationError,
-    SourceRenderer,
-    extract_and_validate_raw_scene,
-)
-from math_tutor.renderer import DockerManimRenderer, RenderFailed, RenderTimedOut
+from math_tutor.evaluation.baseline import DIFFICULTIES, load_evaluation_slice
+from math_tutor.generation.errors import ExtractionError, SceneValidationError
+from math_tutor.generation.pipeline import SourceRenderer
+from math_tutor.generation.source import extract_and_validate_raw_scene
+from math_tutor.rendering.manim import DockerManimRenderer, RenderFailed, RenderTimedOut
 
 
 def evaluate_placement_generations(
@@ -74,6 +71,7 @@ def evaluate_placement_generations(
         attempts.append(result)
 
     def summarize(rows: list[dict[str, Any]]) -> dict[str, int | float | None]:
+        """Summarize parse and render outcomes for one result group."""
         if not rows:
             return {"attempts": 0, "parse_success_rate": None, "render_pass_at_1": None}
         return {
@@ -106,7 +104,12 @@ def main() -> None:
     expected_ids = {item.id for item in load_evaluation_slice(args.evaluation_slice)}
     renderer = DockerManimRenderer(
         artifact_root=args.output / "renders",
-        scene_path=Path(__file__).parent / "scenes" / "pythagorean_theorem.py",
+        scene_path=(
+            Path(__file__).parents[1]
+            / "rendering"
+            / "scenes"
+            / "pythagorean_theorem.py"
+        ),
     )
     result = evaluate_placement_generations(
         generations_path=args.generations,

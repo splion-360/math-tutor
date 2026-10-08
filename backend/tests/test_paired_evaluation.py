@@ -8,7 +8,12 @@ from typing import Any
 
 import pytest
 
-from math_tutor.paired_evaluation import evaluate_pairs, validate_pairs, wilson_interval
+from math_tutor.evaluation.paired import (
+    evaluate_pairs,
+    renderer_contract,
+    validate_pairs,
+    wilson_interval,
+)
 
 
 def _fixture() -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -39,6 +44,18 @@ def _fixture() -> tuple[list[dict[str, Any]], dict[str, Any]]:
         "decoding": {"max_new_tokens": 4096},
         "scope": "test",
         "renderer": {"image": "test", "timeout_seconds": 90},
+    }
+
+
+def test_renderer_contract_hashes_current_execution_sources() -> None:
+    """The frozen plan must hash every source path after package reorganization."""
+    contract = renderer_contract()
+
+    assert set(contract["source_hashes"]) == {
+        "evaluation/paired.py",
+        "generation/source.py",
+        "rendering/manim.py",
+        "rendering/scenes/render_known.py",
     }
 
 
@@ -122,7 +139,7 @@ def test_renderer_outcomes_preserve_quality_review_boundary(
 ) -> None:
     """A rendered video and expected render failures remain separate from human judgment."""
     from math_tutor.jobs import RenderOutcome
-    from math_tutor.renderer import RenderFailed, RenderTimedOut
+    from math_tutor.rendering.manim import RenderFailed, RenderTimedOut
 
     rows, plan = _fixture()
     for row in rows:

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from math_tutor.repair import build_repair_prompt
+from math_tutor.generation.repair import build_repair_prompt
 from math_tutor.validation.models import (
     ValidationFinding,
     ValidationReport,

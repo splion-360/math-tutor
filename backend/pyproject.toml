@@ -40,4 +40,4 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 python_version = "3.11"
 strict = true
 packages = ["math_tutor"]
-exclude = ["src/math_tutor/scenes/"]
+exclude = ["src/math_tutor/rendering/scenes/"]

@@ -1,3 +1,6 @@
+"""Verify frozen baseline evaluation inputs, metrics, and failure recording.
+The tests preserve deterministic first-attempt evaluation semantics."""
+
 from __future__ import annotations
 
 import json
@@ -6,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from math_tutor.evaluation import (
+from math_tutor.evaluation.baseline import (
     AttemptRecord,
     DatasetValidationError,
     aggregate_metrics,
@@ -14,7 +17,7 @@ from math_tutor.evaluation import (
     run_evaluation,
     validate_evaluation_slice,
 )
-from math_tutor.generation import GenerationConfig, ModelHealth
+from math_tutor.generation.provider import GenerationConfig, ModelHealth
 from math_tutor.settings import Settings
 
 
@@ -117,15 +120,15 @@ def test_evaluation_records_unexpected_attempt_error_and_continues(
             if calls == 1:
                 raise RuntimeError("unexpected failure")
 
-    monkeypatch.setattr("math_tutor.evaluation.NebiusTokenFactoryClient", lambda **_: FakeClient())
-    monkeypatch.setattr("math_tutor.evaluation.GeneratedLessonPipeline", FakePipeline)
+    monkeypatch.setattr("math_tutor.evaluation.baseline.ModalVllmClient", lambda **_: FakeClient())
+    monkeypatch.setattr("math_tutor.evaluation.baseline.GeneratedLessonPipeline", FakePipeline)
 
     run_evaluation(
         dataset_path=Path("data/evaluation/manim_eval_v1.jsonl"),
         artifact_root=tmp_path,
         run_id="unexpected-error-run",
         api_key="redacted",
-        base_url="https://nebius.example/v1",
+        base_url="https://workspace--qwen.modal.direct/v1",
     )
 
     attempts = [
@@ -155,33 +158,33 @@ def test_unattempted_difficulty_rates_are_unmeasured() -> None:
     }
 
 
-def test_evaluation_cli_uses_shared_settings_for_nebius(
+def test_evaluation_cli_uses_shared_modal_settings(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import sys
 
-    import math_tutor.evaluation as evaluation
+    import math_tutor.evaluation.baseline as evaluation
 
     observed: dict[str, object] = {}
     settings = Settings(
         _env_file=None,
-        nebius_api_key="evaluation-secret",
-        nebius_base_url="https://nebius.example/v1",
+        modal_vllm_api_key="evaluation-secret",
+        modal_vllm_base_url="https://workspace--qwen.modal.direct/v1",
     )
 
     def fake_run_evaluation(**kwargs: object) -> dict[str, object]:
         observed.update(kwargs)
         return {"first_attempt": {"attempts": 0}}
 
-    monkeypatch.delenv("NEBIUS_API_KEY", raising=False)
+    monkeypatch.delenv("MODAL_VLLM_API_KEY", raising=False)
     monkeypatch.setattr(evaluation, "get_settings", lambda: settings, raising=False)
     monkeypatch.setattr(evaluation, "run_evaluation", fake_run_evaluation)
     monkeypatch.setattr(
         sys,
         "argv",
         [
-            "math_tutor.evaluation",
+            "math_tutor.evaluation.baseline",
             "--dataset",
             "data/evaluation/manim_eval_v1.jsonl",
             "--artifact-root",
@@ -198,7 +201,7 @@ def test_evaluation_cli_uses_shared_settings_for_nebius(
         "artifact_root": tmp_path,
         "run_id": "settings-run",
         "api_key": "evaluation-secret",
-        "base_url": "https://nebius.example/v1",
+        "base_url": "https://workspace--qwen.modal.direct/v1",
     }
 
 

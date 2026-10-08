@@ -9,30 +9,33 @@ from unittest.mock import patch
 
 import pytest
 
-from math_tutor.attempts import RenderedAttempt
 from math_tutor.domain import LessonStage
-from math_tutor.generated_lesson import (
+from math_tutor.generation.errors import (
     ExtractionError,
     GeneratedLessonError,
-    GeneratedLessonPipeline,
-    GenerationFallbackRenderer,
     SceneValidationError,
-    SpecialistGuidedLessonPipeline,
-    VoiceoverFallbackRenderer,
-    extract_and_validate_raw_scene,
-    extract_and_validate_scene,
 )
-from math_tutor.generation import (
+from math_tutor.generation.pipeline import (
+    GeneratedLessonPipeline,
+    VoiceoverFallbackRenderer,
+)
+from math_tutor.generation.provider import (
     GenerationConfig,
     GenerationResult,
     ModelHealth,
     ProviderError,
     TokenUsage,
 )
+from math_tutor.generation.source import (
+    extract_and_validate_raw_scene,
+    extract_and_validate_scene,
+)
+from math_tutor.generation.specialist import SpecialistGuidedLessonPipeline
 from math_tutor.jobs import RenderOutcome
-from math_tutor.narration import NarrationStatus
-from math_tutor.renderer import RenderFailed, RenderTimedOut
+from math_tutor.rendering.manim import RenderFailed, RenderTimedOut
+from math_tutor.rendering.narration import NarrationStatus
 from math_tutor.validation.models import (
+    RenderedAttempt,
     ValidationFinding,
     ValidationReport,
     ValidationStatus,
@@ -375,7 +378,7 @@ def test_rejects_invalid_or_unsafe_generated_code(source: str, message: str) -> 
 
 def test_reports_parser_value_error_as_a_parse_failure() -> None:
     with (
-        patch("math_tutor.generated_lesson.ast.parse", side_effect=ValueError("bad source")),
+        patch("math_tutor.generation.source.ast.parse", side_effect=ValueError("bad source")),
         pytest.raises(SceneValidationError, match="not valid Python") as caught,
     ):
         extract_and_validate_scene(f"```python\n{VALID_SCENE}```")
@@ -598,6 +601,46 @@ def test_pipeline_accepts_first_passing_attempt_without_repair(tmp_path: Path) -
         "infrastructure_retry_count": 0,
         "selected_attempt": 0,
         "validation_status": "pass",
+    }
+
+
+def test_pipeline_publishes_duration_advisory_without_repair(tmp_path: Path) -> None:
+    generator = RecordingGenerator(_generation(f"```python\n{VALID_SCENE}```"))
+    advisory = ValidationFinding(
+        code="duration_outside_target",
+        message="Lesson duration is outside the target range.",
+        evidence={
+            "actual_seconds": 11,
+            "target_minimum_seconds": 30,
+            "target_maximum_seconds": 45,
+        },
+    )
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain a derivative.",
+        generator=generator,
+        renderer=SequenceSourceRenderer(tmp_path / "rendered"),
+        validator=SequenceValidator(
+            [
+                ValidationReport(
+                    "media",
+                    ValidationStatus.PASS,
+                    advisories=(advisory,),
+                )
+            ]
+        ),
+    )
+
+    outcome = pipeline.render("duration-advisory-123")
+
+    assert len(generator.prompts) == 1
+    assert outcome.validation_diagnostics == {
+        "attempt_count": 1,
+        "repair_count": 0,
+        "infrastructure_retry_count": 0,
+        "selected_attempt": 0,
+        "validation_status": "pass",
+        "validation_advisories": [advisory.to_dict()],
     }
 
 
@@ -955,35 +998,6 @@ def test_voiceover_fallback_does_not_retry_generation_failure(tmp_path: Path) ->
         )
 
     assert fallback.calls == []
-
-
-def test_generation_fallback_uses_base_model_and_reports_specialist_failure(
-    tmp_path: Path,
-) -> None:
-    primary = RecordingPromptRenderer(GeneratedLessonError("specialist timed out"))
-    fallback_outcome = RenderOutcome(
-        tmp_path / "base.mp4",
-        "base",
-        1,
-        "rendered",
-        narration_diagnostics={
-            "inference_path": "base_model",
-            "inference_model": "Qwen/Qwen3-4B",
-        },
-    )
-    fallback = RecordingPromptRenderer(fallback_outcome)
-
-    result = GenerationFallbackRenderer(primary=primary, fallback=fallback).render(
-        "job-4", "Explain limits"
-    )
-
-    assert result.narration_diagnostics == {
-        "inference_path": "base_model",
-        "inference_model": "Qwen/Qwen3-4B",
-        "routing_fallback": "base_model",
-        "specialist_error": "specialist timed out",
-    }
-    assert fallback.calls == [("job-4-base", "Explain limits")]
 
 
 def test_specialist_guidance_is_normalized_by_base_pipeline(tmp_path: Path) -> None:

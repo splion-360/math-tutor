@@ -1,9 +1,12 @@
+"""Verify token-budget extraction and reporting from saved generation artifacts.
+The tests preserve phase attribution and immutable artifact handling."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from math_tutor.token_budget_audit import audit_artifact_root, write_markdown_report
+from math_tutor.evaluation.token_budget import audit_artifact_root, write_markdown_report
 
 
 def test_token_budget_audit_measures_specialist_normalization_and_output(

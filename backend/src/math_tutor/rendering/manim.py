@@ -1,3 +1,6 @@
+"""Render admitted Manim source inside an isolated Docker container.
+The renderer returns media paths and operational diagnostics to lesson pipelines."""
+
 from __future__ import annotations
 
 import json
@@ -25,15 +28,15 @@ _LOG_LIMIT = 32_000
 
 
 class RenderError(JobExecutionError):
-    pass
+    """Base operational failure from isolated Manim rendering."""
 
 
 class RenderTimedOut(RenderError):
-    pass
+    """Raised when the isolated renderer exceeds its configured timeout."""
 
 
 class RenderFailed(RenderError):
-    pass
+    """Raised when rendering cannot produce acceptable media."""
 
 
 def run_command(
@@ -41,6 +44,7 @@ def run_command(
     timeout_seconds: float,
     environment: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    """Run one renderer command with captured output and an optional environment."""
     return subprocess.run(
         command,
         check=False,
@@ -52,6 +56,8 @@ def run_command(
 
 
 class DockerManimRenderer:
+    """Render static or generated Manim scenes in a pinned container image."""
+
     def __init__(
         self,
         artifact_root: Path,
@@ -83,6 +89,7 @@ class DockerManimRenderer:
         self._require_audio = require_audio
 
     def render(self, job_id: str) -> RenderOutcome:
+        """Render the configured known scene for one job."""
         try:
             source = self._scene_path.read_text(encoding="utf-8")
         except OSError as error:
@@ -91,6 +98,7 @@ class DockerManimRenderer:
         return self.render_source(job_id, source, "PythagoreanTheorem")
 
     def render_source(self, job_id: str, source: str, scene_class: str) -> RenderOutcome:
+        """Render admitted source for one generated lesson attempt."""
         if not is_safe_job_id(job_id):
             raise RenderFailed("job id is not safe for an artifact path or container name")
         if not scene_class.isidentifier():

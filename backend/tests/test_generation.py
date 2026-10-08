@@ -1,3 +1,6 @@
+"""Verify Modal generation requests, responses, health checks, and failures.
+The tests exercise the provider boundary without external network access."""
+
 from __future__ import annotations
 
 import json
@@ -5,15 +8,14 @@ import json
 import httpx
 import pytest
 
-from math_tutor.generation import (
+from math_tutor.generation.provider import (
     VOICEOVER_SYSTEM_PROMPT,
     GenerationConfig,
     ModalVllmClient,
-    NebiusTokenFactoryClient,
     ProviderError,
 )
 
-NEBIUS_BASE_URL = "https://api.tokenfactory.nebius.com/v1"
+MODAL_BASE_URL = "https://workspace--qwen.modal.direct/v1"
 
 
 def test_generate_sends_frozen_decoding_config_and_preserves_usage() -> None:
@@ -47,18 +49,18 @@ def test_generate_sends_frozen_decoding_config_and_preserves_usage() -> None:
         )
 
     config = GenerationConfig()
-    client = NebiusTokenFactoryClient(
-        api_key="nebius-secret",
+    client = ModalVllmClient(
+        api_key="modal-secret",
         config=config,
-        base_url=NEBIUS_BASE_URL,
+        base_url=MODAL_BASE_URL,
         transport=httpx.MockTransport(handler),
     )
 
     result = client.generate("Explain a derivative visually.")
 
     assert observed == {
-        "url": "https://api.tokenfactory.nebius.com/v1/chat/completions",
-        "authorization": "Bearer nebius-secret",
+        "url": "https://workspace--qwen.modal.direct/v1/chat/completions",
+        "authorization": "Bearer modal-secret",
         "payload": {
             "model": "Qwen/Qwen3-4B",
             "messages": [
@@ -69,6 +71,7 @@ def test_generate_sends_frozen_decoding_config_and_preserves_usage() -> None:
             "top_p": 1.0,
             "max_tokens": 4096,
             "seed": 42,
+            "chat_template_kwargs": {"enable_thinking": False},
         },
     }
     assert result.content == "```python\nfrom manim import *\n```"
@@ -106,10 +109,10 @@ def test_health_distinguishes_reachable_api_from_unavailable_model() -> None:
             json={"object": "list", "data": [{"id": "Qwen/Qwen3-30B-A3B-Instruct-2507"}]},
         )
 
-    client = NebiusTokenFactoryClient(
-        api_key="nebius-secret",
+    client = ModalVllmClient(
+        api_key="modal-secret",
         config=GenerationConfig(),
-        base_url=NEBIUS_BASE_URL,
+        base_url=MODAL_BASE_URL,
         transport=httpx.MockTransport(handler),
     )
 
@@ -122,22 +125,22 @@ def test_health_distinguishes_reachable_api_from_unavailable_model() -> None:
 
 
 def test_provider_error_does_not_expose_credentials_or_response_body() -> None:
-    secret = "nebius-do-not-leak"
+    secret = "modal-do-not-leak"
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(401, text=f"rejected credential {secret}")
 
-    client = NebiusTokenFactoryClient(
+    client = ModalVllmClient(
         api_key=secret,
         config=GenerationConfig(),
-        base_url=NEBIUS_BASE_URL,
+        base_url=MODAL_BASE_URL,
         transport=httpx.MockTransport(handler),
     )
 
     with pytest.raises(ProviderError) as caught:
         client.generate("Prompt")
 
-    assert str(caught.value) == "Nebius generation request failed with HTTP 401"
+    assert str(caught.value) == "Modal vLLM generation request failed with HTTP 401"
     assert secret not in str(caught.value)
 
 
@@ -145,10 +148,10 @@ def test_malformed_success_response_is_a_sanitized_provider_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"id": "chatcmpl-broken", "choices": []})
 
-    client = NebiusTokenFactoryClient(
-        api_key="nebius-secret",
+    client = ModalVllmClient(
+        api_key="modal-secret",
         config=GenerationConfig(),
-        base_url=NEBIUS_BASE_URL,
+        base_url=MODAL_BASE_URL,
         transport=httpx.MockTransport(handler),
     )
 

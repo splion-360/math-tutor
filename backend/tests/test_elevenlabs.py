@@ -1,3 +1,6 @@
+"""Verify ElevenLabs narration requests and normalized audio artifacts.
+The tests keep provider errors bounded and credentials out of diagnostics."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -5,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from math_tutor.elevenlabs import ElevenLabsError, ElevenLabsNarrationProvider
-from math_tutor.narration import NarrationPlan, NarrationSegment
+from math_tutor.rendering.elevenlabs import ElevenLabsError, ElevenLabsNarrationProvider
+from math_tutor.rendering.narration import NarrationPlan, NarrationSegment
 
 
 class FakeResponse:

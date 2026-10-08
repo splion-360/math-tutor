@@ -1,49 +1,15 @@
-"""Describe rendered attempts and persist their immutable evidence bundles.
-Validation consumes attempt values while orchestration owns the artifact store."""
+"""Persist immutable generation-attempt evidence and final selections.
+Validation owns attempt contracts while this module owns filesystem artifacts."""
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 from math_tutor.jobs import RenderOutcome, is_safe_job_id
-
-
-@dataclass(frozen=True)
-class RenderedAttempt:
-    """Inputs and outputs needed to validate one rendered lesson attempt.
-
-    Args:
-        number: Zero-based attempt number within the lesson job.
-        artifact_dir: Directory containing immutable evidence for this attempt.
-        prompt: Prompt sent to the generator for this attempt.
-        source: Admitted Manim source used for rendering.
-        scene_class: Manim scene class selected for rendering.
-        outcome: Rendered media and renderer provenance.
-        narration_required: Whether the final video must contain an audio stream.
-        captions_required: Whether a non-empty WebVTT artifact is required.
-        original_prompt_path: Immutable copy of the original user prompt.
-        generation_model: Model identifier recorded for this attempt.
-        generation_provider: Provider identifier recorded for this attempt.
-        inference_path: Routing path used to produce this attempt.
-        infrastructure_retry_count: Render retries that reused the admitted source.
-    """
-
-    number: int
-    artifact_dir: Path
-    prompt: str
-    source: str
-    scene_class: str
-    outcome: RenderOutcome
-    narration_required: bool
-    captions_required: bool
-    original_prompt_path: Path | None = None
-    generation_model: str | None = None
-    generation_provider: str | None = None
-    inference_path: str = "unknown"
-    infrastructure_retry_count: int = 0
+from math_tutor.validation.models import RenderedAttempt
 
 
 class AttemptArtifactStore:
@@ -202,6 +168,7 @@ class AttemptArtifactStore:
         *,
         validation_status: str,
         infrastructure_retry_count: int,
+        validation_advisories: list[dict[str, object]] | None = None,
     ) -> RenderOutcome:
         """Record and return the only attempt accepted for publication.
 
@@ -209,6 +176,7 @@ class AttemptArtifactStore:
             attempt: Validated rendered attempt selected for publication.
             validation_status: Passing status recorded in the selection summary.
             infrastructure_retry_count: Total render retries across the lesson job.
+            validation_advisories: Non-blocking validation evidence to expose.
 
         Returns:
             Render outcome augmented with validation and repair diagnostics.
@@ -224,19 +192,24 @@ class AttemptArtifactStore:
             "video_sha256": video_evidence["sha256"],
             "attempt_manifest": str((attempt.artifact_dir / "attempt.json").resolve()),
         }
+        if validation_advisories:
+            summary["validation_advisories"] = validation_advisories
         (self.job_dir / "selected_attempt.json").write_text(
             json.dumps(summary, indent=2, sort_keys=True),
             encoding="utf-8",
         )
+        diagnostics: dict[str, object] = {
+            "attempt_count": attempt.number + 1,
+            "repair_count": attempt.number,
+            "infrastructure_retry_count": infrastructure_retry_count,
+            "selected_attempt": attempt.number,
+            "validation_status": validation_status,
+        }
+        if validation_advisories:
+            diagnostics["validation_advisories"] = validation_advisories
         return replace(
             attempt.outcome,
-            validation_diagnostics={
-                "attempt_count": attempt.number + 1,
-                "repair_count": attempt.number,
-                "infrastructure_retry_count": infrastructure_retry_count,
-                "selected_attempt": attempt.number,
-                "validation_status": validation_status,
-            },
+            validation_diagnostics=diagnostics,
         )
 
     def _base_manifest(

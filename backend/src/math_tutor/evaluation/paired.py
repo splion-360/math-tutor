@@ -13,13 +13,10 @@ from pathlib import Path
 from time import monotonic
 from typing import Any, TypedDict, cast
 
-from math_tutor.generated_lesson import (
-    ExtractionError,
-    SceneValidationError,
-    SourceRenderer,
-    extract_and_validate_raw_scene,
-)
-from math_tutor.renderer import (
+from math_tutor.generation.errors import ExtractionError, SceneValidationError
+from math_tutor.generation.pipeline import SourceRenderer
+from math_tutor.generation.source import extract_and_validate_raw_scene
+from math_tutor.rendering.manim import (
     DEFAULT_MANIM_IMAGE,
     DockerManimRenderer,
     RenderFailed,
@@ -62,18 +59,19 @@ def renderer_contract() -> dict[str, Any]:
     Returns:
         Image, timeout, and SHA-256 digests frozen before model generation.
     """
-    root = Path(__file__).parent
+    package_root = Path(__file__).parents[1]
+    sources = (
+        "evaluation/paired.py",
+        "generation/source.py",
+        "rendering/manim.py",
+        "rendering/scenes/render_known.py",
+    )
     return {
         "image": DEFAULT_MANIM_IMAGE,
         "timeout_seconds": 90,
         "source_hashes": {
-            name: sha256((root / name).read_bytes()).hexdigest()
-            for name in (
-                "paired_evaluation.py",
-                "generated_lesson.py",
-                "renderer.py",
-                "scenes/render_known.py",
-            )
+            name: sha256((package_root / name).read_bytes()).hexdigest()
+            for name in sources
         },
     }
 
@@ -381,7 +379,12 @@ def main() -> None:
         artifact_root=output / "renders",
         image=plan["renderer"]["image"],
         timeout_seconds=plan["renderer"]["timeout_seconds"],
-        scene_path=Path(__file__).parent / "scenes/pythagorean_theorem.py",
+        scene_path=(
+            Path(__file__).parents[1]
+            / "rendering"
+            / "scenes"
+            / "pythagorean_theorem.py"
+        ),
     )
     report = evaluate_pairs(rows=rows, plan=plan, output=output, renderer=renderer)
     print(json.dumps(report["conditions"], indent=2))

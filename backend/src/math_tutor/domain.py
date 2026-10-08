@@ -9,14 +9,15 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from types import MappingProxyType
 
-from math_tutor.narration import NarrationStatus
-
 
 def utc_now() -> datetime:
+    """Return the current timezone-aware UTC timestamp."""
     return datetime.now(UTC)
 
 
 class LessonStatus(StrEnum):
+    """Terminal and non-terminal states of a lesson job."""
+
     QUEUED = "queued"
     RUNNING = "running"
     READY = "ready"
@@ -25,6 +26,8 @@ class LessonStatus(StrEnum):
 
 
 class LessonStage(StrEnum):
+    """User-visible processing stage for an active lesson job."""
+
     ROUTING = "routing"
     GENERATING_CODE = "generating_code"
     VALIDATING_CODE = "validating_code"
@@ -36,13 +39,26 @@ class LessonStage(StrEnum):
 
 
 class Difficulty(StrEnum):
+    """Difficulty labels supported by specialist routing."""
+
     FOUNDATIONAL = "foundational"
     INTERMEDIATE = "intermediate"
     ADVANCED = "advanced"
 
 
+class NarrationStatus(StrEnum):
+    """Availability of optional narration for a lesson job."""
+
+    NOT_REQUESTED = "not_requested"
+    PENDING = "pending"
+    READY = "ready"
+    UNAVAILABLE = "unavailable"
+
+
 @dataclass(frozen=True)
 class LessonJob:
+    """Immutable snapshot of lesson state, artifacts, and diagnostics."""
+
     id: str
     lesson: str
     status: LessonStatus

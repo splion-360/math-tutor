@@ -1,10 +1,13 @@
+"""Verify narration value contracts and immutable normalized metadata.
+The tests cover plan ordering, identifiers, durations, and digests."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 
-from math_tutor.narration import (
+from math_tutor.rendering.narration import (
     NarrationPlan,
     NarrationSegment,
     NarrationStatus,

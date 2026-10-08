@@ -69,11 +69,11 @@ evaluation-download:
 	uvx modal volume get $(MODAL_PROFILE_FLAG) math-tutor-paired-evaluation $(EVALUATION_RUN)/generations.jsonl $(EVALUATION_DIR)/generations.jsonl --force
 
 evaluation-render:
-	uv run --frozen --project backend python -m math_tutor.paired_evaluation --run $(EVALUATION_DIR)
-	uv run --frozen --project backend python -m math_tutor.paired_review --evaluation $(EVALUATION_DIR)/evaluation --prepare
+	uv run --frozen --project backend python -m math_tutor.evaluation.paired --run $(EVALUATION_DIR)
+	uv run --frozen --project backend python -m math_tutor.evaluation.review --evaluation $(EVALUATION_DIR)/evaluation --prepare
 
 evaluation-review:
-	uv run --frozen --project backend python -m math_tutor.paired_review --evaluation $(EVALUATION_DIR)/evaluation --reviews $(EVALUATION_DIR)/evaluation/human_review_bound.csv
+	uv run --frozen --project backend python -m math_tutor.evaluation.review --evaluation $(EVALUATION_DIR)/evaluation --reviews $(EVALUATION_DIR)/evaluation/human_review_bound.csv
 
 test:
 	cd backend && uv run pytest -q

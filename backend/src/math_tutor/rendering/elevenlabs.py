@@ -1,3 +1,6 @@
+"""Generate narration audio and word timing through the ElevenLabs API.
+The provider returns normalized narration values to the rendering layer."""
+
 from __future__ import annotations
 
 import re
@@ -8,7 +11,7 @@ from typing import Protocol
 
 import httpx
 
-from math_tutor.narration import (
+from math_tutor.rendering.narration import (
     NarrationPlan,
     SynthesizedNarration,
     SynthesizedSegment,
@@ -21,12 +24,18 @@ _SAFE_ARTIFACT_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
 
 class HttpResponse(Protocol):
+    """Minimal response contract required by the narration provider."""
+
     content: bytes
 
-    def raise_for_status(self) -> None: ...
+    def raise_for_status(self) -> None:
+        """Raise when the response status is unsuccessful."""
+        ...
 
 
 class HttpTransport(Protocol):
+    """HTTP boundary used by the narration provider."""
+
     def post(
         self,
         url: str,
@@ -35,10 +44,14 @@ class HttpTransport(Protocol):
         json: Mapping[str, str],
         params: Mapping[str, str],
         timeout: float,
-    ) -> HttpResponse: ...
+    ) -> HttpResponse:
+        """Send one narration synthesis request."""
+        ...
 
 
 class HttpxTransport:
+    """HTTPX implementation of the narration transport contract."""
+
     def __init__(self) -> None:
         self._client = httpx.Client()
 
@@ -51,6 +64,7 @@ class HttpxTransport:
         params: Mapping[str, str],
         timeout: float,
     ) -> httpx.Response:
+        """Send one request through the owned HTTPX client."""
         return self._client.post(
             url,
             headers=headers,
@@ -65,6 +79,8 @@ class ElevenLabsError(RuntimeError):
 
 
 class ElevenLabsNarrationProvider:
+    """Synthesize narration segments and record bounded artifact provenance."""
+
     def __init__(
         self,
         *,
@@ -95,6 +111,7 @@ class ElevenLabsNarrationProvider:
         plan: NarrationPlan,
         output_dir: Path,
     ) -> SynthesizedNarration:
+        """Synthesize every plan segment into an ordered narration result."""
         for segment in plan.segments:
             if not _SAFE_ARTIFACT_ID.fullmatch(segment.id):
                 raise ElevenLabsError(
