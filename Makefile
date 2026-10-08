@@ -9,8 +9,6 @@ MODAL_PROFILE ?=
 MODAL_PROFILE_FLAG := $(if $(MODAL_PROFILE),--profile $(MODAL_PROFILE),)
 EVALUATION_RUN ?= paired-pilot-v2-greedy
 EVALUATION_DIR := training/artifacts/$(EVALUATION_RUN)
-STAGED_BACKEND_PYTHON := $(shell git diff --cached --name-only --diff-filter=ACMR -- 'backend/**/*.py' | sed 's#^backend/##')
-STAGED_TRAINING_PYTHON := $(shell git diff --cached --name-only --diff-filter=ACMR -- 'training/**/*.py' | sed 's#^training/##')
 
 help:
 	@printf '%s\n' \
@@ -90,37 +88,17 @@ lint:
 	cd training && uv run ruff check src tests
 
 validate-staged-python:
-	@partial=0; \
-	for file in $$(git diff --cached --name-only --diff-filter=ACMR -- '*.py'); do \
-		if ! git diff --quiet -- "$$file"; then \
-			printf '%s\n' "Partially staged Python file: $$file" >&2; \
-			partial=1; \
-		fi; \
-	done; \
-	if [ "$$partial" -ne 0 ]; then \
-		printf '%s\n' 'Stage or restore each Python file completely before committing.' >&2; \
-		exit 1; \
-	fi
+	python3 .githooks/check_staged_python.py validate
 
 lint-staged:
-	@if [ -n "$(strip $(STAGED_BACKEND_PYTHON))" ]; then \
-		cd backend && uv run ruff check $(STAGED_BACKEND_PYTHON); \
-	fi
-	@if [ -n "$(strip $(STAGED_TRAINING_PYTHON))" ]; then \
-		cd training && uv run ruff check $(STAGED_TRAINING_PYTHON); \
-	fi
+	python3 .githooks/check_staged_python.py lint
 
 format-check:
 	cd backend && uv run ruff format --check src tests
 	cd training && uv run ruff format --check src tests
 
 format-staged:
-	@if [ -n "$(strip $(STAGED_BACKEND_PYTHON))" ]; then \
-		cd backend && uv run ruff format --check $(STAGED_BACKEND_PYTHON); \
-	fi
-	@if [ -n "$(strip $(STAGED_TRAINING_PYTHON))" ]; then \
-		cd training && uv run ruff format --check $(STAGED_TRAINING_PYTHON); \
-	fi
+	python3 .githooks/check_staged_python.py format
 
 typecheck:
 	cd backend && uv run mypy src
@@ -134,7 +112,9 @@ secrets:
 	}
 	gitleaks git --pre-commit --staged --redact
 
-pre-commit-check: validate-staged-python lint-staged format-staged secrets
+pre-commit-check:
+	python3 .githooks/check_staged_python.py all
+	@$(MAKE) --no-print-directory secrets
 
 install-gitleaks:
 	@if command -v gitleaks >/dev/null 2>&1; then \
