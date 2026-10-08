@@ -171,7 +171,10 @@ class FfmpegFrameSampler:
             sample_id = f"frame-{index:02d}"
             frame_path = frames_dir / f"{sample_id}.png"
             self._extract(video_path, timestamp, frame_path)
-            payload = frame_path.read_bytes()
+            try:
+                payload = frame_path.read_bytes()
+            except OSError as error:
+                raise FrameSamplingError("ffmpeg did not produce a readable frame") from error
             if not payload:
                 raise FrameSamplingError("ffmpeg produced an empty frame")
             samples.append(
@@ -411,7 +414,11 @@ class VisualEvidenceValidator:
             raise MalformedVisualModelOutput
         status = payload["status"]
         raw_findings = payload["findings"]
-        if status not in {"pass", "fail", "uncertain"} or not isinstance(raw_findings, list):
+        if (
+            not isinstance(status, str)
+            or status not in {"pass", "fail", "uncertain"}
+            or not isinstance(raw_findings, list)
+        ):
             raise MalformedVisualModelOutput
         if len(raw_findings) > 10:
             raise MalformedVisualModelOutput

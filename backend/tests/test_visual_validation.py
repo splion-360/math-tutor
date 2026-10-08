@@ -17,6 +17,7 @@ from math_tutor.validation.models import RenderedAttempt, ValidationStatus
 from math_tutor.validation.visual import (
     FfmpegFrameSampler,
     FrameSample,
+    FrameSamplingError,
     VisualEvidenceValidator,
     VisualModelResult,
     VisualModelTimedOut,
@@ -63,6 +64,22 @@ def test_frame_sampler_retains_stable_timestamped_hashes(tmp_path: Path) -> None
     }
     assert manifest["frames"][0]["timestamp_seconds"] == 2.4
     assert len(observed) == 5
+
+
+def test_frame_sampler_normalizes_missing_ffmpeg_output(tmp_path: Path) -> None:
+    video = tmp_path / "lesson.mp4"
+    video.write_bytes(b"video")
+
+    def run_command(*args, **kwargs) -> subprocess.CompletedProcess[str]:
+        command = args[0]
+        stdout = "12.0\n" if command[0] == "ffprobe" else ""
+        return subprocess.CompletedProcess(command, 0, stdout, "")
+
+    attempt_dir = tmp_path / "attempt"
+    attempt_dir.mkdir()
+
+    with pytest.raises(FrameSamplingError):
+        FfmpegFrameSampler(command_runner=run_command).sample(video, attempt_dir)
 
 
 def _attempt(tmp_path: Path) -> RenderedAttempt:
@@ -268,6 +285,20 @@ def test_visual_validator_records_model_failures_without_provider_details(
     assert report.repairable_findings == ()
     evidence = json.loads((tmp_path / "visual_validation" / "validation.json").read_text())
     assert evidence["publication_allowed"] is False
+
+
+@pytest.mark.parametrize("invalid_status", [[], {}])
+def test_visual_validator_normalizes_non_string_status(
+    tmp_path: Path,
+    invalid_status: object,
+) -> None:
+    report = _validate(
+        tmp_path,
+        json.dumps({"status": invalid_status, "findings": []}),
+    )
+
+    assert report.status is ValidationStatus.VALIDATOR_ERROR
+    assert report.findings[0].code == "malformed_visual_model_output"
 
 
 def test_attempt_manifest_indexes_retained_visual_evidence(tmp_path: Path) -> None:
