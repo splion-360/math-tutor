@@ -189,9 +189,7 @@ class GeneratedLessonPipeline:
                     inference_path=self._inference_path,
                     expected_checks=self._expected_checks,
                     failure={
-                        "failure_stage": error.diagnostics.get(
-                            "failure_stage", "validation"
-                        ),
+                        "failure_stage": error.diagnostics.get("failure_stage", "validation"),
                         "findings": [finding.to_dict() for finding in report.findings],
                     },
                 )
@@ -249,11 +247,12 @@ class GeneratedLessonPipeline:
                     attempt,
                     validation_status=report.status.value,
                     infrastructure_retry_count=infrastructure_retry_count,
-                    validation_advisories=[
-                        advisory.to_dict() for advisory in report.advisories
-                    ],
+                    validation_advisories=[advisory.to_dict() for advisory in report.advisories],
                 )
-            if report.status is ValidationStatus.ERROR:
+            if report.status in {
+                ValidationStatus.ERROR,
+                ValidationStatus.VALIDATOR_ERROR,
+            }:
                 raise OutputValidationError(
                     "rendered lesson validation could not be completed",
                     diagnostics={
@@ -397,9 +396,7 @@ class GeneratedLessonPipeline:
                 voiceover=self._voiceover,
             )
         except GeneratedLessonError as error:
-            metadata["status"] = (
-                f"{error.diagnostics.get('failure_stage', 'validation')}_failed"
-            )
+            metadata["status"] = f"{error.diagnostics.get('failure_stage', 'validation')}_failed"
             self._write_metadata(attempt_dir, metadata)
             raise
         (attempt_dir / "extracted_scene.py").write_text(
@@ -463,9 +460,7 @@ class GeneratedLessonPipeline:
                     attempt_number=attempt_number,
                     result=result,
                     infrastructure_retry_count=infrastructure_retry_count,
-                    previous_infrastructure_retry_count=(
-                        previous_infrastructure_retry_count
-                    ),
+                    previous_infrastructure_retry_count=(previous_infrastructure_retry_count),
                 )
             except RenderError as error:
                 self._raise_render_failure(
@@ -475,9 +470,7 @@ class GeneratedLessonPipeline:
                     attempt_number=attempt_number,
                     result=result,
                     infrastructure_retry_count=infrastructure_retry_count,
-                    previous_infrastructure_retry_count=(
-                        previous_infrastructure_retry_count
-                    ),
+                    previous_infrastructure_retry_count=(previous_infrastructure_retry_count),
                 )
         outcome = replace(
             outcome,
@@ -545,8 +538,7 @@ class GeneratedLessonPipeline:
                 "failure_kind": "operational",
                 "infrastructure_retry_count": infrastructure_retry_count,
                 "job_infrastructure_retry_count": (
-                    previous_infrastructure_retry_count
-                    + infrastructure_retry_count
+                    previous_infrastructure_retry_count + infrastructure_retry_count
                 ),
                 **dict(error.diagnostics),
             },
@@ -558,8 +550,7 @@ class GeneratedLessonPipeline:
                 "attempt_count": attempt_number + 1,
                 "repair_count": attempt_number,
                 "infrastructure_retry_count": (
-                    previous_infrastructure_retry_count
-                    + infrastructure_retry_count
+                    previous_infrastructure_retry_count + infrastructure_retry_count
                 ),
                 "attempt_manifest": str(manifest.resolve()),
             }
@@ -627,9 +618,7 @@ class GeneratedLessonPipeline:
         Returns:
             Renderer identifier no longer than the job-id contract permits.
         """
-        retry_suffix = (
-            f"-retry-{infrastructure_retry_count}" if infrastructure_retry_count else ""
-        )
+        retry_suffix = f"-retry-{infrastructure_retry_count}" if infrastructure_retry_count else ""
         suffix = f"-attempt-{attempt_number}{retry_suffix}"
         if len(job_id) + len(suffix) <= 64:
             return f"{job_id}{suffix}"

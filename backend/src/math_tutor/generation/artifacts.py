@@ -100,6 +100,7 @@ class AttemptArtifactStore:
                     "narration_required": attempt.narration_required,
                     "captions_required": attempt.captions_required,
                 },
+                "validation_artifacts": self._validation_artifacts(attempt.artifact_dir),
             }
         )
         return self._write_manifest(attempt.artifact_dir, manifest)
@@ -257,3 +258,25 @@ class AttemptArtifactStore:
     @classmethod
     def _optional_file_evidence(cls, path: Path | None) -> dict[str, object] | None:
         return cls._file_evidence(path) if path is not None and path.is_file() else None
+
+    @classmethod
+    def _validation_artifacts(cls, attempt_dir: Path) -> dict[str, object]:
+        """Index retained validator evidence without interpreting its contents.
+
+        Args:
+            attempt_dir: Immutable attempt directory containing validator artifacts.
+
+        Returns:
+            Artifact evidence grouped by validator.
+        """
+        visual_dir = attempt_dir / "visual_validation"
+        return {
+            "visual_evidence": {
+                "frame_samples": cls._optional_file_evidence(visual_dir / "frame_samples.json"),
+                "report": cls._optional_file_evidence(visual_dir / "validation.json"),
+                "model_response": cls._optional_file_evidence(visual_dir / "model_response.txt"),
+                "provider_response": cls._optional_file_evidence(
+                    visual_dir / "provider_response.json"
+                ),
+            }
+        }

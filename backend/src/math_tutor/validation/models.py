@@ -52,6 +52,8 @@ class ValidationStatus(StrEnum):
 
     PASS = "pass"
     FAIL = "fail"
+    UNCERTAIN = "uncertain"
+    VALIDATOR_ERROR = "validator_error"
     ERROR = "error"
 
 

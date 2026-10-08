@@ -57,3 +57,19 @@ def test_settings_loads_optional_modal_vllm_connection(monkeypatch) -> None:
     assert settings.modal_vllm_timeout_seconds == 120
     assert settings.modal_specialist_timeout_seconds == 60
     assert "modal-secret" not in repr(settings)
+
+
+def test_settings_loads_separate_visual_model_connection(monkeypatch) -> None:
+    monkeypatch.setenv(
+        "MODAL_VISUAL_MODEL_BASE_URL",
+        "https://workspace--visual.modal.direct/v1",
+    )
+    monkeypatch.setenv("MODAL_VISUAL_MODEL_API_KEY", "visual-secret")
+    monkeypatch.setenv("MODAL_VISUAL_MODEL_TIMEOUT_SECONDS", "30")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.modal_visual_model_base_url == ("https://workspace--visual.modal.direct/v1")
+    assert settings.modal_visual_model_api_key == SecretStr("visual-secret")
+    assert settings.modal_visual_model_timeout_seconds == 30
+    assert "visual-secret" not in repr(settings)
