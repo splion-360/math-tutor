@@ -9,7 +9,7 @@ from pathlib import Path
 
 import modal
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[2] if modal.is_local() else Path("/workspace")
 PLAN = ROOT / "training/artifacts/paired-pilot-v2/frozen_plan.json"
 app = modal.App("math-tutor-paired-evaluation")
 cache = modal.Volume.from_name("dream-ai-huggingface-cache", create_if_missing=True)
@@ -28,9 +28,10 @@ image = (
         "jinja2==3.1.6",
     )
     .env({"PYTHONPATH": "/workspace/src", "CUBLAS_WORKSPACE_CONFIG": ":4096:8"})
-    .add_local_dir(ROOT / "training/src", remote_path="/workspace/src")
-    .add_local_file(PLAN, remote_path="/workspace/frozen_plan.json")
 )
+if modal.is_local():
+    image = image.add_local_dir(ROOT / "training/src", remote_path="/workspace/src")
+    image = image.add_local_file(PLAN, remote_path="/workspace/frozen_plan.json")
 
 
 @app.function(
