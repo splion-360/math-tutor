@@ -273,6 +273,17 @@ def _generation(content: str, *, model: str = "Qwen/Qwen3-4B") -> GenerationResu
     )
 
 
+def test_pipeline_rejects_more_than_one_repair_attempt(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="must be zero or one"):
+        GeneratedLessonPipeline(
+            artifact_root=tmp_path / "artifacts",
+            prompt="Explain limits.",
+            generator=FixedGenerator(_generation(f"```python\n{VALID_SCENE}```")),
+            renderer=RecordingSourceRenderer(tmp_path / "unused.mp4"),
+            max_repair_attempts=2,
+        )
+
+
 def test_extracts_one_python_fence_and_validates_generated_scene() -> None:
     extracted = extract_and_validate_scene(f"```python\n{VALID_SCENE}```")
 
@@ -1184,6 +1195,28 @@ def test_voiceover_fallback_retries_render_failure_as_silent_lesson(tmp_path: Pa
     assert fallback.calls == [("job-2-silent", "Explain limits")]
 
 
+def test_voiceover_fallback_does_not_reset_an_exhausted_repair_budget(
+    tmp_path: Path,
+) -> None:
+    error = RenderFailed(
+        "voiceover render failed after repair",
+        diagnostics={"attempt_count": 2, "repair_count": 1},
+    )
+    primary = RecordingPromptRenderer(error)
+    fallback = RecordingPromptRenderer(
+        RenderOutcome(tmp_path / "must-not-render.mp4", "silent", 1, "rendered")
+    )
+
+    with pytest.raises(RenderFailed) as caught:
+        VoiceoverFallbackRenderer(primary=primary, fallback=fallback).render(
+            "job-exhausted",
+            "Explain limits",
+        )
+
+    assert caught.value is error
+    assert fallback.calls == []
+
+
 def test_voiceover_fallback_does_not_retry_generation_failure(tmp_path: Path) -> None:
     primary = RecordingPromptRenderer(GeneratedLessonError("invalid scene"))
     fallback = RecordingPromptRenderer(
@@ -1228,7 +1261,8 @@ def test_specialist_guidance_is_normalized_by_base_pipeline(tmp_path: Path) -> N
     assert specialist_draft in normalization_prompt
     assert "mathematical and visual guidance" in normalization_prompt
     assert result.narration_diagnostics == {
-        "inference_path": "lora_adapter_with_base_normalizer",
+        "inference_path": "base_model",
+        "routing_path": "lora_adapter_with_base_normalizer",
         "inference_model": "Qwen/Qwen3-4B",
         "specialist_model": "intermediate",
         "normalization_model": "Qwen/Qwen3-4B",
@@ -1241,6 +1275,37 @@ def test_specialist_guidance_is_normalized_by_base_pipeline(tmp_path: Path) -> N
     metadata = json.loads((job_dir / "specialist_generation.json").read_text())
     assert metadata["status"] == "generated"
     assert metadata["model"] == "intermediate"
+
+
+def test_specialist_routing_preserves_selected_generation_provenance(
+    tmp_path: Path,
+) -> None:
+    artifacts = tmp_path / "artifacts"
+    normalizer = GeneratedLessonPipeline(
+        artifact_root=artifacts,
+        prompt="unused",
+        generator=FixedGenerator(_generation(f"```python\n{VALID_SCENE}```")),
+        renderer=RecordingSourceRenderer(tmp_path / "normalized.mp4"),
+        validator=SequenceValidator([ValidationReport("media", ValidationStatus.PASS)]),
+    )
+    pipeline = SpecialistGuidedLessonPipeline(
+        artifact_root=artifacts,
+        specialist=RecordingGenerator(_generation("specialist guidance", model="intermediate")),
+        normalizer=normalizer,
+    )
+
+    outcome = pipeline.render("specialist-artifacts", "Explain completing the square.")
+
+    selected = json.loads(
+        (artifacts / "specialist-artifacts-normalized" / "selected_attempt.json").read_text()
+    )
+    assert outcome.validation_diagnostics is not None
+    assert (
+        outcome.validation_diagnostics["generation_provenance"] == selected["generation_provenance"]
+    )
+    assert outcome.narration_diagnostics is not None
+    assert outcome.narration_diagnostics["inference_path"] == "base_model"
+    assert outcome.narration_diagnostics["routing_path"] == "lora_adapter_with_base_normalizer"
 
 
 def test_specialist_failure_falls_back_once_to_direct_base_generation(

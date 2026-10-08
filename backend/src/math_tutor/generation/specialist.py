@@ -151,7 +151,7 @@ class SpecialistGuidedLessonPipeline:
             outcome,
             narration_diagnostics={
                 **diagnostics,
-                "inference_path": "lora_adapter_with_base_normalizer",
+                "routing_path": "lora_adapter_with_base_normalizer",
                 "specialist_model": specialist_result.model,
                 "normalization_model": normalization_model,
                 "specialist_elapsed_seconds": specialist_result.elapsed_seconds,

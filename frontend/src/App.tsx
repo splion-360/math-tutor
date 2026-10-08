@@ -453,7 +453,7 @@ function SupportTabs({ lesson }: { lesson: LessonJob | null }) {
 }
 
 function InferenceRouting({ lesson }: { lesson: LessonJob }) {
-  const reportedPath = readText(lesson.diagnostics, ["inference_path"]);
+  const reportedPath = readText(lesson.diagnostics, ["routing_path", "inference_path"]);
   const usesBaseNormalizer = reportedPath === "lora_adapter_with_base_normalizer";
   const usesAdapter = reportedPath === "lora_adapter" || usesBaseNormalizer || (
     reportedPath === null && lesson.difficulty != null
