@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+# Runs the repository's deterministic checks before Git creates a commit.
+# Delegates check definitions to the Makefile so local and hook behavior stay aligned.
+
+set -eu
+
+repository_root=$(git rev-parse --show-toplevel)
+cd "$repository_root"
+
+exec make pre-commit-check

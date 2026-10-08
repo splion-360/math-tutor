@@ -1,0 +1,49 @@
+// Defines debugger entry points for the backend application and both Python projects.
+// Keeps each launch configuration in the package directory that owns its environment.
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend: API",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "math_tutor.main:app",
+        "--reload"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/backend",
+      "envFile": "${workspaceFolder}/backend/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend/src"
+      },
+      "python": "${workspaceFolder}/backend/.venv/bin/python"
+    },
+    {
+      "name": "Backend: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/backend",
+      "envFile": "${workspaceFolder}/backend/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend/src"
+      },
+      "python": "${workspaceFolder}/backend/.venv/bin/python"
+    },
+    {
+      "name": "Training: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/training",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/training/src"
+      },
+      "python": "${workspaceFolder}/training/.venv/bin/python"
+    }
+  ]
+}
