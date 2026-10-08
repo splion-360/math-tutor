@@ -393,6 +393,9 @@
     "backend_mypy": "passed",
     "backend_preexisting_failure": "tests/test_modal_training_smoke.py asserts every training/probe function has a W&B secret; failure reproduced on unchanged baseline.",
     "human_review_tests_passed": 14,
+    "public_assets_anonymous_download": "Both asset sizes and SHA-256 digests verified; all 98 indexed file hashes verified.",
+    "public_bundle_clean_checkout_docker_replay": "Identical per-attempt stage outcomes and aggregate counts for all 30 attempts; no model calls.",
+    "public_verified_at_utc": "2026-10-08T06:14:30.761201+00:00",
     "ruff": "passed",
     "training_mypy_python_3_12": "passed",
     "training_tests_passed": 104
