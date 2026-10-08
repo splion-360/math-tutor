@@ -20,8 +20,8 @@ with narration, visual descriptions, and Python code for [Manim](https://www.man
 The initial setup trained three stand-alone adapters: **foundational**, **intermediate**, and
 **advanced** based on the question difficulty which was inferred from the dataset. The API endpoint accepts an explicit difficulty label for _oracle routing_.
 
-The flow looks like this, __selected adapter__ produces a draft $\rarr$ __cleanup__ step turns that draft
-into the scene format expected by the renderer $\rarr$ generated code is validated for compilation correctness $\rarr$ renders it the app with optional synchronized narration and captions.
+The flow looks like this, __selected adapter__ produces a draft &rarr; __cleanup__ step turns that draft
+into the scene format expected by the renderer &rarr; generated code is validated for compilation correctness &rarr; renders it the app with optional synchronized narration and captions.
 
 ![Math Tutor routes each request to a foundational, intermediate, or advanced LoRA adapter sharing one backbone, then cleans up, validates, and renders the generated scene.](assets/math-tutor-system.drawio.svg)
 
