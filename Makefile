@@ -5,7 +5,8 @@
 
 .PHONY: help setup up down logs renderer evidence-data evidence-figures evaluation-freeze evaluation-generate evaluation-download evaluation-render evaluation-review test lint typecheck check
 
-MODAL_PROFILE ?= splion-360
+MODAL_PROFILE ?=
+MODAL_PROFILE_FLAG := $(if $(MODAL_PROFILE),--profile $(MODAL_PROFILE),)
 EVALUATION_RUN ?= paired-pilot-v2-greedy
 EVALUATION_DIR := training/artifacts/$(EVALUATION_RUN)
 
@@ -59,13 +60,13 @@ evaluation-freeze:
 	uv run --frozen --project training --python 3.12 --with transformers==4.57.6 --with jinja2==3.1.6 --with-editable ./backend python -m dynamic_lora.paired_generation
 
 evaluation-generate:
-	uvx modal run --profile $(MODAL_PROFILE) deployments/modal/paired_evaluation.py --run-id $(EVALUATION_RUN)
+	uvx modal run $(MODAL_PROFILE_FLAG) deployments/modal/paired_evaluation.py --run-id $(EVALUATION_RUN)
 
 evaluation-download:
 	mkdir -p $(EVALUATION_DIR)
-	uvx modal volume get --profile $(MODAL_PROFILE) math-tutor-paired-evaluation $(EVALUATION_RUN)/frozen_plan.json $(EVALUATION_DIR)/frozen_plan.json --force
-	uvx modal volume get --profile $(MODAL_PROFILE) math-tutor-paired-evaluation $(EVALUATION_RUN)/runtime.json $(EVALUATION_DIR)/runtime.json --force
-	uvx modal volume get --profile $(MODAL_PROFILE) math-tutor-paired-evaluation $(EVALUATION_RUN)/generations.jsonl $(EVALUATION_DIR)/generations.jsonl --force
+	uvx modal volume get $(MODAL_PROFILE_FLAG) math-tutor-paired-evaluation $(EVALUATION_RUN)/frozen_plan.json $(EVALUATION_DIR)/frozen_plan.json --force
+	uvx modal volume get $(MODAL_PROFILE_FLAG) math-tutor-paired-evaluation $(EVALUATION_RUN)/runtime.json $(EVALUATION_DIR)/runtime.json --force
+	uvx modal volume get $(MODAL_PROFILE_FLAG) math-tutor-paired-evaluation $(EVALUATION_RUN)/generations.jsonl $(EVALUATION_DIR)/generations.jsonl --force
 
 evaluation-render:
 	uv run --frozen --project backend python -m math_tutor.paired_evaluation --run $(EVALUATION_DIR)

@@ -82,15 +82,17 @@ could not be verified.
 To run the paired lesson pilot, first run `make evidence-data`, then:
 
 ```bash
+export EVALUATION_RUN=paired-pilot-$(date -u +%Y%m%dT%H%M%SZ)
 make evaluation-freeze
 make evaluation-generate  # Requires Modal authentication and uses GPU credits
 make evaluation-download
 make evaluation-render   # Requires Docker
 ```
 
-The frozen plan records prompts, overlap checks, token measurements, and renderer
-versions. Outputs include raw responses, render diagnostics, and a human-review
-CSV in `training/artifacts/paired-pilot-v2-greedy/evaluation/`.
+Freeze the plan once and reuse it for additional run IDs. It records prompts,
+overlap checks, token measurements, and renderer versions. Outputs include raw
+responses, render diagnostics, and a human-review
+CSV in `training/artifacts/$EVALUATION_RUN/evaluation/`.
 Watch the rendered videos and fill in the reviewer, UTC timestamp, duration,
 judgments, and evidence notes in `human_review_bound.csv`. Run
 `make evaluation-review` to create a separate reviewed report; the automatic
