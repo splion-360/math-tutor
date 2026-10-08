@@ -237,6 +237,22 @@ class MediaValidator:
             <= duration
             <= self._policy.max_duration_seconds
         ):
+            if duration < self._policy.min_duration_seconds:
+                adjustment = self._policy.min_duration_seconds - duration
+                repair_instruction = (
+                    f"Increase the total animation and narration runtime by at least "
+                    f"{adjustment:g} seconds so the rendered lesson lasts between "
+                    f"{self._policy.min_duration_seconds:g} and "
+                    f"{self._policy.max_duration_seconds:g} seconds."
+                )
+            else:
+                adjustment = duration - self._policy.max_duration_seconds
+                repair_instruction = (
+                    f"Reduce the total animation and narration runtime by at least "
+                    f"{adjustment:g} seconds so the rendered lesson lasts between "
+                    f"{self._policy.min_duration_seconds:g} and "
+                    f"{self._policy.max_duration_seconds:g} seconds."
+                )
             findings.append(
                 ValidationFinding(
                     code="duration_out_of_range",
@@ -246,11 +262,7 @@ class MediaValidator:
                         "minimum_seconds": self._policy.min_duration_seconds,
                         "maximum_seconds": self._policy.max_duration_seconds,
                     },
-                    repair_instruction=(
-                        "Adjust animation and narration pacing so the rendered lesson lasts "
-                        f"between {self._policy.min_duration_seconds:g} and "
-                        f"{self._policy.max_duration_seconds:g} seconds."
-                    ),
+                    repair_instruction=repair_instruction,
                 )
             )
         if attempt.narration_required and inspection.audio_stream_count < 1:
