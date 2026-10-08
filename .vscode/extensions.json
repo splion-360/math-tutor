@@ -1,0 +1,9 @@
+// Recommends the extensions used by the repository's Python development workflow.
+// Keeps editor tooling aligned with the uv-managed backend and training projects.
+{
+  "recommendations": [
+    "charliermarsh.ruff",
+    "ms-python.debugpy",
+    "ms-python.python"
+  ]
+}

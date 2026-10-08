@@ -3,12 +3,14 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down logs renderer evidence-data evidence-figures evaluation-freeze evaluation-generate evaluation-download evaluation-render evaluation-review test lint typecheck check
+.PHONY: help setup up down logs renderer evidence-data evidence-figures evaluation-freeze evaluation-generate evaluation-download evaluation-render evaluation-review test lint lint-staged format-check format-staged typecheck secrets pre-commit-check install-gitleaks setup-hooks check
 
 MODAL_PROFILE ?=
 MODAL_PROFILE_FLAG := $(if $(MODAL_PROFILE),--profile $(MODAL_PROFILE),)
 EVALUATION_RUN ?= paired-pilot-v2-greedy
 EVALUATION_DIR := training/artifacts/$(EVALUATION_RUN)
+STAGED_BACKEND_PYTHON := $(shell git diff --cached --name-only --diff-filter=ACMR -- 'backend/**/*.py' | sed 's#^backend/##')
+STAGED_TRAINING_PYTHON := $(shell git diff --cached --name-only --diff-filter=ACMR -- 'training/**/*.py' | sed 's#^training/##')
 
 help:
 	@printf '%s\n' \
@@ -26,7 +28,10 @@ help:
 		'make evaluation-review  Import completed human video judgments' \
 		'make test       Run backend, frontend, and training tests' \
 		'make lint       Run Python lint checks' \
+		'make format-check  Check Python formatting' \
 		'make typecheck  Run Python and frontend type checks' \
+		'make secrets    Scan staged changes for leaked secrets' \
+		'make setup-hooks  Install Gitleaks and enable repository hooks' \
 		'make check      Run all tests, lint checks, and type checks'
 
 setup:
@@ -84,9 +89,54 @@ lint:
 	cd backend && uv run ruff check src tests
 	cd training && uv run ruff check src tests
 
+lint-staged:
+	@if [ -n "$(strip $(STAGED_BACKEND_PYTHON))" ]; then \
+		cd backend && uv run ruff check $(STAGED_BACKEND_PYTHON); \
+	fi
+	@if [ -n "$(strip $(STAGED_TRAINING_PYTHON))" ]; then \
+		cd training && uv run ruff check $(STAGED_TRAINING_PYTHON); \
+	fi
+
+format-check:
+	cd backend && uv run ruff format --check src tests
+	cd training && uv run ruff format --check src tests
+
+format-staged:
+	@if [ -n "$(strip $(STAGED_BACKEND_PYTHON))" ]; then \
+		cd backend && uv run ruff format --check $(STAGED_BACKEND_PYTHON); \
+	fi
+	@if [ -n "$(strip $(STAGED_TRAINING_PYTHON))" ]; then \
+		cd training && uv run ruff format --check $(STAGED_TRAINING_PYTHON); \
+	fi
+
 typecheck:
 	cd backend && uv run mypy src
 	cd frontend && npm run typecheck
 	cd training && uv run mypy src
+
+secrets:
+	@command -v gitleaks >/dev/null 2>&1 || { \
+		printf '%s\n' 'Gitleaks is required. Run make install-gitleaks.' >&2; \
+		exit 1; \
+	}
+	gitleaks git --pre-commit --staged --redact
+
+pre-commit-check: lint-staged format-staged secrets
+
+install-gitleaks:
+	@if command -v gitleaks >/dev/null 2>&1; then \
+		printf '%s\n' "Gitleaks $$(gitleaks version) is already installed."; \
+	elif command -v brew >/dev/null 2>&1; then \
+		brew install gitleaks; \
+	else \
+		printf '%s\n' 'Homebrew is required to install Gitleaks automatically.' >&2; \
+		printf '%s\n' 'Install it from https://github.com/gitleaks/gitleaks#installing and retry.' >&2; \
+		exit 1; \
+	fi
+
+setup-hooks: install-gitleaks
+	chmod +x .githooks/pre-commit
+	git config core.hooksPath .githooks
+	@printf '%s\n' 'Configured core.hooksPath=.githooks for this repository.'
 
 check: test lint typecheck
