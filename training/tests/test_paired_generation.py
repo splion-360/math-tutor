@@ -138,3 +138,37 @@ def test_freeze_preserves_inputs_and_rejects_mutation(tmp_path, monkeypatch) -> 
     with pytest.raises(ValueError, match="SHA-256 mismatch"):
         paired_generation.freeze_plan(**kwargs)
     assert not output.exists()
+
+
+def test_greedy_controls_override_sampling_defaults() -> None:
+    """Checkpoint defaults cannot replace the declared decoding mode."""
+    from types import SimpleNamespace
+
+    from dynamic_lora.paired_generation import generate_completion
+
+    class Model:
+        def generate(self, **kwargs):
+            assert kwargs["use_model_defaults"] is False
+            assert kwargs["do_sample"] is False
+            assert kwargs["generation_config"].do_sample is False
+            assert kwargs["max_new_tokens"] == 4096
+            return "greedy output"
+
+    settings = {"do_sample": False, "use_model_defaults": False, "max_new_tokens": 4096}
+    result = generate_completion(
+        model=Model(),
+        inputs={},
+        tokenizer=SimpleNamespace(eos_token_id=7),
+        decoding=settings,
+        transformers=SimpleNamespace(GenerationConfig=lambda **kwargs: SimpleNamespace(**kwargs)),
+    )
+    assert result == "greedy output"
+    assert settings["use_model_defaults"] is False
+    with pytest.raises(ValueError, match="greedy controls"):
+        generate_completion(
+            model=Model(),
+            inputs={},
+            tokenizer=SimpleNamespace(eos_token_id=7),
+            decoding={**settings, "do_sample": True},
+            transformers=None,
+        )

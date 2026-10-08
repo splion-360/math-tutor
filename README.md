@@ -90,7 +90,7 @@ make evaluation-render   # Requires Docker
 
 The frozen plan records prompts, overlap checks, token measurements, and renderer
 versions. Outputs include raw responses, render diagnostics, and a human-review
-CSV in `training/artifacts/paired-pilot-v2/evaluation/`.
+CSV in `training/artifacts/paired-pilot-v2-greedy/evaluation/`.
 
 ## Project structure
 

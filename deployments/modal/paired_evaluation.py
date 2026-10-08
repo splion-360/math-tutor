@@ -69,7 +69,7 @@ def generate(run_id: str, plan_sha256: str) -> dict[str, str]:
 
 
 @app.local_entrypoint()
-def main(run_id: str = "paired-pilot-v2") -> None:
+def main(run_id: str = "paired-pilot-v2-greedy") -> None:
     """Submit the previously frozen pilot without starting a persistent service.
 
     Args:

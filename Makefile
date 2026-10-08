@@ -6,7 +6,7 @@
 .PHONY: help setup up down logs renderer evidence-data evidence-figures evaluation-freeze evaluation-generate evaluation-download evaluation-render test lint typecheck check
 
 MODAL_PROFILE ?= splion-360
-EVALUATION_RUN ?= paired-pilot-v2
+EVALUATION_RUN ?= paired-pilot-v2-greedy
 EVALUATION_DIR := training/artifacts/$(EVALUATION_RUN)
 
 help:

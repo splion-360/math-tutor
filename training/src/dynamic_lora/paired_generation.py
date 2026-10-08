@@ -299,6 +299,7 @@ def freeze_plan(
         "output_allowance_rule": "ceil(maximum corpus completion * 1.4 / 256) * 256",
         "decoding": {
             "do_sample": False,
+            "use_model_defaults": False,
             "num_beams": 1,
             "repetition_penalty": 1.0,
             "max_new_tokens": completion_allowance(summary["completion_tokens"]["max"]),
@@ -333,6 +334,42 @@ def freeze_plan(
     with output.open("x") as stream:
         stream.write(json.dumps(plan, indent=2, sort_keys=True) + "\n")
     return plan
+
+
+def generate_completion(
+    *,
+    model: Any,
+    inputs: Any,
+    tokenizer: Any,
+    decoding: dict[str, Any],
+    transformers: Any,
+) -> Any:
+    """Generate with frozen controls that override checkpoint-specific defaults.
+
+    Args:
+        model: Loaded PEFT model in the requested adapter state.
+        inputs: Tokenized prompt tensor mapping.
+        tokenizer: Pinned tokenizer providing termination IDs.
+        decoding: Frozen greedy settings and disabled model-default inheritance.
+        transformers: Pinned Transformers module.
+
+    Returns:
+        Generated token tensor, including input tokens.
+
+    Raises:
+        ValueError: If sampling or model-default inheritance is enabled.
+    """
+    settings = dict(decoding)
+    defaults = settings.pop("use_model_defaults")
+    if defaults is not False or settings.get("do_sample") is not False:
+        raise ValueError("paired generation requires explicit greedy controls")
+    config = transformers.GenerationConfig(
+        **settings,
+        use_cache=True,
+        pad_token_id=tokenizer.eos_token_id,
+        eos_token_id=tokenizer.eos_token_id,
+    )
+    return model.generate(**inputs, generation_config=config, use_model_defaults=False, **settings)
 
 
 def run_generations(
@@ -395,8 +432,12 @@ def run_generations(
     for condition in CONDITIONS:
         context = model.disable_adapter() if condition == "base" else nullcontext()
         with context, torch.inference_mode():
-            model.generate(
-                **warmup, max_new_tokens=1, do_sample=False, pad_token_id=tokenizer.eos_token_id
+            generate_completion(
+                model=model,
+                inputs=warmup,
+                tokenizer=tokenizer,
+                decoding={**plan["decoding"], "max_new_tokens": 1},
+                transformers=transformers,
             )
     torch.cuda.synchronize()
     runtime = {
@@ -435,13 +476,13 @@ def run_generations(
                 transformers.set_seed(plan["seed"])
                 torch.cuda.synchronize()
                 started = monotonic()
-                generation_config = transformers.GenerationConfig(
-                    **plan["decoding"],
-                    use_cache=True,
-                    pad_token_id=tokenizer.eos_token_id,
-                    eos_token_id=tokenizer.eos_token_id,
+                generated = generate_completion(
+                    model=model,
+                    inputs=inputs,
+                    tokenizer=tokenizer,
+                    decoding=plan["decoding"],
+                    transformers=transformers,
                 )
-                generated = model.generate(**inputs, generation_config=generation_config)
                 torch.cuda.synchronize()
                 elapsed = monotonic() - started
             completion = generated[0, inputs["input_ids"].shape[1] :].tolist()
