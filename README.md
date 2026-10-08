@@ -61,6 +61,20 @@ Python, Node.js, and FFmpeg are included in the containers.
 Stop the app with `docker compose down`. Generated files are saved in
 `backend/artifacts/` and excluded from Git.
 
+## Reproduce the dataset
+
+With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed, run:
+
+```bash
+make evidence-data
+```
+
+This downloads the pinned dataset, checks the original corpus hash, and writes
+the reconstructed split IDs to `training/artifacts/evidence/split.json`.
+The [evidence inventory](training/evidence/manifest.json) identifies the numeric
+summaries and checkpoint metadata that still need to be recovered before the
+experiment figures can be regenerated publicly.
+
 ## Project structure
 
 ```text

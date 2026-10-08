@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "release_status": "awaiting_private_artifact_recovery",
+  "dataset": {
+    "repository": "bespokelabs/bespoke-manim",
+    "revision": "4542ab8b32483c30d1772946dacae2ad1ae9274c",
+    "url": "https://huggingface.co/datasets/bespokelabs/bespoke-manim/resolve/4542ab8b32483c30d1772946dacae2ad1ae9274c/data/train-00000-of-00001.parquet",
+    "parquet_sha256": "f5e8864059a936e2a552603b365f520c08f7bb79ff7e24a720bcaac442048625",
+    "parquet_size_bytes": 180941011,
+    "prepared_sha256": "b811de3070bb5084cdf8092c7d05a9ad20454de195a33551ac96c5a8b4096e65",
+    "prepared_records": 995,
+    "preparation_status": "regenerated_and_hash_verified",
+    "seed": 42,
+    "epochs": 3,
+    "training_count": 895,
+    "validation_count": 100,
+    "split_status": "deterministic_reconstruction_pending_saved_metadata_comparison"
+  },
+  "model": {
+    "id": "Qwen/Qwen3-4B-Instruct-2507",
+    "revision": "1b4199c4f36b0cef378bfb12390c18780c18af4c",
+    "identity_source": "training/src/dynamic_lora/constants.py",
+    "saved_metadata_verified": false
+  },
+  "checkpoint": {
+    "name": "checkpoint-1790",
+    "epoch": 2,
+    "modal_path": "full_corpus_signatures_3_epochs_label_free/checkpoints/checkpoint-1790",
+    "sha256": null,
+    "status": "recorded_in_local_report_not_recovered"
+  },
+  "artifacts": [
+    {
+      "path": "base_norms.json",
+      "sha256": "027d03936bb7b6cc3c8babfabaed0f3074e6463a3851ed5db0eebc6c74bdb33c",
+      "url": null,
+      "modal_path": "base_validation_gradient_heatmap/summary.json",
+      "kind": "base_weight_norms",
+      "status": "report_hash_only_bytes_not_recovered"
+    },
+    {
+      "path": "lora_norms.json",
+      "sha256": "7d273c308b1eabbcff151ff25e26ae8b74f1d2ceeecd891ce3e198940a637eef",
+      "url": null,
+      "modal_path": "validation_gradient_heatmap_epoch2/summary.json",
+      "kind": "same_checkpoint_lora_norms",
+      "status": "report_hash_only_bytes_not_recovered"
+    },
+    {
+      "path": "lora_cosines.json",
+      "sha256": "c21d4398a7be61cd0ab2de99a8fb03da428327a644168c710d799cae06a05baa",
+      "url": null,
+      "modal_path": "validation_gradient_cosines_epoch2/summary.json",
+      "kind": "exact_same_checkpoint_cosines",
+      "status": "report_hash_only_bytes_not_recovered"
+    }
+  ],
+  "experiments": [
+    {
+      "kind": "exploratory_placement",
+      "configuration": "training/configs/modal_placement_ablation_qwen3_4b.json",
+      "status": "saved_outputs_not_recovered"
+    },
+    {
+      "kind": "shared_adapter_training",
+      "configuration": "training/configs/modal_full_corpus_signatures_qwen3_4b.json",
+      "source_revision": "d1dc54edbed5b8a59d512950ab2ae8877d44269a",
+      "metadata_modal_path": "full_corpus_signatures_3_epochs_label_free/run_metadata.json",
+      "status": "saved_metadata_and_checkpoint_not_recovered"
+    },
+    {
+      "kind": "base_weight_probes",
+      "description": "Original BF16 base weights, zero optimizer steps; norms of base parameters.",
+      "status": "numeric_summary_not_recovered"
+    },
+    {
+      "kind": "exact_same_checkpoint_cosines",
+      "description": "Held-out examples at checkpoint-1790; exact LoRA A/B vectors across seven projections.",
+      "status": "numeric_summary_not_recovered"
+    },
+    {
+      "kind": "consecutive_step_signatures",
+      "metadata_modal_path": "shared_lora_signatures_64_label_free/adapter/gradient_signatures/gradient_signatures_manifest.json",
+      "description": "Projected signatures at successive training steps; weights and examples can change.",
+      "status": "saved_stream_and_manifest_not_recovered"
+    },
+    {
+      "kind": "fixed_prompt_signatures",
+      "metadata_modal_path": "shared_lora_fixed_prompt_signatures_64_label_free/adapter/fixed_prompt_signatures/fixed_prompt_signatures_manifest.json",
+      "description": "Repeated fixed prompts across checkpoints; projected signatures, not exact vectors.",
+      "status": "saved_stream_and_manifest_not_recovered"
+    }
+  ]
+}

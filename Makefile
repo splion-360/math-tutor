@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down logs renderer test lint typecheck check
+.PHONY: help setup up down logs renderer evidence-data evidence-figures test lint typecheck check
 
 help:
 	@printf '%s\n' \
@@ -12,6 +12,8 @@ help:
 		'make down       Stop the local application' \
 		'make logs       Follow frontend and backend logs' \
 		'make renderer   Rebuild the narration renderer' \
+		'make evidence-data     Rebuild and verify the pinned experiment dataset' \
+		'make evidence-figures  Regenerate figures once numeric summaries are released' \
 		'make test       Run backend, frontend, and training tests' \
 		'make lint       Run Python lint checks' \
 		'make typecheck  Run Python and frontend type checks' \
@@ -36,6 +38,13 @@ logs:
 
 renderer:
 	docker compose build manim-voiceover
+
+evidence-data:
+	uv run --frozen --project training --python 3.12 --with pyarrow==21.0.0 python -m dynamic_lora.evidence dataset
+
+evidence-figures:
+	uv run --frozen --project training --python 3.12 python -m dynamic_lora.evidence fetch
+	uv run --frozen --project training --python 3.12 python -m dynamic_lora.evidence figures
 
 test:
 	cd backend && uv run pytest -q
