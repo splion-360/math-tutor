@@ -84,11 +84,13 @@ class GeneratedLesson(Scene):
     def construct(self):
         axes = Axes(x_length=6, y_length=4)
         curve = axes.plot(lambda x: x / 2)
+        label = Text("A", font_size=24).move_to([1, 1, 0])
         self.add(
             ValueTracker(10),
-            Square().set_opacity(0).shift(RIGHT * 10),
+            VGroup(Dot(), Square().set_opacity(0).shift(RIGHT * 10)),
             axes,
             curve,
+            label,
         )
         self.wait(0.1)
         self.wait(0.1)
@@ -103,6 +105,13 @@ class GeneratedLesson(Scene):
     }
     assert "ValueTracker" not in object_types
     assert "Square" not in object_types
+    group_bounds = next(
+        item["bounds"]
+        for checkpoint in trace["checkpoints"]
+        for item in checkpoint["objects"]
+        if item["type"] == "VGroup"
+    )
+    assert group_bounds["right"] < 1
     attempt = RenderedAttempt(
         number=0,
         artifact_dir=tmp_path,

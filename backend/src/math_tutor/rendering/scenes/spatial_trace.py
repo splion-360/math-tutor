@@ -60,13 +60,14 @@ class SpatialTraceRecorder:
         for mobject in scene.mobjects:
             object_id = self._object_id(mobject)
             object_type = type(mobject).__name__
-            if not _is_visible(mobject):
+            visible_geometry = _visible_geometry(mobject)
+            if not visible_geometry:
                 continue
             try:
-                left = _coordinate(mobject, "get_left", 0)
-                bottom = _coordinate(mobject, "get_bottom", 1)
-                right = _coordinate(mobject, "get_right", 0)
-                top = _coordinate(mobject, "get_top", 1)
+                left = min(_coordinate(member, "get_left", 0) for member in visible_geometry)
+                bottom = min(_coordinate(member, "get_bottom", 1) for member in visible_geometry)
+                right = max(_coordinate(member, "get_right", 0) for member in visible_geometry)
+                top = max(_coordinate(member, "get_top", 1) for member in visible_geometry)
                 if right < left or top < bottom:
                     raise ValueError("unordered bounds")
             except (AttributeError, IndexError, TypeError, ValueError, OverflowError):
@@ -82,6 +83,7 @@ class SpatialTraceRecorder:
                 {
                     "id": object_id,
                     "type": object_type,
+                    "is_container": len(visible_geometry) > 1,
                     "bounds": {
                         "left": left,
                         "bottom": bottom,
@@ -138,18 +140,21 @@ def _coordinate(mobject: object, method_name: str, dimension: int) -> float:
     return coordinate
 
 
-def _is_visible(mobject: object) -> bool:
+def _visible_geometry(mobject: object) -> tuple[object, ...]:
     family_members = getattr(mobject, "family_members_with_points", None)
     if not callable(family_members):
-        return True
+        return (mobject,)
     try:
-        members = family_members()
+        members = tuple(family_members())
     except (AttributeError, TypeError, ValueError):
-        return True
-    return any(
-        _has_positive_opacity(getattr(member, attribute, None))
+        return (mobject,)
+    return tuple(
+        member
         for member in members
-        for attribute in ("opacity", "fill_opacity", "stroke_opacity")
+        if any(
+            _has_positive_opacity(getattr(member, attribute, None))
+            for attribute in ("opacity", "fill_opacity", "stroke_opacity")
+        )
     )
 
 

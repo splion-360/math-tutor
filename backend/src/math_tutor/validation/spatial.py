@@ -90,6 +90,7 @@ class TracedObject:
     id: str
     type: str
     bounds: Bounds
+    is_container: bool = False
 
 
 @dataclass(frozen=True)
@@ -396,15 +397,20 @@ class SpatialValidator:
                     first.first.id: first.first.type,
                     first.second.id: first.second.type,
                 }
+                containers = {
+                    first.first.id: first.first.is_container,
+                    first.second.id: first.second.is_container,
+                }
                 object_types = [types[object_id] for object_id in pair]
                 evidence = {
                     "object_ids": list(pair),
                     "object_types": object_types,
+                    "object_is_container": [containers[object_id] for object_id in pair],
                     "checkpoint_indices": [item.checkpoint_index for item in run],
                     "minimum_overlap_ratio": min(item.ratio for item in run),
                     "thresholds": self._policy_evidence(),
                 }
-                if any(_is_text_object(object_type) for object_type in object_types):
+                if all(_is_text_object(object_type) for object_type in object_types):
                     findings.append(
                         ValidationFinding(
                             code="persistent_severe_intersection",
@@ -514,14 +520,18 @@ def _traced_object(value: object) -> TracedObject:
     payload = _mapping(value)
     object_id = payload.get("id")
     object_type = payload.get("type")
+    is_container = payload.get("is_container", False)
     if not isinstance(object_id, str) or not object_id.strip():
         raise ValueError("object id must not be blank")
     if not isinstance(object_type, str) or not object_type.strip():
         raise ValueError("object type must not be blank")
+    if not isinstance(is_container, bool):
+        raise ValueError("object container flag must be boolean")
     bounds = _mapping(payload.get("bounds"))
     return TracedObject(
         id=object_id,
         type=object_type,
+        is_container=is_container,
         bounds=Bounds(
             left=_number(bounds.get("left")),
             bottom=_number(bounds.get("bottom")),
