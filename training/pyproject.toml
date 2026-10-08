@@ -2,7 +2,6 @@
 name = "dream-ai-dynamic-lora"
 version = "0.1.0"
 description = "Dynamic LoRA training experiments for Manim code generation"
-readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
 

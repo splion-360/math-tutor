@@ -2,7 +2,6 @@
 name = "dream-ai-math-tutor"
 version = "0.1.0"
 description = "AI math tutor lesson orchestration and isolated Manim rendering"
-readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115,<1",

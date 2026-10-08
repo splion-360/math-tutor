@@ -240,3 +240,10 @@ training/artifacts/
 # Local HTML analysis reports
 /backend/docs/**/*.html
 /backend/docs/**/*.htm
+
+# Local documentation; publish the root README only
+*.md
+!/README.md
+/backend/docs/
+/backend/notebooks/
+/training/notebooks/

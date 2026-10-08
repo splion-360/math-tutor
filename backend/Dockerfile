@@ -16,7 +16,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.9.28 /uv /uvx /bin/
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 
 WORKDIR /app
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY src ./src
