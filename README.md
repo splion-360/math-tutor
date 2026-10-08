@@ -79,7 +79,11 @@ includes the numeric summaries and shared adapter checkpoint. The
 evidence: original split metadata and completion of the third training epoch
 could not be verified.
 
-To run the paired lesson pilot, first run `make evidence-data`, then:
+The [paired pilot release](https://github.com/splion-360/math-tutor/releases/tag/paired-pilot-v2)
+contains the saved responses, render results, videos, and review worksheet.
+Human review of mathematical correctness and prompt adherence is pending.
+
+To run another paired lesson pilot, first run `make evidence-data`, then:
 
 ```bash
 export EVALUATION_RUN=paired-pilot-$(date -u +%Y%m%dT%H%M%SZ)

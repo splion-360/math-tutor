@@ -1,0 +1,400 @@
+{
+  "adapter_sha256": "306632928890db4135ee987187195c7978c98cadc8cf962eec807dd92e11872d",
+  "assets": [
+    {
+      "bytes": 1334710,
+      "sha256": "92d9401b565be6e7a526246f44ad9d01719d6bdd8614db71d904678d1522134a",
+      "url": "https://github.com/splion-360/math-tutor/releases/download/paired-pilot-v2/paired-pilot-v2-greedy.zip"
+    },
+    {
+      "bytes": 84216,
+      "sha256": "0679703136dd5c5e965648ef79d2908763d3c800b2420acda1a56739b9ec8176",
+      "url": "https://github.com/splion-360/math-tutor/releases/download/paired-pilot-v2/paired-pilot-v2-metrics.json"
+    }
+  ],
+  "automatic_results": {
+    "base": {
+      "attempts": 15,
+      "extraction_successes": 15,
+      "failure_categories": {
+        "invalid_api": 3,
+        "missing_import_or_name": 3
+      },
+      "human_reviewed": 0,
+      "mathematical_correctness": null,
+      "output_capped": 0,
+      "parse_successes": 15,
+      "prompt_adherence": null,
+      "render_marginal_wilson_95": [
+        0.357468301206246,
+        0.8017550385865841
+      ],
+      "render_pass_at_1": 0.6,
+      "render_successes": 9,
+      "validation_successes": 15
+    },
+    "shared_adapter": {
+      "attempts": 15,
+      "extraction_successes": 15,
+      "failure_categories": {
+        "contract": 3,
+        "syntax": 12
+      },
+      "human_reviewed": 0,
+      "mathematical_correctness": null,
+      "output_capped": 0,
+      "parse_successes": 3,
+      "prompt_adherence": null,
+      "render_marginal_wilson_95": [
+        0.0,
+        0.20388330103584862
+      ],
+      "render_pass_at_1": 0.0,
+      "render_successes": 0,
+      "validation_successes": 0
+    }
+  },
+  "corpus_token_summary": {
+    "completion_tokens": {
+      "count": 995,
+      "max": 2886,
+      "min": 381,
+      "p50": 981,
+      "p95": 1587,
+      "p99": 1965
+    },
+    "prompt_tokens": {
+      "count": 995,
+      "max": 92,
+      "min": 50,
+      "p50": 64,
+      "p95": 75,
+      "p99": 82
+    },
+    "total_tokens": {
+      "count": 995,
+      "max": 2963,
+      "min": 441,
+      "p50": 1049,
+      "p95": 1647,
+      "p99": 2028
+    }
+  },
+  "decoding": {
+    "do_sample": false,
+    "max_new_tokens": 4096,
+    "num_beams": 1,
+    "repetition_penalty": 1.0,
+    "use_model_defaults": false
+  },
+  "deployment_source_revision": "c1a0309d73198bd70b0f00e0ba9b6be912f63a6a",
+  "evaluation_source_revision": "495b921fe51abdafcb6cb6bf1f69e89559c9625e",
+  "frozen_at_utc": "2026-10-08T05:25:18.059478+00:00",
+  "frozen_plan_sha256": "544865199b76cdb1e9f5fe61115fd38c89800bd1b6985b07368f0e0f012d0b23",
+  "generation_source_revision": "c1a0309d73198bd70b0f00e0ba9b6be912f63a6a",
+  "generation_summary": {
+    "base": {
+      "attempts": 15,
+      "completion_tokens_max": 1022,
+      "completion_tokens_median": 553,
+      "completion_tokens_min": 346,
+      "empty_decoded_responses": 0,
+      "finish_reasons": {
+        "eos": 15
+      },
+      "generation_seconds_median": 38.67274950500001,
+      "generation_seconds_total": 595.1541334819998
+    },
+    "shared_adapter": {
+      "attempts": 15,
+      "completion_tokens_max": 1725,
+      "completion_tokens_median": 677,
+      "completion_tokens_min": 1,
+      "empty_decoded_responses": 3,
+      "finish_reasons": {
+        "eos": 15
+      },
+      "generation_seconds_median": 101.46035899000003,
+      "generation_seconds_total": 1545.2067500609999
+    }
+  },
+  "human_review_status": "pending",
+  "invalid_setup_runs": [
+    {
+      "modal_app": "ap-iNomy9pkOMXhkVwZVJoxlN",
+      "reason": "Flattened deployment import failed before model loading; no responses generated."
+    },
+    {
+      "modal_app": "ap-NOfM3o2iHlDGqI9Vp0Kna2",
+      "reason": "Stopped after detecting native Transformers defaults replacing greedy mode; no responses saved or inspected."
+    }
+  ],
+  "measured_video_durations": {
+    "measurement_tool": "ffprobe",
+    "note": "Measured duration only; mathematical correctness and prompt adherence await human review.",
+    "videos": [
+      {
+        "condition": "base",
+        "duration_adherence": false,
+        "duration_seconds": 5.533333,
+        "id": "pilot-fractions",
+        "video_path": "renders/base-pilot-fractions/output/media/videos/scene/480p15/FractionSubtraction.mp4"
+      },
+      {
+        "condition": "base",
+        "duration_adherence": false,
+        "duration_seconds": 10.0,
+        "id": "pilot-equation",
+        "video_path": "renders/base-pilot-equation/output/media/videos/scene/480p15/SolveEquation.mp4"
+      },
+      {
+        "condition": "base",
+        "duration_adherence": false,
+        "duration_seconds": 7.533333,
+        "id": "pilot-distance",
+        "video_path": "renders/base-pilot-distance/output/media/videos/scene/480p15/DistanceBetweenPoints.mp4"
+      },
+      {
+        "condition": "base",
+        "duration_adherence": false,
+        "duration_seconds": 12.6,
+        "id": "pilot-geometric-sum",
+        "video_path": "renders/base-pilot-geometric-sum/output/media/videos/scene/480p15/GeometricSeriesLesson.mp4"
+      },
+      {
+        "condition": "base",
+        "duration_adherence": false,
+        "duration_seconds": 17.4,
+        "id": "pilot-chain-rule",
+        "video_path": "renders/base-pilot-chain-rule/output/media/videos/scene/480p15/ChainRuleSinX2.mp4"
+      },
+      {
+        "condition": "base",
+        "duration_adherence": false,
+        "duration_seconds": 12.0,
+        "id": "pilot-matrix",
+        "video_path": "renders/base-pilot-matrix/output/media/videos/scene/480p15/MatrixTransformationLesson.mp4"
+      },
+      {
+        "condition": "base",
+        "duration_adherence": false,
+        "duration_seconds": 13.0,
+        "id": "pilot-bayes",
+        "video_path": "renders/base-pilot-bayes/output/media/videos/scene/480p15/ProbabilityTestLesson.mp4"
+      },
+      {
+        "condition": "base",
+        "duration_adherence": false,
+        "duration_seconds": 18.0,
+        "id": "pilot-fourier",
+        "video_path": "renders/base-pilot-fourier/output/media/videos/scene/480p15/HarmonicAnalysisSquareWave.mp4"
+      },
+      {
+        "condition": "base",
+        "duration_adherence": false,
+        "duration_seconds": 14.466667,
+        "id": "pilot-residues",
+        "video_path": "renders/base-pilot-residues/output/media/videos/scene/480p15/ComplexIntegralLesson.mp4"
+      }
+    ]
+  },
+  "modal_run": "https://modal.com/apps/splion-360/main/ap-ruZa168XgenPyIbxaOfAC7",
+  "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+  "model_revision": "1b4199c4f36b0cef378bfb12390c18780c18af4c",
+  "paired_render_outcomes": {
+    "base_0_adapter_0": 6,
+    "base_1_adapter_0": 9
+  },
+  "prompt_file": "backend/data/evaluation/manim_paired_pilot_v2.jsonl",
+  "prompts_sha256": "5e17bb8f06da40e4dce559a30210cbb8dbc611cac727c4af3bf91f0255fc3c63",
+  "protocol_audit": {
+    "attempts": [
+      {
+        "diagnostic_marker_removed_python_parse_success": true,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": false,
+        "id": "pilot-fractions",
+        "leading_tool_call_markers": 2,
+        "response_sha256": "b96f8c12e2059990e5175f00191d80c0852deddebdb01fcc350487f83ad2117f"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": true,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": false,
+        "id": "pilot-equation",
+        "leading_tool_call_markers": 2,
+        "response_sha256": "2529cc9275e44dc1a610e32a98f1645452df01e2b484be8c94413d83a9561218"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": true,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": false,
+        "id": "pilot-distance",
+        "leading_tool_call_markers": 2,
+        "response_sha256": "6fc966e7839ccb1ee73526b7cb0b6066f04bac531bcf2a9dc3d5d9734a3876d9"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": true,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": false,
+        "id": "pilot-probability",
+        "leading_tool_call_markers": 2,
+        "response_sha256": "72a42e76143e4780338ddd32425619563e3097b06104e8b20df0c1f5a02d14cc"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": null,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": true,
+        "id": "pilot-geometric-sum",
+        "leading_tool_call_markers": 0,
+        "response_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": null,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": true,
+        "id": "pilot-chain-rule",
+        "leading_tool_call_markers": 0,
+        "response_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": true,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": false,
+        "id": "pilot-integral",
+        "leading_tool_call_markers": 2,
+        "response_sha256": "fff1f4aa32cf8afd44d9448d232727246f5b982ad3f3a3f0fe6a4ff5ed71735e"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": true,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": false,
+        "id": "pilot-matrix",
+        "leading_tool_call_markers": 2,
+        "response_sha256": "887dfae8cbaee46891811c4e5903304a2672352bc5f29c527416f1fc7e6b5ba4"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": true,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": false,
+        "id": "pilot-bayes",
+        "leading_tool_call_markers": 2,
+        "response_sha256": "a2e2a6608b01c599cd2fa036ffa35dae473fcd8f2a77181b4f079b8d87cc1a28"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": null,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": true,
+        "id": "pilot-complex-product",
+        "leading_tool_call_markers": 0,
+        "response_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": true,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": false,
+        "id": "pilot-taylor-error",
+        "leading_tool_call_markers": 2,
+        "response_sha256": "bb87a0efb04aaac278f34b143e4cf261b1ec6f913a0942356f09bb6bbd45642d"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": true,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": false,
+        "id": "pilot-fourier",
+        "leading_tool_call_markers": 2,
+        "response_sha256": "5c0545b5d54a007c22c5f5dfcd9d83d4288bdf6d9ec11450d4274e089b2ab8ab"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": true,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": false,
+        "id": "pilot-gradient-descent",
+        "leading_tool_call_markers": 2,
+        "response_sha256": "1b5f9229a62604386bdaebe431b4934d0a11c1259a91e1b04c2b671ce544fe57"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": true,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": false,
+        "id": "pilot-markov",
+        "leading_tool_call_markers": 2,
+        "response_sha256": "d686eaa577142f1015ca28b215e1f82f65e62c33926ac27a5c6a33b422649134"
+      },
+      {
+        "diagnostic_marker_removed_python_parse_success": true,
+        "diagnostic_parse_error": null,
+        "empty_decoded_response": false,
+        "id": "pilot-residues",
+        "leading_tool_call_markers": 2,
+        "response_sha256": "ad3af27602b625baaa1c565e08a166514eb3e6d4d7eb828fd2a67bc54be2dc8b"
+      }
+    ],
+    "audit_source_sha256": "c684f8d1b5b3918825f954b39d66f90fbe998115143757a8c1c6d602016e251b",
+    "corpus_code_contains_tool_call": 0,
+    "corpus_records": 995,
+    "corpus_sha256": "b811de3070bb5084cdf8092c7d05a9ad20454de195a33551ac96c5a8b4096e65",
+    "interpretation": "Removing markers for AST parsing diagnoses a wrapper mismatch; it does not establish renderability or mathematical correctness. The origin of the emitted markers is not established.",
+    "scope": "Read-only format audit of saved adapter responses; no additional generation or rendering. Automatic first-attempt metrics remain unchanged."
+  },
+  "release_url": "https://github.com/splion-360/math-tutor/releases/tag/paired-pilot-v2",
+  "render_runtime": {
+    "architecture": "x86_64",
+    "cpu_model": "AMD Ryzen 7 5800H with Radeon Graphics",
+    "docker_server": "28.3.2",
+    "ffprobe_version": "ffprobe version 6.1.1-3ubuntu5+esm13 Copyright (c) 2007-2023 the FFmpeg developers",
+    "kernel": "6.11.0-29-generic",
+    "note": "Local renderer host; containers share the frozen 1 CPU, 1 GiB, 90-second contract. Durations were measured separately without assigning quality labels.",
+    "python": "3.13.7",
+    "source_revision": "495b921fe51abdafcb6cb6bf1f69e89559c9625e",
+    "system": "Linux"
+  },
+  "renderer": {
+    "image": "manimcommunity/manim@sha256:ab5ad56cf685d89da96e5d459e0cde3743fbdf2141be4dcff6c26566b5ca3191",
+    "source_hashes": {
+      "generated_lesson.py": "432d21922d3b0335609fe1e69ed16a69791fa9a0247f16a55e8b454d81dba0b7",
+      "paired_evaluation.py": "3b3d4c3e6b2a4281d1cdf8ea1ee3e4f1c8ffbc272d516df6277721d4bbf8468f",
+      "renderer.py": "cf12ea1630349c965cbca7ab7b4578bf20c12ee4f97e10717ddce66a4f72ffdf",
+      "scenes/render_known.py": "477d52f8d1186f526f8a2e5159a9cb6e80dc1f9a237f0dfa65608ea65615adec"
+    },
+    "timeout_seconds": 90
+  },
+  "run_id": "paired-pilot-v2-greedy",
+  "runtime": {
+    "generation_settings": {
+      "do_sample": false,
+      "max_new_tokens": 4096,
+      "num_beams": 1,
+      "repetition_penalty": 1.0,
+      "use_model_defaults": false
+    },
+    "gpu": "NVIDIA L4",
+    "model_load_seconds": 9.772537502999999,
+    "packages": {
+      "accelerate": "1.10.1",
+      "peft": "0.21.0",
+      "safetensors": "0.6.2",
+      "torch": "2.8.0",
+      "transformers": "4.57.6"
+    },
+    "plan_sha256": "544865199b76cdb1e9f5fe61115fd38c89800bd1b6985b07368f0e0f012d0b23",
+    "status": "completed",
+    "warmup": "One token in each condition on a non-evaluation prompt; excluded from attempts",
+    "warmup_seconds": 1.2165505719999992
+  },
+  "schema_version": 1,
+  "scope": "15 authored math prompts, one greedy first attempt per condition; silent videos",
+  "status": "automatic_evaluation_complete",
+  "uncertainty_note": "Marginal Wilson intervals assume binomial sampling; these authored prompts are not a random population sample. Intervals do not test the paired difference.",
+  "validation": {
+    "backend_clean_checkout_tests_passed": 142,
+    "backend_clean_checkout_tests_skipped": 1,
+    "backend_focused_tests_passed": 26,
+    "backend_mypy": "passed",
+    "backend_preexisting_failure": "tests/test_modal_training_smoke.py asserts every training/probe function has a W&B secret; failure reproduced on unchanged baseline.",
+    "human_review_tests_passed": 14,
+    "ruff": "passed",
+    "training_mypy_python_3_12": "passed",
+    "training_tests_passed": 104
+  }
+}
