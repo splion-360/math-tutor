@@ -84,6 +84,35 @@ def test_suite_error_takes_precedence_over_failure(tmp_path: Path) -> None:
     assert len(report.findings) == 2
 
 
+def test_suite_aggregates_visual_uncertainty_and_validator_errors(tmp_path: Path) -> None:
+    passed = _Validator(
+        "media",
+        ValidationReport(validator="media", status=ValidationStatus.PASS),
+        "video_decodable",
+    )
+
+    for status in (ValidationStatus.UNCERTAIN, ValidationStatus.VALIDATOR_ERROR):
+        visual_finding = ValidationFinding(
+            code=f"visual_{status.value}",
+            message=f"Visual validation returned {status.value}.",
+        )
+        visual = _Validator(
+            "visual",
+            ValidationReport(
+                validator="visual",
+                status=status,
+                findings=(visual_finding,),
+            ),
+            f"visual_{status.value}",
+        )
+
+        report = ValidatorSuite((passed, visual)).validate(_attempt(tmp_path))
+
+        assert report.status is status
+        assert report.findings == (visual_finding,)
+        assert report.component_reports == (passed._report, visual._report)
+
+
 def test_suite_rejects_duplicate_checks() -> None:
     report = ValidationReport(validator="one", status=ValidationStatus.PASS)
 

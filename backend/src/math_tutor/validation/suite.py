@@ -12,6 +12,13 @@ from math_tutor.validation.models import (
     ValidationStatus,
 )
 
+_STATUS_PRECEDENCE = (
+    ValidationStatus.ERROR,
+    ValidationStatus.VALIDATOR_ERROR,
+    ValidationStatus.FAIL,
+    ValidationStatus.UNCERTAIN,
+)
+
 
 class ValidatorSuite:
     """Run independent validators in order and aggregate their reports."""
@@ -41,10 +48,10 @@ class ValidatorSuite:
         """Run each validator and return one repair-compatible aggregate report."""
         reports = tuple(validator.validate(attempt) for validator in self._validators)
         status = ValidationStatus.PASS
-        if any(report.status is ValidationStatus.ERROR for report in reports):
-            status = ValidationStatus.ERROR
-        elif any(report.status is ValidationStatus.FAIL for report in reports):
-            status = ValidationStatus.FAIL
+        for candidate in _STATUS_PRECEDENCE:
+            if any(report.status is candidate for report in reports):
+                status = candidate
+                break
         return ValidationReport(
             validator=self.name,
             status=status,
