@@ -8,10 +8,10 @@
 help:
 	@printf '%s\n' \
 		'make setup      Create backend/.env without overwriting it' \
-		'make up         Build and start the frontend and backend' \
+		'make up         Prepare renderers and start the application' \
 		'make down       Stop the local application' \
 		'make logs       Follow frontend and backend logs' \
-		'make renderer   Build the optional narration renderer' \
+		'make renderer   Rebuild the narration renderer' \
 		'make test       Run backend, frontend, and training tests' \
 		'make lint       Run Python lint checks' \
 		'make typecheck  Run Python and frontend type checks' \
@@ -35,7 +35,7 @@ logs:
 	docker compose logs --follow backend frontend
 
 renderer:
-	docker compose --profile renderer-build build manim-voiceover
+	docker compose build manim-voiceover
 
 test:
 	cd backend && uv run pytest -q

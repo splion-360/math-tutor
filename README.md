@@ -1,144 +1,74 @@
 # Math Tutor
 
-**Ask a math question. Get a visual lesson made for that question.**
+Math Tutor is a simple agentic application that turns a math prompt into an animated lesson with optional narration synchronized to the video.
 
-Math is often easier to understand when you can watch an idea unfold. Math Tutor turns a typed question into a short animation with an explanation, narration, and captions.
 
-It is designed for more than elementary math. The same product can explain geometry, calculus, differential equations, Fourier transforms, and other advanced topics.
+## Demo
 
-## Quick start
+[![Watch the Math Tutor demo](https://cdn.loom.com/sessions/thumbnails/9a158cbb6ad14d0da5550907970b0aab-1ed971aff2086393.gif)](https://www.loom.com/share/9a158cbb6ad14d0da5550907970b0aab)
 
-### Requirements
+## How it works
 
-- Git
-- Docker Desktop or another Docker installation with Compose
-- Make
-- At least 1 GB of memory available for each Manim render
+Math Tutor takes a question and turns it into an animated explanation. The intended
+lesson length is __30–45__ seconds.
 
-The full local app runs through Docker Compose. Python, Node, and the application dependencies are installed inside the development containers.
+The adapter-based system uses a **Qwen3-4B** backbone fine-tuned with LoRA on
+[Bespoke-Manim](https://huggingface.co/datasets/bespokelabs/bespoke-manim). This
+synthetic dataset contains 1,000 educational animation examples, pairing questions
+with narration, visual descriptions, and Python code for [Manim](https://www.manim.community/).
 
-### 1. Get the repository
+The initial setup trained three stand-alone adapters: **foundational**, **intermediate**, and
+**advanced** based on the question difficulty which was inferred from the dataset. The API endpoint accepts an explicit difficulty label for _oracle routing_.
+
+The flow looks like this, __selected adapter__ produces a draft $\rarr$ __cleanup__ step turns that draft
+into the scene format expected by the renderer $\rarr$ generated code is validated for compilation correctness $\rarr$ renders it the app with optional synchronized narration and captions.
+
+![Math Tutor routes each request to a foundational, intermediate, or advanced LoRA adapter sharing one backbone, then cleans up, validates, and renders the generated scene.](assets/math-tutor-system.drawio.svg)
+
+
+## Setup
+
+### Prerequisites
+
+- An existing Modal inference endpoint and its authentication token
+- Optional: an ElevenLabs API key for narration and captions
+
+### Configuration
 
 ```bash
 git clone https://github.com/splion-360/math-tutor.git
 cd math-tutor
-```
-
-### 2. Configure local credentials
-
-Create the ignored backend environment file. This leaves an existing file unchanged:
-
-```bash
 make setup
 ```
 
-Add only the integrations you want to use:
+Edit `backend/.env` to configure lesson generation:
 
-| Setting | Purpose |
+| Variable | Used for |
 | --- | --- |
-| `MODAL_VLLM_BASE_URL` | URL of the hosted Qwen and LoRA endpoint |
-| `MODAL_VLLM_API_KEY` | Credentials for the protected Modal endpoint |
-| `NEBIUS_API_KEY` | Optional alternative model provider |
-| `ELEVENLABS_API_KEY` | Optional synchronized voice and captions |
+| `MODAL_VLLM_BASE_URL` | An existing Modal inference endpoint, including `/v1`; selects the three-adapter serving path |
+| `MODAL_VLLM_API_KEY` | Authentication with that endpoint |
+| `ELEVENLABS_API_KEY` | Optional narration and captions |
 
-The website and API can start without these values, but generated lessons need a configured model provider. Without ElevenLabs, lessons use the silent-video path.
-
-Training credentials and experiment tracking are covered separately in the [training guide](training/README.md).
-
-### 3. Build the narration renderer
-
-This step is only needed when `ELEVENLABS_API_KEY` is configured:
+### Run
 
 ```bash
-make renderer
+docker compose up --build
 ```
 
-### 4. Start the app
+Compose prepares the rendering images and starts the backend and frontend.
+Python, Node.js, and FFmpeg are included in the containers.
 
-Run this from the repository root:
+Stop the app with `docker compose down`. Generated files are saved in
+`backend/artifacts/` and excluded from Git.
 
-```bash
-make up
-```
-
-Open:
-
-- Math Tutor: [http://localhost:5173](http://localhost:5173)
-- API documentation: [http://localhost:8000/docs](http://localhost:8000/docs)
-
-The frontend waits for the backend health check before starting. Generated lesson files are written beneath `backend/artifacts/` and are ignored by Git.
-
-### 5. Stop the app
-
-```bash
-make down
-```
-
-Use `make logs` in another terminal when you need to follow the frontend and backend output.
-
-## From question to lesson
-
-1. The learner asks a question in plain English or with a typed equation.
-2. The app estimates the level and chooses a model path.
-3. The model writes a Manim animation for that question.
-4. The generated code is checked before it is allowed to run.
-5. Manim renders the lesson in an isolated container.
-6. ElevenLabs provides synchronized narration and captions when available.
-
-![A question moves through routing, generation, validation, rendering, and narration to become a visual lesson.](assets/product-flow.svg)
-
-If a specialist, narration, or media step fails, the app can fall back to a simpler lesson path instead of hiding what happened.
-
-## A tutor that can adapt
-
-A lesson about fractions should not sound like a lecture on partial differential equations. Different questions may need different teaching styles, notation, and visual detail.
-
-The current product uses small LoRA specialists for foundational, intermediate, and advanced lessons. They share one Qwen model, so each specialist only needs to learn a small set of changes.
-
-Our research goes one step further: can the model discover useful specializations during training instead of having us decide them in advance?
-
-That is the idea behind our Dynamic LoRA work. We observe how different training examples try to change the model and look for persistent disagreements that may justify a new specialist.
-
-[Read the plain-language Dynamic LoRA explanation, including the mathematics.](training/src/dynamic_lora/README.md)
-
-## Repository guide
+## Project structure
 
 ```text
-backend/       lesson API, validation, rendering, narration, and media
-frontend/      learner-facing React application
-training/      LoRA experiments, data checks, and experiment tracking
-deployments/   Modal training and inference entrypoints
-assets/        product and training diagrams
+math-tutor/
+├── frontend/           # Lesson interface and video player
+├── backend/            # Lesson generation, rendering, and evaluation
+├── training/           # LoRA training, gradient probes, and configurations
+├── deployments/modal/  # Remote training and serving
+├── compose.yaml        # Local application services
+└── Makefile            # Setup and development commands
 ```
-
-More detailed instructions live with each part of the repository:
-
-- [Backend and rendering guide](backend/README.md)
-- [Training guide](training/README.md)
-- [Dynamic LoRA explanation](training/src/dynamic_lora/README.md)
-
-## Local checks
-
-Install the local development dependencies once before running checks:
-
-```bash
-cd backend
-uv sync
-cd ../frontend
-npm ci
-cd ../training
-uv sync
-cd ..
-```
-
-Then run all tests, lint checks, and type checks from the repository root:
-
-```bash
-make check
-```
-
-## The goal
-
-Math Tutor is not a library of prerecorded clips. Each lesson is generated for the learner's question.
-
-The product goal is simple: make difficult mathematics easier to see, hear, and explore. The research goal is to help the model develop the right kinds of expertise without assuming those categories beforehand.
