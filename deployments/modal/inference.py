@@ -7,7 +7,7 @@ from pathlib import Path
 
 import modal
 
-APP_NAME = "dream-ai-qwen3-lora"
+APP_NAME = "math-tutor-inference"
 BASE_MODEL = "Qwen/Qwen3-4B"
 VLLM_PORT = 8000
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -21,7 +21,7 @@ ADAPTER_DESTINATION = "/adapters"
 ADAPTER_NAMES = ("foundational", "intermediate", "advanced")
 
 app = modal.App(APP_NAME)
-hf_cache = modal.Volume.from_name("dream-ai-huggingface-cache", create_if_missing=True)
+hf_cache = modal.Volume.from_name("math-tutor-huggingface-cache", create_if_missing=True)
 vllm_image = (
     modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
     .entrypoint([])

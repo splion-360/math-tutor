@@ -12,7 +12,7 @@ import modal
 ROOT = Path(__file__).resolve().parents[2] if modal.is_local() else Path("/workspace")
 PLAN = ROOT / "training/artifacts/paired-pilot-v2/frozen_plan.json"
 app = modal.App("math-tutor-paired-evaluation")
-cache = modal.Volume.from_name("dream-ai-huggingface-cache", create_if_missing=True)
+cache = modal.Volume.from_name("math-tutor-huggingface-cache", create_if_missing=True)
 artifacts = modal.Volume.from_name(
     "math-tutor-paired-evaluation", create_if_missing=True
 )

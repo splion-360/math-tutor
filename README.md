@@ -111,6 +111,6 @@ math-tutor/
 ├── backend/            # Lesson generation, rendering, and evaluation
 ├── training/           # LoRA training, gradient probes, and configurations
 ├── deployments/modal/  # Remote training and serving
-├── compose.yaml        # Local application services
+├── docker-compose.yaml # Local application services
 └── Makefile            # Setup and development commands
 ```

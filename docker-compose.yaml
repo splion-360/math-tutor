@@ -1,4 +1,4 @@
-name: dream-ai-math-tutor
+name: math-tutor
 
 services:
   manim:
@@ -9,7 +9,7 @@ services:
     build:
       context: ./backend
       dockerfile: renderer.Dockerfile
-    image: dream-ai-manim-voiceover:local
+    image: math-tutor-manim-voiceover:local
     pull_policy: build
     entrypoint: ["python", "-c", "import manim_voiceover"]
 

@@ -19,9 +19,9 @@ from typing import Any
 import modal
 import tomllib
 
-APP_NAME = "dream-ai-shared-lora-training-smoke"
-HF_CACHE_VOLUME = "dream-ai-huggingface-cache"
-TRAINING_ARTIFACT_VOLUME = "dream-ai-training-artifacts"
+APP_NAME = "math-tutor-training-smoke"
+HF_CACHE_VOLUME = "math-tutor-huggingface-cache"
+TRAINING_ARTIFACT_VOLUME = "math-tutor-training-artifacts"
 WANDB_SECRET_NAME = "WANDB_API_KEY"
 TRAIN_REQUIREMENTS_FALLBACK = (
     "accelerate>=1.1,<2",

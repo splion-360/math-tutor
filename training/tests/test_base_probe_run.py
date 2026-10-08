@@ -28,7 +28,7 @@ def test_base_probe_config_resolves_paths_and_rejects_small_sample(tmp_path: Pat
         "target_modules": ["q_proj", "v_proj"],
         "wandb_project": "math-tutor-dynamic-lora",
         "wandb_run_name": "base-probe-16",
-        "modal_artifact_path": "modal-volume://dream-ai-training-artifacts/base-probe-16",
+        "modal_artifact_path": "modal-volume://math-tutor-training-artifacts/base-probe-16",
     }
     path.write_text(json.dumps(raw), encoding="utf-8")
 

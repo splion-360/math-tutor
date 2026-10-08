@@ -23,6 +23,6 @@
     "project": "math-tutor-dynamic-lora",
     "run_name": "modal-shared-lora-probe-16-label-free",
     "tags": ["shared-lora", "layer-probe"],
-    "modal_artifact_path": "modal-volume://dream-ai-training-artifacts/shared_lora_probe_16_label_free"
+    "modal_artifact_path": "modal-volume://math-tutor-training-artifacts/shared_lora_probe_16_label_free"
   }
 }

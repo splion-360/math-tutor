@@ -1,5 +1,5 @@
 [project]
-name = "dream-ai-dynamic-lora"
+name = "math-tutor-training"
 version = "0.1.0"
 description = "Dynamic LoRA training experiments for Manim code generation"
 requires-python = ">=3.11"

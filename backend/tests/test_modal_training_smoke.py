@@ -95,8 +95,8 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
         "A100-80GB"
     )
     expected_volumes = {
-        "/root/.cache/huggingface": "volume:dream-ai-huggingface-cache",
-        "/artifacts": "volume:dream-ai-training-artifacts",
+        "/root/.cache/huggingface": "volume:math-tutor-huggingface-cache",
+        "/artifacts": "volume:math-tutor-training-artifacts",
     }
     for options in function_options:
         assert options["volumes"] == expected_volumes
