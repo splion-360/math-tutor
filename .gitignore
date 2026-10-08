@@ -247,3 +247,5 @@ training/artifacts/
 /backend/docs/
 /backend/notebooks/
 /training/notebooks/
+
+.vscode/
