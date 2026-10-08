@@ -128,7 +128,7 @@ def test_spatial_validator_passes_valid_scene(tmp_path: Path) -> None:
 
 
 def test_axes_and_plotted_curve_intersection_is_advisory(tmp_path: Path) -> None:
-    axes = _object("axes", "Axes", -3, -2, 3, 2)
+    axes = _object("axes", "Axes", -3, -2, 3, 2, is_container=True)
     curve = _object("curve", "ParametricFunction", -3, -2, 3, 2)
     trace = _write_trace(
         tmp_path,
@@ -147,6 +147,46 @@ def test_axes_and_plotted_curve_intersection_is_advisory(tmp_path: Path) -> None
     assert [advisory.code for advisory in report.advisories] == [
         "persistent_geometric_intersection"
     ]
+
+
+def test_text_inside_diagram_container_is_advisory(tmp_path: Path) -> None:
+    axes = _object("axes", "Axes", -3, -2, 3, 2, is_container=True)
+    label = _object("label", "Text", 0.7, 0.7, 1.3, 1.3, is_container=True)
+    trace = _write_trace(
+        tmp_path,
+        [
+            _checkpoint(0, axes, label),
+            _checkpoint(1, axes, label),
+        ],
+    )
+
+    report = SpatialValidator(policy=_policy(persistent_checkpoints=2)).validate(
+        _attempt(tmp_path, trace)
+    )
+
+    assert report.status is ValidationStatus.PASS
+    assert report.findings == ()
+    assert report.advisories[0].code == "persistent_geometric_intersection"
+
+
+def test_text_inside_curve_bounding_box_is_advisory(tmp_path: Path) -> None:
+    curve = _object("curve", "ParametricFunction", -3, -2, 3, 2)
+    label = _object("label", "Text", 0.7, 0.7, 1.3, 1.3, is_container=True)
+    trace = _write_trace(
+        tmp_path,
+        [
+            _checkpoint(0, curve, label),
+            _checkpoint(1, curve, label),
+        ],
+    )
+
+    report = SpatialValidator(policy=_policy(persistent_checkpoints=2)).validate(
+        _attempt(tmp_path, trace)
+    )
+
+    assert report.status is ValidationStatus.PASS
+    assert report.findings == ()
+    assert report.advisories[0].code == "persistent_geometric_intersection"
 
 
 def test_spatial_validator_reports_missing_trace_as_validator_error(tmp_path: Path) -> None:
@@ -284,10 +324,13 @@ def _object(
     bottom: float,
     right: float,
     top: float,
+    *,
+    is_container: bool = False,
 ) -> dict[str, object]:
     return {
         "id": object_id,
         "type": object_type,
+        "is_container": is_container,
         "bounds": {
             "left": left,
             "bottom": bottom,

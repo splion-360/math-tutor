@@ -91,6 +91,7 @@ def test_recorder_retains_frame_checkpoints_and_stable_object_ids(tmp_path: Path
     assert trace["checkpoints"][0]["objects"][0] == {
         "bounds": {"bottom": 1.0, "left": -3.0, "right": 3.0, "top": 2.0},
         "id": "object-0",
+        "is_container": False,
         "type": "FakeMobject",
     }
     assert trace["checkpoints"][1]["objects"][0]["id"] == "object-0"
@@ -140,20 +141,28 @@ def test_recorder_excludes_fully_invisible_geometry(tmp_path: Path) -> None:
     assert checkpoint["measurement_errors"] == []
 
 
-def test_recorder_keeps_group_with_visible_descendant(tmp_path: Path) -> None:
+def test_recorder_bounds_group_from_only_visible_descendants(tmp_path: Path) -> None:
     path = tmp_path / "spatial_trace.json"
-    child = FakeStyledMobject(
+    visible = FakeStyledMobject(
         opacity=1,
         left=-1,
         bottom=-1,
         right=1,
         top=1,
     )
+    invisible = FakeStyledMobject(
+        opacity=0,
+        left=9,
+        bottom=-1,
+        right=11,
+        top=1,
+    )
     group = FakeGroup(
-        child,
+        visible,
+        invisible,
         left=-1,
         bottom=-1,
-        right=1,
+        right=11,
         top=1,
     )
     recorder = SpatialTraceRecorder(path, frame_width=10, frame_height=6)
@@ -163,3 +172,10 @@ def test_recorder_keeps_group_with_visible_descendant(tmp_path: Path) -> None:
 
     checkpoint = json.loads(path.read_text())["checkpoints"][0]
     assert [item["type"] for item in checkpoint["objects"]] == ["FakeGroup"]
+    assert checkpoint["objects"][0]["bounds"] == {
+        "bottom": -1.0,
+        "left": -1.0,
+        "right": 1.0,
+        "top": 1.0,
+    }
+    assert checkpoint["objects"][0]["is_container"] is False
