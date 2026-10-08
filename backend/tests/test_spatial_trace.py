@@ -42,6 +42,31 @@ class FakeScene:
         self.time = 0.0
 
 
+class FakeStyledMobject(FakeMobject):
+    """Expose the style surface used by real Manim family members."""
+
+    def __init__(self, *, opacity: float, **bounds: float) -> None:
+        super().__init__(**bounds)
+        self.fill_opacity = opacity
+        self.stroke_opacity = opacity
+
+    def family_members_with_points(self) -> list[FakeStyledMobject]:
+        """Return the only geometry-bearing member in this fake family."""
+        return [self]
+
+
+class FakeGroup(FakeMobject):
+    """Expose visible descendants through a group-shaped family surface."""
+
+    def __init__(self, *members: FakeStyledMobject, **bounds: float) -> None:
+        super().__init__(**bounds)
+        self._members = list(members)
+
+    def family_members_with_points(self) -> list[FakeStyledMobject]:
+        """Return the geometry-bearing descendants in this fake group."""
+        return self._members
+
+
 def test_recorder_retains_frame_checkpoints_and_stable_object_ids(tmp_path: Path) -> None:
     path = tmp_path / "spatial_trace.json"
     equation = FakeMobject(left=-3, bottom=1, right=3, top=2)
@@ -87,3 +112,54 @@ def test_recorder_retains_bounded_measurement_error_without_aborting_trace(
     assert checkpoint["measurement_errors"] == [
         {"object_id": "object-0", "object_type": "object", "reason": "bounds_unavailable"}
     ]
+
+
+def test_recorder_excludes_fully_invisible_geometry(tmp_path: Path) -> None:
+    path = tmp_path / "spatial_trace.json"
+    invisible = FakeStyledMobject(
+        opacity=0,
+        left=9,
+        bottom=-1,
+        right=11,
+        top=1,
+    )
+    visible = FakeStyledMobject(
+        opacity=1,
+        left=-1,
+        bottom=-1,
+        right=1,
+        top=1,
+    )
+    recorder = SpatialTraceRecorder(path, frame_width=10, frame_height=6)
+
+    recorder.record(FakeScene(invisible, visible), kind="final")
+    recorder.write()
+
+    checkpoint = json.loads(path.read_text())["checkpoints"][0]
+    assert [item["id"] for item in checkpoint["objects"]] == ["object-1"]
+    assert checkpoint["measurement_errors"] == []
+
+
+def test_recorder_keeps_group_with_visible_descendant(tmp_path: Path) -> None:
+    path = tmp_path / "spatial_trace.json"
+    child = FakeStyledMobject(
+        opacity=1,
+        left=-1,
+        bottom=-1,
+        right=1,
+        top=1,
+    )
+    group = FakeGroup(
+        child,
+        left=-1,
+        bottom=-1,
+        right=1,
+        top=1,
+    )
+    recorder = SpatialTraceRecorder(path, frame_width=10, frame_height=6)
+
+    recorder.record(FakeScene(group), kind="final")
+    recorder.write()
+
+    checkpoint = json.loads(path.read_text())["checkpoints"][0]
+    assert [item["type"] for item in checkpoint["objects"]] == ["FakeGroup"]
