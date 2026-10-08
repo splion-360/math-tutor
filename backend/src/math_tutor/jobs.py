@@ -42,6 +42,7 @@ class RenderOutcome:
     narration_status: NarrationStatus = NarrationStatus.NOT_REQUESTED
     narration_diagnostics: Mapping[str, object] | None = None
     validation_diagnostics: Mapping[str, object] | None = None
+    spatial_trace_path: Path | None = None
 
 
 class JobExecutionError(RuntimeError):

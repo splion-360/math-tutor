@@ -28,6 +28,11 @@ def test_settings_loads_secret_and_keeps_operational_code_defaults(
     assert settings.render_timeout_seconds == 90
     assert settings.max_pending_jobs == 8
     assert settings.validation_max_repair_attempts == 1
+    assert settings.spatial_unsafe_margin == 0.25
+    assert settings.spatial_max_width_ratio == 0.9
+    assert settings.spatial_max_height_ratio == 0.9
+    assert settings.spatial_severe_overlap_ratio == 0.35
+    assert settings.spatial_persistent_checkpoints == 2
 
 
 def test_get_settings_returns_one_cached_settings_object(monkeypatch) -> None:

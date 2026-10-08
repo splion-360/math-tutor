@@ -31,9 +31,7 @@ def test_voiceover_renderer_enables_network_without_persisting_secret(tmp_path: 
     ) -> subprocess.CompletedProcess[str]:
         observed["command"] = command
         observed["environment"] = environment
-        video = artifacts / "voice-job" / "output" / "media" / "videos" / "scene"
-        video.mkdir(parents=True)
-        (video / "GeneratedLesson.mp4").write_bytes(b"mp4")
+        _write_render_outputs(artifacts, "voice-job", "GeneratedLesson")
         return subprocess.CompletedProcess(command, 0, stdout="rendered", stderr="")
 
     renderer = DockerManimRenderer(
@@ -110,9 +108,7 @@ def test_renderer_runs_known_scene_with_resource_and_network_limits(tmp_path: Pa
     ) -> subprocess.CompletedProcess[str]:
         commands.append(command)
         assert timeout_seconds == 30
-        video = artifacts / "job-123" / "output" / "media" / "videos" / "scene" / "480p15"
-        video.mkdir(parents=True)
-        (video / "PythagoreanTheorem.mp4").write_bytes(b"mp4")
+        _write_render_outputs(artifacts, "job-123", "PythagoreanTheorem")
         return subprocess.CompletedProcess(command, 0, stdout="rendered", stderr="")
 
     renderer = DockerManimRenderer(
@@ -127,6 +123,8 @@ def test_renderer_runs_known_scene_with_resource_and_network_limits(tmp_path: Pa
 
     assert outcome.video_path.read_bytes() == b"mp4"
     assert outcome.renderer == f"docker:{DEFAULT_MANIM_IMAGE}"
+    assert outcome.spatial_trace_path is not None
+    assert outcome.spatial_trace_path.name == "spatial_trace.json"
     command = commands[0]
     assert command[:3] == ["docker", "run", "--rm"]
     assert _option(command, "--network") == "none"
@@ -147,8 +145,10 @@ def test_renderer_runs_known_scene_with_resource_and_network_limits(tmp_path: Pa
     assert metadata["stdout"] == "rendered"
     assert metadata["scene_sha256"] == sha256(b"# known-good scene").hexdigest()
     assert len(metadata["validator_sha256"]) == 64
+    assert len(metadata["spatial_trace_recorder_sha256"]) == 64
     assert (artifacts / "job-123" / "scene.py").read_text() == "# known-good scene"
     assert (artifacts / "job-123" / "render_known.py").is_file()
+    assert (artifacts / "job-123" / "spatial_trace.py").is_file()
 
 
 def test_renderer_accepts_generated_source_and_scene_class(tmp_path: Path) -> None:
@@ -159,9 +159,7 @@ def test_renderer_accepts_generated_source_and_scene_class(tmp_path: Path) -> No
         command: list[str], timeout_seconds: float
     ) -> subprocess.CompletedProcess[str]:
         commands.append(command)
-        video = artifacts / "generated-job" / "output" / "media" / "videos" / "scene"
-        video.mkdir(parents=True)
-        (video / "GeneratedLesson.mp4").write_bytes(b"mp4")
+        _write_render_outputs(artifacts, "generated-job", "GeneratedLesson")
         return subprocess.CompletedProcess(command, 0, stdout="rendered", stderr="")
 
     renderer = DockerManimRenderer(
@@ -302,6 +300,27 @@ def test_renderer_rejects_video_symlink_that_escapes_job_directory(tmp_path: Pat
         renderer.render("symlink-job")
 
 
+def test_renderer_rejects_success_without_spatial_trace(tmp_path: Path) -> None:
+    artifacts = tmp_path / "artifacts"
+
+    def missing_trace(
+        command: list[str], timeout_seconds: float
+    ) -> subprocess.CompletedProcess[str]:
+        video = artifacts / "missing-trace" / "output" / "media" / "videos" / "scene"
+        video.mkdir(parents=True)
+        (video / "PythagoreanTheorem.mp4").write_bytes(b"mp4")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    renderer = DockerManimRenderer(
+        artifact_root=artifacts,
+        scene_path=_scene_file(tmp_path),
+        command_runner=missing_trace,
+    )
+
+    with pytest.raises(RenderFailed, match="spatial trace is missing or unsafe"):
+        renderer.render("missing-trace")
+
+
 def test_renderer_rejects_mutable_image_tag(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="digest-pinned"):
         DockerManimRenderer(
@@ -319,3 +338,20 @@ def _scene_file(tmp_path: Path) -> Path:
     scene = tmp_path / "known_scene.py"
     scene.write_text("# known-good scene", encoding="utf-8")
     return scene
+
+
+def _write_render_outputs(artifacts: Path, job_id: str, scene_class: str) -> None:
+    output = artifacts / job_id / "output"
+    video = output / "media" / "videos" / "scene"
+    video.mkdir(parents=True)
+    (video / f"{scene_class}.mp4").write_bytes(b"mp4")
+    (output / "spatial_trace.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "manim-spatial-trace.v1",
+                "frame": {"width": 14.22, "height": 8.0},
+                "checkpoints": [{"index": 0, "kind": "final", "time_seconds": 0, "objects": []}],
+            }
+        ),
+        encoding="utf-8",
+    )
