@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down logs renderer evidence-data evidence-figures evaluation-freeze evaluation-generate evaluation-download evaluation-render evaluation-review test lint lint-staged format-check format-staged typecheck secrets pre-commit-check install-gitleaks setup-hooks check
+.PHONY: help setup up down logs renderer evidence-data evidence-figures evaluation-freeze evaluation-generate evaluation-download evaluation-render evaluation-review test lint validate-staged-python lint-staged format-check format-staged typecheck secrets pre-commit-check install-gitleaks setup-hooks check
 
 MODAL_PROFILE ?=
 MODAL_PROFILE_FLAG := $(if $(MODAL_PROFILE),--profile $(MODAL_PROFILE),)
@@ -89,6 +89,19 @@ lint:
 	cd backend && uv run ruff check src tests
 	cd training && uv run ruff check src tests
 
+validate-staged-python:
+	@partial=0; \
+	for file in $$(git diff --cached --name-only --diff-filter=ACMR -- '*.py'); do \
+		if ! git diff --quiet -- "$$file"; then \
+			printf '%s\n' "Partially staged Python file: $$file" >&2; \
+			partial=1; \
+		fi; \
+	done; \
+	if [ "$$partial" -ne 0 ]; then \
+		printf '%s\n' 'Stage or restore each Python file completely before committing.' >&2; \
+		exit 1; \
+	fi
+
 lint-staged:
 	@if [ -n "$(strip $(STAGED_BACKEND_PYTHON))" ]; then \
 		cd backend && uv run ruff check $(STAGED_BACKEND_PYTHON); \
@@ -121,7 +134,7 @@ secrets:
 	}
 	gitleaks git --pre-commit --staged --redact
 
-pre-commit-check: lint-staged format-staged secrets
+pre-commit-check: validate-staged-python lint-staged format-staged secrets
 
 install-gitleaks:
 	@if command -v gitleaks >/dev/null 2>&1; then \
