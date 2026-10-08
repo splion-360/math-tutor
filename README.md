@@ -35,6 +35,10 @@ video must pass the same checks. Uncertain results and validator failures stop p
 because they do not provide enough evidence for a safe repair. Lesson length remains an
 advisory measurement rather than a hard generation requirement.
 
+Every configured axis is required. Before the validators start, the suite checks that the
+immutable input declares the exact checks registered by those validators. A missing or
+mismatched contract produces `validator_error` results for every axis and blocks publication.
+
 ![Math Tutor generates and renders a lesson, runs media, spatial, and visual validation in parallel, and permits one evidence-based repair.](assets/math-tutor-system.drawio.svg)
 
 

@@ -3,8 +3,10 @@ The suite preserves axis reports while exposing one repair-compatible result."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from threading import Barrier
+from time import monotonic, sleep
 
 from math_tutor.jobs import RenderOutcome
 from math_tutor.validation.models import (
@@ -45,6 +47,12 @@ class _RaisingValidator(_Validator):
         raise RuntimeError("provider response must not escape validation")
 
 
+class _DelayedValidator(_Validator):
+    def validate(self, attempt: RenderedAttempt) -> ValidationReport:
+        sleep(0.15)
+        return super().validate(attempt)
+
+
 def test_suite_starts_all_validators_concurrently(tmp_path: Path) -> None:
     barrier = Barrier(3)
     validators = tuple(
@@ -52,7 +60,8 @@ def test_suite_starts_all_validators_concurrently(tmp_path: Path) -> None:
         for name in ("media", "spatial", "visual_evidence")
     )
 
-    report = ValidatorSuite(validators).validate(_attempt(tmp_path))
+    suite = ValidatorSuite(validators)
+    report = suite.validate(_attempt(tmp_path, suite.expected_checks))
 
     assert report.status is ValidationStatus.PASS
     assert [component.validator for component in report.component_reports] == [
@@ -70,7 +79,8 @@ def test_suite_isolates_validator_exceptions_and_collects_every_axis(tmp_path: P
         _Validator("visual_evidence", passed, "visual_check"),
     )
 
-    report = ValidatorSuite(validators).validate(_attempt(tmp_path))
+    suite = ValidatorSuite(validators)
+    report = suite.validate(_attempt(tmp_path, suite.expected_checks))
 
     assert report.status is ValidationStatus.VALIDATOR_ERROR
     assert [component.status for component in report.component_reports] == [
@@ -106,7 +116,8 @@ def test_suite_retains_axis_reports_and_flattens_repairable_findings(
         "objects_inside_frame",
     )
 
-    report = ValidatorSuite((media, spatial)).validate(_attempt(tmp_path))
+    suite = ValidatorSuite((media, spatial))
+    report = suite.validate(_attempt(tmp_path, suite.expected_checks))
 
     assert report.status is ValidationStatus.FAIL
     assert report.findings == (spatial_finding,)
@@ -151,7 +162,8 @@ def test_suite_validator_error_takes_precedence_over_failure(tmp_path: Path) -> 
         "trace",
     )
 
-    report = ValidatorSuite((failed, errored)).validate(_attempt(tmp_path))
+    suite = ValidatorSuite((failed, errored))
+    report = suite.validate(_attempt(tmp_path, suite.expected_checks))
 
     assert report.status is ValidationStatus.VALIDATOR_ERROR
     assert len(report.findings) == 2
@@ -179,7 +191,8 @@ def test_suite_aggregates_visual_uncertainty_and_validator_errors(tmp_path: Path
             f"visual_{status.value}",
         )
 
-        report = ValidatorSuite((passed, visual)).validate(_attempt(tmp_path))
+        suite = ValidatorSuite((passed, visual))
+        report = suite.validate(_attempt(tmp_path, suite.expected_checks))
 
         assert report.status is status
         assert report.findings == (visual_finding,)
@@ -219,10 +232,45 @@ def test_suite_uncertainty_prevents_repairable_failure_from_becoming_aggregate_s
         "sampled_frames",
     )
 
-    report = ValidatorSuite((repairable_failure, uncertain)).validate(_attempt(tmp_path))
+    suite = ValidatorSuite((repairable_failure, uncertain))
+    report = suite.validate(_attempt(tmp_path, suite.expected_checks))
 
     assert report.status is ValidationStatus.UNCERTAIN
     assert len(report.repairable_findings) == 1
+
+
+def test_suite_finishes_three_delayed_axes_in_parallel(tmp_path: Path) -> None:
+    validators = tuple(
+        _DelayedValidator(
+            name,
+            ValidationReport(validator=name, status=ValidationStatus.PASS),
+            f"{name}_check",
+        )
+        for name in ("media", "spatial", "visual_evidence")
+    )
+    suite = ValidatorSuite(validators)
+
+    started = monotonic()
+    suite.validate(_attempt(tmp_path, suite.expected_checks))
+    elapsed = monotonic() - started
+
+    assert elapsed < 0.35
+
+
+def test_suite_rejects_a_manifest_with_different_required_checks(tmp_path: Path) -> None:
+    validators = (
+        _RaisingValidator(
+            "media",
+            ValidationReport(validator="media", status=ValidationStatus.PASS),
+            "video_decodable",
+        ),
+    )
+    suite = ValidatorSuite(validators)
+
+    report = suite.validate(_attempt(tmp_path, ("different_check",)))
+
+    assert report.status is ValidationStatus.VALIDATOR_ERROR
+    assert report.component_reports[0].findings[0].code == ("validation_input_contract_mismatch")
 
 
 def test_suite_rejects_duplicate_checks() -> None:
@@ -236,9 +284,19 @@ def test_suite_rejects_duplicate_checks() -> None:
         raise AssertionError("duplicate checks must be rejected")
 
 
-def _attempt(tmp_path: Path) -> RenderedAttempt:
+def _attempt(tmp_path: Path, expected_checks: tuple[str, ...]) -> RenderedAttempt:
     video = tmp_path / "video.mp4"
     video.write_bytes(b"video")
+    validation_input = tmp_path / "validation_input.json"
+    validation_input.write_text(
+        json.dumps(
+            {
+                "schema_version": "validation-input.v1",
+                "expected_checks": list(expected_checks),
+            }
+        ),
+        encoding="utf-8",
+    )
     return RenderedAttempt(
         number=0,
         artifact_dir=tmp_path,
@@ -248,4 +306,5 @@ def _attempt(tmp_path: Path) -> RenderedAttempt:
         outcome=RenderOutcome(video, "test", 1, "rendered"),
         narration_required=False,
         captions_required=False,
+        validation_input_path=validation_input,
     )

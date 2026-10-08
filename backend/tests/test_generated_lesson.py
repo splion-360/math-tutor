@@ -41,6 +41,7 @@ from math_tutor.validation.models import (
     ValidationReport,
     ValidationStatus,
 )
+from math_tutor.validation.suite import ValidatorSuite
 
 VALID_SCENE = """from manim import *
 
@@ -152,6 +153,18 @@ class ManifestRecordingValidator:
         assert manifest_path is not None
         assert manifest_path.is_file()
         self.manifest_paths.append(manifest_path)
+        return ValidationReport(self.name, ValidationStatus.PASS)
+
+
+class FixedAttemptValidator:
+    def __init__(self, name: str, check: str, *, raises: bool = False) -> None:
+        self.name = name
+        self.expected_checks = (check,)
+        self._raises = raises
+
+    def validate(self, attempt: RenderedAttempt) -> ValidationReport:
+        if self._raises:
+            raise RuntimeError("private validator failure")
         return ValidationReport(self.name, ValidationStatus.PASS)
 
 
@@ -550,6 +563,44 @@ def test_pipeline_persists_one_validation_input_before_validation(tmp_path: Path
         selected["generation_provenance"] == outcome.validation_diagnostics["generation_provenance"]
     )
     assert selected["narration_status"] == outcome.validation_diagnostics["narration_status"]
+
+
+def test_pipeline_retains_every_axis_when_one_concurrent_validator_raises(
+    tmp_path: Path,
+) -> None:
+    validator = ValidatorSuite(
+        (
+            FixedAttemptValidator("media", "media_check"),
+            FixedAttemptValidator("spatial", "spatial_check", raises=True),
+            FixedAttemptValidator("visual_evidence", "visual_check"),
+        )
+    )
+    generator = RecordingGenerator(_generation(f"```python\n{VALID_SCENE}```"))
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain a derivative visually.",
+        generator=generator,
+        renderer=RecordingSourceRenderer(tmp_path / "lesson.mp4"),
+        validator=validator,
+    )
+
+    with pytest.raises(OutputValidationError) as caught:
+        pipeline.render("validator-exception-123")
+
+    axes = caught.value.diagnostics["validation_axes"]
+    assert isinstance(axes, list)
+    assert [axis["status"] for axis in axes] == ["pass", "validator_error", "pass"]
+    job_dir = tmp_path / "artifacts" / "validator-exception-123"
+    validation = json.loads((job_dir / "attempts" / "0" / "validation.json").read_text())
+    manifest = json.loads((job_dir / "attempts" / "0" / "attempt.json").read_text())
+    assert [report["status"] for report in validation["component_reports"]] == [
+        "pass",
+        "validator_error",
+        "pass",
+    ]
+    assert manifest["validation_axes"] == axes
+    assert not (job_dir / "selected_attempt.json").exists()
+    assert len(generator.prompts) == 1
 
 
 def test_pipeline_repairs_one_media_failure_and_preserves_both_attempts(
@@ -1293,6 +1344,37 @@ def test_specialist_does_not_fallback_after_output_validation_rejects_attempt_on
 
     with pytest.raises(OutputValidationError) as caught:
         pipeline.render("job-validation-rejected", "Explain eigenvectors visually.")
+
+    assert caught.value is rejected
+    assert len(normalizer.calls) == 1
+
+
+def test_specialist_does_not_reset_an_exhausted_source_repair_budget(
+    tmp_path: Path,
+) -> None:
+    specialist = RecordingGenerator(_generation("raw scene", model="advanced"))
+    rejected = SceneValidationError(
+        "generated source still failed admission",
+        diagnostics={
+            "failure_stage": "validation",
+            "attempt_count": 2,
+            "repair_count": 1,
+        },
+    )
+    normalizer = SequencePromptRenderer(
+        [
+            rejected,
+            RenderOutcome(tmp_path / "must-not-render.mp4", "test", 1, "rendered"),
+        ]
+    )
+    pipeline = SpecialistGuidedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        specialist=specialist,
+        normalizer=normalizer,
+    )
+
+    with pytest.raises(SceneValidationError) as caught:
+        pipeline.render("job-source-rejected", "Explain eigenvectors visually.")
 
     assert caught.value is rejected
     assert len(normalizer.calls) == 1
