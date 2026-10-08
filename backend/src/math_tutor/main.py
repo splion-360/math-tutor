@@ -9,7 +9,7 @@ from typing import TypeAlias
 from fastapi import FastAPI
 
 from math_tutor.api import create_app
-from math_tutor.domain import Difficulty, LessonStage
+from math_tutor.domain import Difficulty, LessonStage, NarrationStatus
 from math_tutor.generation.pipeline import (
     GeneratedLessonPipeline,
     PromptLessonRenderer,
@@ -190,6 +190,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         validator=output_validator,
         max_repair_attempts=resolved.validation_max_repair_attempts,
         stage_reporter=report_stage,
+        narration_status_override=(NarrationStatus.UNAVAILABLE if elevenlabs_api_key else None),
     )
     generated_renderer: PromptLessonRenderer = silent_generated_renderer
     health_model: ModelClient = silent_model
@@ -257,7 +258,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     )
 
     def close_models() -> None:
-        """Close each configured generation client."""
+        """Close configured generation and visual-model clients."""
         for configured_model in models_to_close:
             configured_model.close()
         if configured_visual_client is not None:

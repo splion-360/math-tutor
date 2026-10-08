@@ -10,7 +10,7 @@ from pathlib import Path
 from time import monotonic
 
 from math_tutor.domain import LessonStage
-from math_tutor.generation.errors import GeneratedLessonError
+from math_tutor.generation.errors import GeneratedLessonError, OutputValidationError
 from math_tutor.generation.pipeline import Generator, PromptLessonRenderer
 from math_tutor.generation.provider import ProviderError
 from math_tutor.jobs import RenderOutcome, is_safe_job_id
@@ -121,6 +121,8 @@ class SpecialistGuidedLessonPipeline:
                 f"{job_id}-normalized",
                 normalization_prompt,
             )
+        except OutputValidationError:
+            raise
         except (GeneratedLessonError, RenderError) as normalization_error:
             try:
                 fallback = self._normalizer.render(f"{job_id}-base", prompt)

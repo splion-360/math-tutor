@@ -16,8 +16,8 @@ from math_tutor.validation.models import (
 
 _STATUS_PRECEDENCE = (
     ValidationStatus.VALIDATOR_ERROR,
-    ValidationStatus.FAIL,
     ValidationStatus.UNCERTAIN,
+    ValidationStatus.FAIL,
 )
 
 
@@ -76,7 +76,15 @@ class ValidatorSuite:
         validator: AttemptValidator,
         future: Future[ValidationReport],
     ) -> ValidationReport:
-        """Return one report while containing an unexpected validator exception."""
+        """Resolve one report while containing an unexpected validator exception.
+
+        Args:
+            validator: Validator associated with the submitted future.
+            future: Concurrent validation execution to resolve.
+
+        Returns:
+            Validator report or a controlled validator-error report.
+        """
         try:
             return future.result()
         except Exception:

@@ -186,6 +186,45 @@ def test_suite_aggregates_visual_uncertainty_and_validator_errors(tmp_path: Path
         assert report.component_reports == (passed._report, visual._report)
 
 
+def test_suite_uncertainty_prevents_repairable_failure_from_becoming_aggregate_status(
+    tmp_path: Path,
+) -> None:
+    repairable_failure = _Validator(
+        "spatial",
+        ValidationReport(
+            validator="spatial",
+            status=ValidationStatus.FAIL,
+            findings=(
+                ValidationFinding(
+                    code="object_off_frame",
+                    message="Object is outside the frame.",
+                    repair_instruction="Move the object inside the frame.",
+                ),
+            ),
+        ),
+        "object_bounds",
+    )
+    uncertain = _Validator(
+        "visual_evidence",
+        ValidationReport(
+            validator="visual_evidence",
+            status=ValidationStatus.UNCERTAIN,
+            findings=(
+                ValidationFinding(
+                    code="visual_evidence_uncertain",
+                    message="Sampled frames are inconclusive.",
+                ),
+            ),
+        ),
+        "sampled_frames",
+    )
+
+    report = ValidatorSuite((repairable_failure, uncertain)).validate(_attempt(tmp_path))
+
+    assert report.status is ValidationStatus.UNCERTAIN
+    assert len(report.repairable_findings) == 1
+
+
 def test_suite_rejects_duplicate_checks() -> None:
     report = ValidationReport(validator="one", status=ValidationStatus.PASS)
 
