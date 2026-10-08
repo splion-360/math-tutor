@@ -6,9 +6,45 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
 from typing import Protocol
 
-from math_tutor.attempts import RenderedAttempt
+from math_tutor.jobs import RenderOutcome
+
+
+@dataclass(frozen=True)
+class RenderedAttempt:
+    """Inputs and outputs needed to validate one rendered lesson attempt.
+
+    Args:
+        number: Zero-based attempt number within the lesson job.
+        artifact_dir: Directory containing immutable evidence for this attempt.
+        prompt: Prompt sent to the generator for this attempt.
+        source: Admitted Manim source used for rendering.
+        scene_class: Manim scene class selected for rendering.
+        outcome: Rendered media and renderer provenance.
+        narration_required: Whether the final video must contain an audio stream.
+        captions_required: Whether a non-empty WebVTT artifact is required.
+        original_prompt_path: Immutable copy of the original user prompt.
+        generation_model: Model identifier recorded for this attempt.
+        generation_provider: Provider identifier recorded for this attempt.
+        inference_path: Routing path used to produce this attempt.
+        infrastructure_retry_count: Render retries that reused the admitted source.
+    """
+
+    number: int
+    artifact_dir: Path
+    prompt: str
+    source: str
+    scene_class: str
+    outcome: RenderOutcome
+    narration_required: bool
+    captions_required: bool
+    original_prompt_path: Path | None = None
+    generation_model: str | None = None
+    generation_provider: str | None = None
+    inference_path: str = "unknown"
+    infrastructure_retry_count: int = 0
 
 
 class ValidationStatus(StrEnum):
@@ -58,12 +94,14 @@ class ValidationReport:
     Args:
         validator: Stable validator name.
         status: Overall validation result.
-        findings: Evidence-bearing findings produced by the validator.
+        findings: Blocking evidence-bearing findings produced by the validator.
+        advisories: Non-blocking measurements retained for diagnostics.
     """
 
     validator: str
     status: ValidationStatus
     findings: tuple[ValidationFinding, ...] = ()
+    advisories: tuple[ValidationFinding, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.validator.strip():
@@ -72,6 +110,8 @@ class ValidationReport:
             raise ValueError("passing validation reports must not contain findings")
         if self.status is not ValidationStatus.PASS and not self.findings:
             raise ValueError("failed validation reports must contain findings")
+        if any(advisory.repair_instruction is not None for advisory in self.advisories):
+            raise ValueError("validation advisories must not request model repair")
 
     @property
     def repairable_findings(self) -> tuple[ValidationFinding, ...]:
@@ -86,6 +126,7 @@ class ValidationReport:
             "validator": self.validator,
             "status": self.status.value,
             "findings": [finding.to_dict() for finding in self.findings],
+            "advisories": [advisory.to_dict() for advisory in self.advisories],
         }
 
 

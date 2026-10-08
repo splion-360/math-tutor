@@ -1,3 +1,6 @@
+"""Audit saved generation artifacts for prompt and completion token usage.
+The command reports measured totals without mutating experiment artifacts."""
+
 from __future__ import annotations
 
 import argparse
@@ -15,6 +18,8 @@ _TOKENISH = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 
 @dataclass(frozen=True)
 class PhaseCount:
+    """Token count and provenance for one generation phase."""
+
     phase: Phase
     tokens: int
     source: str
@@ -22,6 +27,8 @@ class PhaseCount:
 
 @dataclass(frozen=True)
 class TokenBudgetRecord:
+    """Token usage and termination evidence for one lesson job."""
+
     job_id: str
     artifact_directory: str
     route: str
@@ -37,11 +44,13 @@ class TokenBudgetRecord:
 
 
 def audit_artifact_root(artifact_root: Path) -> dict[str, object]:
+    """Build a token-budget report from one artifact root."""
     records = list(iter_token_budget_records(artifact_root))
     return build_token_budget_report(records, artifact_root=artifact_root)
 
 
 def iter_token_budget_records(artifact_root: Path) -> Iterable[TokenBudgetRecord]:
+    """Yield normalized token records for every recognized lesson job."""
     attempts_by_job = _load_attempt_records(artifact_root)
     artifact_root = _artifact_attempt_root(artifact_root)
     job_dirs = sorted(
@@ -75,6 +84,7 @@ def build_token_budget_report(
     *,
     artifact_root: Path,
 ) -> dict[str, object]:
+    """Aggregate token records into measured summaries and recommendations."""
     phase_summaries = {
         phase: _summarize_counts([getattr(record, phase).tokens for record in records])
         for phase in ("prompt", "draft", "normalization", "output")
@@ -113,6 +123,7 @@ def build_token_budget_report(
 
 
 def write_markdown_report(report: dict[str, object]) -> str:
+    """Serialize a token-budget report as readable Markdown."""
     lines = [
         "# Token Budget Audit",
         "",
@@ -489,6 +500,7 @@ def _str_field(value: dict[str, object], key: str) -> str | None:
 
 
 def main() -> None:
+    """Run the token-budget audit command."""
     parser = argparse.ArgumentParser(
         description="Audit saved Math Tutor generation artifacts for token pressure."
     )

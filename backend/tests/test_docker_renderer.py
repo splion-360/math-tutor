@@ -1,3 +1,6 @@
+"""Verify Docker renderer commands, artifacts, and bounded failure diagnostics.
+The tests isolate container execution behind an injectable command runner."""
+
 from __future__ import annotations
 
 import json
@@ -8,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from math_tutor.renderer import (
+from math_tutor.rendering.manim import (
     DEFAULT_MANIM_IMAGE,
     VOICEOVER_MANIM_IMAGE,
     DockerManimRenderer,

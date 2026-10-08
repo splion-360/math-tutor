@@ -1,66 +1,21 @@
+"""Verify application composition for Modal, specialist adapters, and narration.
+The tests inspect provider and renderer wiring through injected settings."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from math_tutor.generation import (
+from math_tutor.generation.provider import (
     FROZEN_MODEL,
     SPECIALIST_SYSTEM_PROMPT,
     GenerationConfig,
     GenerationResult,
     ModelHealth,
 )
-from math_tutor.renderer import VOICEOVER_MANIM_IMAGE
+from math_tutor.rendering.manim import VOICEOVER_MANIM_IMAGE
 from math_tutor.settings import Settings
-
-
-def test_build_app_uses_injected_settings_for_nebius(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    observed: dict[str, object] = {}
-
-    class RecordingModelClient:
-        def __init__(
-            self,
-            *,
-            api_key: str,
-            config: GenerationConfig,
-            base_url: str,
-        ) -> None:
-            observed.update(api_key=api_key, model=config.model, base_url=base_url)
-            self.config = config
-
-        def generate(self, prompt: str) -> GenerationResult:
-            raise AssertionError("generation is not part of this test")
-
-        def health(self) -> ModelHealth:
-            return ModelHealth(True, self.config.model, True)
-
-        def close(self) -> None:
-            observed["closed"] = True
-
-    import math_tutor.main as main
-
-    monkeypatch.setattr(main, "NebiusTokenFactoryClient", RecordingModelClient)
-    settings = Settings(
-        _env_file=None,
-        nebius_api_key="injected-secret",
-        nebius_base_url="https://nebius.example/v1",
-        artifact_root=tmp_path / "artifacts",
-    )
-
-    with TestClient(main.build_app(settings)) as client:
-        response = client.get("/model/health")
-
-    assert response.json()["model_available"] is True
-    assert observed == {
-        "api_key": "injected-secret",
-        "model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
-        "base_url": "https://nebius.example/v1",
-        "closed": True,
-    }
 
 
 def test_build_app_without_secret_keeps_provider_unavailable(tmp_path: Path) -> None:
@@ -68,7 +23,7 @@ def test_build_app_without_secret_keeps_provider_unavailable(tmp_path: Path) -> 
 
     settings = Settings(
         _env_file=None,
-        nebius_api_key=None,
+        modal_vllm_base_url=None,
         artifact_root=tmp_path / "artifacts",
     )
 
@@ -77,9 +32,9 @@ def test_build_app_without_secret_keeps_provider_unavailable(tmp_path: Path) -> 
 
     assert response.json() == {
         "reachable": False,
-        "model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
+        "model": FROZEN_MODEL,
         "model_available": False,
-        "error": "Nebius API key is not configured",
+        "error": "Modal inference endpoint is not configured",
     }
 
 
@@ -125,7 +80,6 @@ def test_build_app_uses_modal_base_model_by_default_and_keeps_specialists(
         modal_vllm_api_key="modal-secret",
         modal_vllm_timeout_seconds=90,
         modal_specialist_timeout_seconds=60,
-        elevenlabs_api_key="eleven-secret",
         artifact_root=tmp_path / "artifacts",
     )
 
@@ -141,7 +95,7 @@ def test_build_app_uses_modal_base_model_by_default_and_keeps_specialists(
     assert observed_models == [FROZEN_MODEL, "foundational", "intermediate", "advanced"]
     assert observed_timeouts == [90, 60, 60, 60]
     assert all(config.max_tokens == 4096 for config in observed_configs)
-    assert "VoiceoverScene" in observed_configs[0].system_prompt
+    assert "VoiceoverScene" not in observed_configs[0].system_prompt
     assert all(config.system_prompt == SPECIALIST_SYSTEM_PROMPT for config in observed_configs[1:])
 
 
@@ -153,7 +107,14 @@ def test_build_app_configures_voiceover_generation_when_elevenlabs_is_available(
     observed_renderers: list[dict[str, object]] = []
 
     class RecordingModelClient:
-        def __init__(self, *, api_key: str, config: GenerationConfig, base_url: str) -> None:
+        def __init__(
+            self,
+            *,
+            api_key: str,
+            config: GenerationConfig,
+            base_url: str,
+            timeout_seconds: float = 60,
+        ) -> None:
             observed_clients.append(config)
             self.config = config
 
@@ -178,11 +139,12 @@ def test_build_app_configures_voiceover_generation_when_elevenlabs_is_available(
 
     import math_tutor.main as main
 
-    monkeypatch.setattr(main, "NebiusTokenFactoryClient", RecordingModelClient)
+    monkeypatch.setattr(main, "ModalVllmClient", RecordingModelClient)
     monkeypatch.setattr(main, "DockerManimRenderer", RecordingDockerRenderer)
     settings = Settings(
         _env_file=None,
-        nebius_api_key="nebius-secret",
+        modal_vllm_base_url="https://workspace--qwen.modal.direct/v1",
+        modal_vllm_api_key="modal-secret",
         elevenlabs_api_key="eleven-secret",
         elevenlabs_voice_id="voice-123",
         artifact_root=tmp_path / "artifacts",
@@ -191,12 +153,15 @@ def test_build_app_configures_voiceover_generation_when_elevenlabs_is_available(
     with TestClient(main.build_app(settings)) as client:
         assert client.get("/model/health").status_code == 200
 
-    assert len(observed_clients) == 2
+    assert len(observed_clients) == 5
+    base_configs = [
+        config for config in observed_clients if config.model == FROZEN_MODEL
+    ]
     voiceover_config = next(
-        config for config in observed_clients if "VoiceoverScene" in config.system_prompt
+        config for config in base_configs if "VoiceoverScene" in config.system_prompt
     )
     silent_config = next(
-        config for config in observed_clients if "VoiceoverScene" not in config.system_prompt
+        config for config in base_configs if "VoiceoverScene" not in config.system_prompt
     )
     assert 'voice_id="voice-123"' in voiceover_config.system_prompt
     assert silent_config.model == voiceover_config.model

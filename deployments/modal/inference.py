@@ -1,10 +1,7 @@
-"""Serve Qwen3-4B and the three local PEFT adapters through one vLLM process.
+"""Serve the base model and three local PEFT adapters through one vLLM process.
+Modal packages the adapter artifacts from the repository when deploying this module."""
 
-Run this from the repository root with `modal deploy deployments/modal/inference.py`.
-The adapter source is deliberately outside this worktree and is mounted read-only at deploy time;
-no weight files are copied into or committed from this repository.
-"""
-
+import os
 import subprocess
 from pathlib import Path
 
@@ -13,10 +10,13 @@ import modal
 APP_NAME = "dream-ai-qwen3-lora"
 BASE_MODEL = "Qwen/Qwen3-4B"
 VLLM_PORT = 8000
+REPO_ROOT = Path(__file__).resolve().parents[2]
 ADAPTER_SOURCE = Path(
-    "/Users/bladeofchaos/Desktop/personal/hackathon/dream-ai-hackathon/"
-    "training/artifacts/token_factory"
-)
+    os.environ.get(
+        "MATH_TUTOR_ADAPTER_SOURCE",
+        str(REPO_ROOT / "training" / "artifacts" / "token_factory"),
+    )
+).expanduser()
 ADAPTER_DESTINATION = "/adapters"
 ADAPTER_NAMES = ("foundational", "intermediate", "advanced")
 

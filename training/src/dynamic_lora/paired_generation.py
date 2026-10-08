@@ -541,7 +541,7 @@ def main() -> None:
         evidence_path=args.evidence,
         output=args.output,
         tokenizer=tokenizer,
-        renderer_contract=import_module("math_tutor.paired_evaluation").renderer_contract(),
+        renderer_contract=import_module("math_tutor.evaluation.paired").renderer_contract(),
     )
     print(
         json.dumps(

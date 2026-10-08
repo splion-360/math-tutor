@@ -6,7 +6,6 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from math_tutor.attempts import RenderedAttempt
 from math_tutor.jobs import RenderOutcome
 from math_tutor.validation.media import (
     FfprobeMediaInspector,
@@ -15,7 +14,7 @@ from math_tutor.validation.media import (
     MediaValidationPolicy,
     MediaValidator,
 )
-from math_tutor.validation.models import ValidationStatus
+from math_tutor.validation.models import RenderedAttempt, ValidationStatus
 
 
 class FixedInspector:
@@ -59,7 +58,10 @@ def _attempt(
     )
     validator = MediaValidator(
         inspector=FixedInspector(inspection),
-        policy=MediaValidationPolicy(min_duration_seconds=30, max_duration_seconds=45),
+        policy=MediaValidationPolicy(
+            target_min_duration_seconds=30,
+            target_max_duration_seconds=45,
+        ),
     )
     return attempt, validator
 
@@ -82,9 +84,10 @@ def test_media_validator_passes_complete_narrated_media(tmp_path: Path) -> None:
 
     assert report.status is ValidationStatus.PASS
     assert report.findings == ()
+    assert report.advisories == ()
 
 
-def test_media_validator_returns_repairable_duration_and_audio_findings(
+def test_media_validator_reports_duration_advisory_with_blocking_audio_finding(
     tmp_path: Path,
 ) -> None:
     attempt, validator = _attempt(
@@ -101,15 +104,39 @@ def test_media_validator_returns_repairable_duration_and_audio_findings(
     report = validator.validate(attempt)
 
     assert report.status is ValidationStatus.FAIL
-    assert [finding.code for finding in report.findings] == [
-        "duration_out_of_range",
-        "missing_required_audio",
+    assert [finding.code for finding in report.findings] == ["missing_required_audio"]
+    assert report.findings[0].repair_instruction is not None
+    assert [advisory.code for advisory in report.advisories] == [
+        "duration_outside_target"
     ]
-    assert all(finding.repair_instruction for finding in report.findings)
-    assert report.findings[0].repair_instruction == (
-        "Increase the total animation and narration runtime by at least 23 seconds so the "
-        "rendered lesson lasts between 30 and 45 seconds."
+    assert report.advisories[0].repair_instruction is None
+    assert report.advisories[0].evidence == {
+        "actual_seconds": 7,
+        "target_minimum_seconds": 30,
+        "target_maximum_seconds": 45,
+    }
+
+
+def test_media_validator_accepts_short_video_with_duration_advisory(
+    tmp_path: Path,
+) -> None:
+    attempt, validator = _attempt(
+        tmp_path,
+        MediaInspection(
+            video_stream_count=1,
+            audio_stream_count=0,
+            video_duration_seconds=11,
+            audio_duration_seconds=None,
+        ),
     )
+
+    report = validator.validate(attempt)
+
+    assert report.status is ValidationStatus.PASS
+    assert report.findings == ()
+    assert [advisory.code for advisory in report.advisories] == [
+        "duration_outside_target"
+    ]
 
 
 def test_media_validator_rejects_missing_required_captions_without_model_repair(

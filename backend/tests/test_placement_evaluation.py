@@ -6,8 +6,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from math_tutor.evaluation.placement import evaluate_placement_generations
 from math_tutor.jobs import RenderOutcome
-from math_tutor.placement_evaluation import evaluate_placement_generations
 
 
 def test_evaluation_counts_parse_and_render_failures_separately(tmp_path: Path) -> None:

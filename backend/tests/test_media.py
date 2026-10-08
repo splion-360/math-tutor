@@ -1,3 +1,6 @@
+"""Verify FFmpeg media assembly, timelines, captions, and bounded errors.
+The tests replace external commands with deterministic local fakes."""
+
 from __future__ import annotations
 
 import json
@@ -6,8 +9,12 @@ from pathlib import Path
 
 import pytest
 
-from math_tutor.media import MediaAssembler, MediaAssemblyError, probe_audio_duration
-from math_tutor.narration import (
+from math_tutor.rendering.media import (
+    FfmpegMediaAssembler,
+    MediaAssemblyError,
+    probe_audio_duration,
+)
+from math_tutor.rendering.narration import (
     NarrationPlan,
     NarrationSegment,
     NarrationStatus,
@@ -69,7 +76,7 @@ def test_assembler_writes_measured_timeline_captions_and_narrated_video(
         Path(command[-1]).write_bytes(b"assembled")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
-    bundle = MediaAssembler(command_runner=runner).assemble(
+    bundle = FfmpegMediaAssembler(command_runner=runner).assemble(
         silent_video=silent_video,
         narration=narration,
         output_dir=tmp_path / "media",
@@ -108,7 +115,7 @@ def test_assembler_reports_sanitized_command_failure(tmp_path: Path) -> None:
         return subprocess.CompletedProcess(command, 1, stdout="", stderr="provider-secret")
 
     with pytest.raises(MediaAssemblyError, match="audio concatenation failed") as captured:
-        MediaAssembler(command_runner=runner).assemble(
+        FfmpegMediaAssembler(command_runner=runner).assemble(
             silent_video=silent_video,
             narration=narration,
             output_dir=tmp_path / "media",

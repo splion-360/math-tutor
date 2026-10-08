@@ -9,8 +9,9 @@ Math Tutor is a simple agentic application that turns a math prompt into an anim
 
 ## How it works
 
-Math Tutor takes a question and turns it into an animated explanation. The intended
-lesson length is __30–45__ seconds.
+Math Tutor takes a question and turns it into an animated explanation. The validator
+records a 30–45 second target as an advisory measurement, so otherwise valid lessons
+are not rejected solely because their rendered duration falls outside that range.
 
 The adapter-based system uses a **Qwen3-4B** backbone fine-tuned with LoRA on
 [Bespoke-Manim](https://huggingface.co/datasets/bespokelabs/bespoke-manim). This

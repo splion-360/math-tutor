@@ -1,3 +1,6 @@
+"""Infer lesson difficulty from deterministic topic signals.
+The router has no model, artifact, or rendering dependencies."""
+
 from __future__ import annotations
 
 from math_tutor.domain import Difficulty
@@ -37,7 +40,14 @@ _FOUNDATIONAL_SIGNALS = (
 
 
 def infer_difficulty(prompt: str) -> Difficulty:
-    """Route a prompt with a small, deterministic hackathon heuristic."""
+    """Route a prompt with a small, deterministic topic heuristic.
+
+    Args:
+        prompt: User lesson request.
+
+    Returns:
+        Foundational, intermediate, or advanced difficulty.
+    """
     normalized = " ".join(prompt.casefold().split())
     if any(signal in normalized for signal in _ADVANCED_SIGNALS):
         return Difficulty.ADVANCED

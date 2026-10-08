@@ -12,18 +12,27 @@ from threading import BoundedSemaphore, Lock
 from typing import Protocol
 from uuid import uuid4
 
-from math_tutor.domain import Difficulty, LessonJob, LessonStage, LessonStatus, utc_now
-from math_tutor.narration import NarrationStatus
+from math_tutor.domain import (
+    Difficulty,
+    LessonJob,
+    LessonStage,
+    LessonStatus,
+    NarrationStatus,
+    utc_now,
+)
 
 _SAFE_JOB_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 def is_safe_job_id(value: str) -> bool:
+    """Return whether a job identifier is safe for paths and container names."""
     return _SAFE_JOB_ID.fullmatch(value) is not None
 
 
 @dataclass(frozen=True)
 class RenderOutcome:
+    """Successful rendered media and bounded execution diagnostics."""
+
     video_path: Path
     renderer: str
     elapsed_seconds: float
@@ -36,6 +45,8 @@ class RenderOutcome:
 
 
 class JobExecutionError(RuntimeError):
+    """Expected job failure with diagnostics safe for API exposure."""
+
     def __init__(
         self,
         message: str,
@@ -48,6 +59,8 @@ class JobExecutionError(RuntimeError):
 
 @dataclass(frozen=True)
 class PartialOutcome:
+    """Useful incomplete renderer output that cannot become a ready lesson."""
+
     renderer: str
     elapsed_seconds: float
     logs: str
@@ -55,18 +68,32 @@ class PartialOutcome:
 
 
 class JobRenderer(Protocol):
-    def render(self, job_id: str) -> RenderOutcome | PartialOutcome: ...
+    """Render a configured lesson by job identifier."""
+
+    def render(self, job_id: str) -> RenderOutcome | PartialOutcome:
+        """Render one configured lesson job."""
+        ...
 
 
 class PromptRenderer(Protocol):
-    def render(self, job_id: str, prompt: str) -> RenderOutcome | PartialOutcome: ...
+    """Render one free-form lesson prompt."""
+
+    def render(self, job_id: str, prompt: str) -> RenderOutcome | PartialOutcome:
+        """Render a prompt-bound lesson job."""
+        ...
 
 
 class Renderer(Protocol):
-    def render(self, job_id: str, lesson: str) -> RenderOutcome | PartialOutcome: ...
+    """Render a lesson selected by a service-level lesson value."""
+
+    def render(self, job_id: str, lesson: str) -> RenderOutcome | PartialOutcome:
+        """Render one selected lesson job."""
+        ...
 
 
 class DispatchingRenderer:
+    """Dispatch known lessons and route free-form prompts to a fallback."""
+
     def __init__(
         self,
         renderers: Mapping[str, JobRenderer],
@@ -76,6 +103,7 @@ class DispatchingRenderer:
         self._fallback = fallback
 
     def render(self, job_id: str, lesson: str) -> RenderOutcome | PartialOutcome:
+        """Render through the named renderer or configured prompt fallback."""
         try:
             renderer = self._renderers[lesson]
         except KeyError as error:
@@ -86,14 +114,16 @@ class DispatchingRenderer:
 
 
 class JobNotFoundError(KeyError):
-    pass
+    """Raised when an in-memory lesson job does not exist."""
 
 
 class RenderQueueFullError(RuntimeError):
-    pass
+    """Raised when the bounded lesson execution capacity is exhausted."""
 
 
 class JobStore:
+    """Store immutable job snapshots and serialize state transitions."""
+
     def __init__(self) -> None:
         self._jobs: dict[str, LessonJob] = {}
         self._lock = Lock()
@@ -106,6 +136,7 @@ class JobStore:
         narration_requested: bool = False,
         routing_policy: str = "default",
     ) -> LessonJob:
+        """Create and retain one queued lesson job."""
         job = LessonJob(
             id=uuid4().hex,
             lesson=lesson,
@@ -123,6 +154,7 @@ class JobStore:
         return job
 
     def get(self, job_id: str) -> LessonJob:
+        """Return the current job snapshot or raise when absent."""
         with self._lock:
             try:
                 return self._jobs[job_id]
@@ -130,6 +162,7 @@ class JobStore:
                 raise JobNotFoundError(job_id) from error
 
     def mark_running(self, job_id: str) -> LessonJob:
+        """Transition a queued job into running state."""
         return self._mutate(
             job_id,
             lambda job: replace(
@@ -140,9 +173,11 @@ class JobStore:
         )
 
     def mark_stage(self, job_id: str, stage: LessonStage) -> LessonJob:
+        """Update the processing stage without changing terminal status."""
         return self._mutate(job_id, lambda job: replace(job, stage=stage))
 
     def mark_ready(self, job_id: str, outcome: RenderOutcome) -> LessonJob:
+        """Publish a successful render as the ready job snapshot."""
         return self._mutate(
             job_id,
             lambda job: replace(
@@ -168,6 +203,7 @@ class JobStore:
         )
 
     def mark_failed(self, job_id: str, error: Exception) -> LessonJob:
+        """Record a terminal failure and bounded diagnostics."""
         diagnostics = error.diagnostics if isinstance(error, JobExecutionError) else {}
         return self._mutate(
             job_id,
@@ -182,6 +218,7 @@ class JobStore:
         )
 
     def mark_partial(self, job_id: str, outcome: PartialOutcome) -> LessonJob:
+        """Record a useful but incomplete terminal outcome."""
         return self._mutate(
             job_id,
             lambda job: replace(
@@ -214,6 +251,8 @@ class JobStore:
 
 
 class LessonService:
+    """Queue bounded background renders and expose job snapshots."""
+
     def __init__(
         self,
         renderer: Renderer,
@@ -242,6 +281,7 @@ class LessonService:
         difficulty: Difficulty | None = None,
         routing_policy: str = "default",
     ) -> LessonJob:
+        """Create and asynchronously schedule one lesson job."""
         if not self._capacity.acquire(blocking=False):
             raise RenderQueueFullError("render queue is full")
         narration_requested = (
@@ -263,9 +303,11 @@ class LessonService:
         return job
 
     def get(self, job_id: str) -> LessonJob:
+        """Return the current snapshot for one job."""
         return self._store.get(job_id)
 
     def close(self) -> None:
+        """Drain and close the background executor."""
         self._executor.shutdown(wait=True, cancel_futures=True)
 
     def _run(self, job_id: str) -> None:

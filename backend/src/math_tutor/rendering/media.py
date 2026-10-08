@@ -1,3 +1,6 @@
+"""Inspect media streams and combine rendered video with narration and captions.
+FFmpeg operations stay behind a narrow assembler used by narration orchestration."""
+
 from __future__ import annotations
 
 import json
@@ -7,7 +10,8 @@ import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
-from math_tutor.narration import MediaBundle, NarrationStatus, SynthesizedNarration
+from math_tutor.domain import NarrationStatus
+from math_tutor.rendering.narration import MediaBundle, SynthesizedNarration
 
 CommandRunner = Callable[[list[str], float], subprocess.CompletedProcess[str]]
 
@@ -17,6 +21,7 @@ class MediaAssemblyError(RuntimeError):
 
 
 def run_command(command: list[str], timeout_seconds: float) -> subprocess.CompletedProcess[str]:
+    """Run one media command with captured text output and a timeout."""
     return subprocess.run(
         command,
         check=False,
@@ -32,6 +37,19 @@ def probe_audio_duration(
     command_runner: CommandRunner = run_command,
     timeout_seconds: float = 10.0,
 ) -> float:
+    """Measure a positive audio duration with ffprobe.
+
+    Args:
+        audio_path: Audio artifact to inspect.
+        command_runner: Injectable ffprobe command boundary.
+        timeout_seconds: Maximum command duration.
+
+    Returns:
+        Measured duration in seconds.
+
+    Raises:
+        MediaAssemblyError: If ffprobe cannot return a valid positive duration.
+    """
     command = [
         "ffprobe",
         "-v",
@@ -52,7 +70,9 @@ def probe_audio_duration(
     return duration
 
 
-class MediaAssembler:
+class FfmpegMediaAssembler:
+    """Create narration timelines, captions, audio, and final muxed videos."""
+
     def __init__(
         self,
         *,
@@ -71,6 +91,19 @@ class MediaAssembler:
         narration: SynthesizedNarration,
         output_dir: Path,
     ) -> MediaBundle:
+        """Combine a silent video with synthesized narration artifacts.
+
+        Args:
+            silent_video: Existing rendered video without narration.
+            narration: Ordered synthesized narration segments.
+            output_dir: Directory for the assembled media.
+
+        Returns:
+            Paths and diagnostics for the assembled media.
+
+        Raises:
+            MediaAssemblyError: If an input is missing or an FFmpeg command fails.
+        """
         if not silent_video.is_file():
             raise MediaAssemblyError("silent video is unavailable")
         output_dir.mkdir(parents=True, exist_ok=True)

@@ -13,7 +13,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from math_tutor.paired_evaluation import CONDITIONS
+from math_tutor.evaluation.paired import CONDITIONS
 
 JUDGMENTS = {"pass", "fail", "uncertain"}
 

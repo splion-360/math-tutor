@@ -1,3 +1,6 @@
+"""Expose lesson creation, status, health, and media endpoints through FastAPI.
+The HTTP layer translates service values and expected failures into API responses."""
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
@@ -11,20 +14,28 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, model_validator
 from starlette.concurrency import run_in_threadpool
 
-from math_tutor.domain import Difficulty, LessonJob, LessonStage, LessonStatus
-from math_tutor.generation import FROZEN_MODEL, ModelHealth
+from math_tutor.domain import (
+    Difficulty,
+    LessonJob,
+    LessonStage,
+    LessonStatus,
+    NarrationStatus,
+)
+from math_tutor.generation.provider import FROZEN_MODEL, ModelHealth
+from math_tutor.generation.routing import infer_difficulty
 from math_tutor.jobs import JobNotFoundError, LessonService, RenderQueueFullError
-from math_tutor.narration import NarrationStatus
-from math_tutor.routing import infer_difficulty
 
 
 class CreateLessonRequest(BaseModel):
+    """Request containing either a known lesson or a free-form prompt."""
+
     lesson: Literal["pythagorean-theorem", "generated-demo"] | None = None
     prompt: str | None = Field(default=None, min_length=1, max_length=2_000)
     difficulty: Difficulty | None = None
 
     @model_validator(mode="after")
     def require_one_input(self) -> CreateLessonRequest:
+        """Normalize a prompt and require exactly one request input."""
         if (self.lesson is None) == (self.prompt is None):
             raise ValueError("provide exactly one of lesson or prompt")
         if self.prompt is not None:
@@ -35,6 +46,8 @@ class CreateLessonRequest(BaseModel):
 
 
 class ModelHealthResponse(BaseModel):
+    """Public provider reachability response."""
+
     reachable: bool
     model: str
     model_available: bool
@@ -42,6 +55,8 @@ class ModelHealthResponse(BaseModel):
 
 
 class LessonResponse(BaseModel):
+    """Public lesson state and available artifact URLs."""
+
     id: str
     lesson: str
     status: LessonStatus
@@ -61,6 +76,7 @@ class LessonResponse(BaseModel):
 
 
 def to_response(job: LessonJob) -> LessonResponse:
+    """Convert an internal job snapshot into its bounded API representation."""
     video_url = f"/lessons/{job.id}/video" if job.video_path else None
     silent_video_url = f"/lessons/{job.id}/video/silent" if job.silent_video_path else None
     captions_url = f"/lessons/{job.id}/captions" if job.captions_path else None
@@ -95,8 +111,19 @@ def create_app(
     model_health: Callable[[], ModelHealth] | None = None,
     close_model: Callable[[], None] | None = None,
 ) -> FastAPI:
+    """Create the HTTP application around a configured lesson service.
+
+    Args:
+        service: Lesson application service used by all endpoints.
+        model_health: Optional provider health callback.
+        close_model: Optional provider cleanup callback.
+
+    Returns:
+        Configured FastAPI application.
+    """
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        """Close service and model resources during application shutdown."""
         yield
         await run_in_threadpool(service.close)
         if close_model is not None:
@@ -106,6 +133,7 @@ def create_app(
 
     @app.get("/model/health", response_model=ModelHealthResponse)
     def get_model_health() -> ModelHealthResponse:
+        """Return reachability for the configured generation model."""
         health = (
             model_health()
             if model_health is not None
@@ -129,6 +157,7 @@ def create_app(
         status_code=status.HTTP_202_ACCEPTED,
     )
     def submit_lesson(request: CreateLessonRequest) -> LessonResponse:
+        """Queue a known or prompted lesson for asynchronous rendering."""
         difficulty = request.difficulty
         routing_policy = "default"
         if request.prompt is not None:
@@ -154,6 +183,7 @@ def create_app(
 
     @app.get("/lessons/{job_id}", response_model=LessonResponse)
     def get_lesson(job_id: str) -> LessonResponse:
+        """Return the latest snapshot for one lesson job."""
         try:
             return to_response(service.get(job_id))
         except JobNotFoundError as error:
@@ -161,6 +191,7 @@ def create_app(
 
     @app.get("/lessons/{job_id}/video", response_class=FileResponse)
     def get_video(job_id: str) -> FileResponse:
+        """Return the accepted lesson video when ready."""
         try:
             job = service.get(job_id)
         except JobNotFoundError as error:
@@ -174,6 +205,7 @@ def create_app(
 
     @app.get("/lessons/{job_id}/video/silent", response_class=FileResponse)
     def get_silent_video(job_id: str) -> FileResponse:
+        """Return the silent lesson video when available."""
         job = _ready_job(service, job_id)
         if job.silent_video_path is None:
             raise HTTPException(status_code=409, detail="silent lesson video is not ready")
@@ -184,6 +216,7 @@ def create_app(
 
     @app.get("/lessons/{job_id}/captions", response_class=FileResponse)
     def get_captions(job_id: str) -> FileResponse:
+        """Return WebVTT captions when available."""
         job = _ready_job(service, job_id)
         if job.captions_path is None:
             raise HTTPException(status_code=409, detail="lesson captions are not ready")

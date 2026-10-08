@@ -1,3 +1,6 @@
+"""Validate the known lesson inside the configured Manim container image.
+This script is the container entry point for the renderer image smoke check."""
+
 from __future__ import annotations
 
 import subprocess
@@ -11,6 +14,7 @@ def validate_stream_counts(
     audio_stream_count: int,
     require_audio: bool,
 ) -> None:
+    """Require exactly one video stream and any requested audio stream."""
     if video_stream_count != 1:
         raise RuntimeError(f"expected one video stream, found {video_stream_count}")
     if require_audio and audio_stream_count != 1:
@@ -18,6 +22,7 @@ def validate_stream_counts(
 
 
 def main() -> None:
+    """Render and validate the bundled known scene inside the container."""
     import av
 
     scene_class = sys.argv[1] if len(sys.argv) >= 2 else "PythagoreanTheorem"

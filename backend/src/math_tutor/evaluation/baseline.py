@@ -14,10 +14,11 @@ from pathlib import Path
 from statistics import fmean
 from typing import Any, Literal
 
-from math_tutor.generated_lesson import GeneratedLessonError, GeneratedLessonPipeline
-from math_tutor.generation import GenerationConfig, NebiusTokenFactoryClient, ProviderError
+from math_tutor.generation.errors import GeneratedLessonError
+from math_tutor.generation.pipeline import GeneratedLessonPipeline
+from math_tutor.generation.provider import GenerationConfig, ModalVllmClient, ProviderError
 from math_tutor.jobs import is_safe_job_id
-from math_tutor.renderer import (
+from math_tutor.rendering.manim import (
     DEFAULT_MANIM_IMAGE,
     DockerManimRenderer,
     RenderFailed,
@@ -30,11 +31,13 @@ DIFFICULTIES: tuple[Difficulty, ...] = ("foundational", "intermediate", "advance
 
 
 class DatasetValidationError(ValueError):
-    pass
+    """Raised when a held-out evaluation slice violates its contract."""
 
 
 @dataclass(frozen=True)
 class EvaluationExample:
+    """One held-out prompt and its stable source metadata."""
+
     id: str
     difficulty: Difficulty
     topic: str
@@ -46,6 +49,8 @@ class EvaluationExample:
 
 @dataclass(frozen=True)
 class AttemptRecord:
+    """Measured outcome for one frozen baseline generation attempt."""
+
     example_id: str
     difficulty: str
     topic: str
@@ -67,6 +72,7 @@ class AttemptRecord:
 
 
 def load_evaluation_slice(path: Path) -> list[EvaluationExample]:
+    """Load and validate held-out evaluation examples from JSON Lines."""
     examples: list[EvaluationExample] = []
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         if not line.strip():
@@ -103,6 +109,7 @@ def validate_evaluation_slice(
     *,
     training_ids: set[str],
 ) -> None:
+    """Validate identifiers, split membership, and difficulty coverage."""
     ids = [example.id for example in examples]
     if len(ids) != len(set(ids)):
         raise DatasetValidationError("evaluation identifiers must be unique")
@@ -133,6 +140,7 @@ def validate_evaluation_slice(
 
 
 def aggregate_metrics(attempts: Sequence[AttemptRecord]) -> dict[str, object]:
+    """Aggregate first-attempt metrics overall and by difficulty."""
     first_attempts = [attempt for attempt in attempts if attempt.first_attempt]
     if not first_attempts:
         raise ValueError("at least one first attempt is required")
@@ -185,9 +193,25 @@ def run_evaluation(
     api_key: str,
     base_url: str,
 ) -> dict[str, object]:
+    """Run the frozen baseline and persist attempt-level evidence.
+
+    Args:
+        dataset_path: Held-out JSON Lines evaluation slice.
+        artifact_root: Parent directory for evaluation runs.
+        run_id: New immutable run directory name.
+        api_key: Optional Modal endpoint token.
+        base_url: OpenAI-compatible Modal endpoint URL.
+
+    Returns:
+        Aggregate first-attempt metrics.
+
+    Raises:
+        RuntimeError: If the configured model is unavailable.
+        FileExistsError: If the run identifier already exists.
+    """
     examples = load_evaluation_slice(dataset_path)
     config = GenerationConfig()
-    client = NebiusTokenFactoryClient(
+    client = ModalVllmClient(
         api_key=api_key,
         config=config,
         base_url=base_url,
@@ -196,7 +220,7 @@ def run_evaluation(
     if not health.reachable or not health.model_available:
         client.close()
         raise RuntimeError(
-            f"frozen model {config.model} is not available from the configured Nebius endpoint"
+            f"frozen model {config.model} is not available from the configured Modal endpoint"
         )
 
     run_dir = artifact_root / run_id
@@ -204,7 +228,12 @@ def run_evaluation(
     attempts_dir = run_dir / "attempts"
     renderer = DockerManimRenderer(
         artifact_root=attempts_dir,
-        scene_path=Path(__file__).parent / "scenes" / "pythagorean_theorem.py",
+        scene_path=(
+            Path(__file__).parents[1]
+            / "rendering"
+            / "scenes"
+            / "pythagorean_theorem.py"
+        ),
     )
     manifest = {
         "run_id": run_id,
@@ -231,7 +260,7 @@ def run_evaluation(
                 prompt=example.prompt,
                 generator=client,
                 renderer=renderer,
-                generation_provider="nebius_token_factory",
+                generation_provider="modal_vllm",
                 max_repair_attempts=0,
             )
             failure_stage: str | None = None
@@ -319,6 +348,7 @@ def _int_field(value: dict[str, object], key: str) -> int:
 
 
 def main() -> None:
+    """Run the baseline evaluation command."""
     parser = argparse.ArgumentParser(description="Run the frozen zero-shot Manim evaluation")
     parser.add_argument(
         "--dataset",
@@ -329,14 +359,18 @@ def main() -> None:
     parser.add_argument("--run-id", required=True)
     args = parser.parse_args()
     settings = get_settings()
-    if settings.nebius_api_key is None:
-        raise SystemExit("NEBIUS_API_KEY is required")
+    if settings.modal_vllm_base_url is None:
+        raise SystemExit("MODAL_VLLM_BASE_URL is required")
     metrics = run_evaluation(
         dataset_path=args.dataset,
         artifact_root=args.artifact_root,
         run_id=args.run_id,
-        api_key=settings.nebius_api_key.get_secret_value(),
-        base_url=settings.nebius_base_url,
+        api_key=(
+            settings.modal_vllm_api_key.get_secret_value()
+            if settings.modal_vllm_api_key is not None
+            else ""
+        ),
+        base_url=settings.modal_vllm_base_url,
     )
     print(json.dumps(metrics, indent=2, sort_keys=True))
 

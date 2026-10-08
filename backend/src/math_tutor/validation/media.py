@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from math_tutor.attempts import RenderedAttempt
 from math_tutor.validation.models import (
+    RenderedAttempt,
     ValidationFinding,
     ValidationReport,
     ValidationStatus,
@@ -58,20 +58,20 @@ class MediaValidationPolicy:
     """Thresholds for deterministic media checks.
 
     Args:
-        min_duration_seconds: Inclusive lower bound for lesson duration.
-        max_duration_seconds: Inclusive upper bound for lesson duration.
+        target_min_duration_seconds: Advisory lower target for lesson duration.
+        target_max_duration_seconds: Advisory upper target for lesson duration.
         sync_tolerance_seconds: Maximum allowed audio/video duration difference.
     """
 
-    min_duration_seconds: float = 30
-    max_duration_seconds: float = 45
+    target_min_duration_seconds: float = 30
+    target_max_duration_seconds: float = 45
     sync_tolerance_seconds: float = 1
 
     def __post_init__(self) -> None:
-        if self.min_duration_seconds <= 0:
-            raise ValueError("minimum duration must be positive")
-        if self.max_duration_seconds < self.min_duration_seconds:
-            raise ValueError("maximum duration must not be below minimum duration")
+        if self.target_min_duration_seconds <= 0:
+            raise ValueError("minimum duration target must be positive")
+        if self.target_max_duration_seconds < self.target_min_duration_seconds:
+            raise ValueError("maximum duration target must not be below minimum target")
         if self.sync_tolerance_seconds < 0:
             raise ValueError("sync tolerance must not be negative")
 
@@ -216,6 +216,7 @@ class MediaValidator:
             )
 
         findings: list[ValidationFinding] = []
+        advisories: list[ValidationFinding] = []
         if inspection.video_stream_count != 1:
             findings.append(
                 ValidationFinding(
@@ -233,36 +234,23 @@ class MediaValidator:
                 )
             )
         elif not (
-            self._policy.min_duration_seconds
+            self._policy.target_min_duration_seconds
             <= duration
-            <= self._policy.max_duration_seconds
+            <= self._policy.target_max_duration_seconds
         ):
-            if duration < self._policy.min_duration_seconds:
-                adjustment = self._policy.min_duration_seconds - duration
-                repair_instruction = (
-                    f"Increase the total animation and narration runtime by at least "
-                    f"{adjustment:g} seconds so the rendered lesson lasts between "
-                    f"{self._policy.min_duration_seconds:g} and "
-                    f"{self._policy.max_duration_seconds:g} seconds."
-                )
-            else:
-                adjustment = duration - self._policy.max_duration_seconds
-                repair_instruction = (
-                    f"Reduce the total animation and narration runtime by at least "
-                    f"{adjustment:g} seconds so the rendered lesson lasts between "
-                    f"{self._policy.min_duration_seconds:g} and "
-                    f"{self._policy.max_duration_seconds:g} seconds."
-                )
-            findings.append(
+            advisories.append(
                 ValidationFinding(
-                    code="duration_out_of_range",
-                    message="Lesson duration is outside the configured range.",
+                    code="duration_outside_target",
+                    message="Lesson duration is outside the target range.",
                     evidence={
                         "actual_seconds": duration,
-                        "minimum_seconds": self._policy.min_duration_seconds,
-                        "maximum_seconds": self._policy.max_duration_seconds,
+                        "target_minimum_seconds": (
+                            self._policy.target_min_duration_seconds
+                        ),
+                        "target_maximum_seconds": (
+                            self._policy.target_max_duration_seconds
+                        ),
                     },
-                    repair_instruction=repair_instruction,
                 )
             )
         if attempt.narration_required and inspection.audio_stream_count < 1:
@@ -311,6 +299,7 @@ class MediaValidator:
             validator=self.name,
             status=ValidationStatus.FAIL if findings else ValidationStatus.PASS,
             findings=tuple(findings),
+            advisories=tuple(advisories),
         )
 
 

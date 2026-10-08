@@ -196,7 +196,7 @@ def prepare_dataset(manifest: EvidenceManifest, root: Path, repository: Path) ->
         [
             sys.executable, str(repository / "training/scripts/prepare_bespoke_manim.py"),
             str(parquet), "--internal-output", str(prepared),
-            "--nebius-output", str(root / "messages.jsonl"),
+            "--messages-output", str(root / "messages.jsonl"),
         ],
         check=True,
     )

@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from math_tutor.paired_review import apply_reviews, main
+from math_tutor.evaluation.review import apply_reviews, main
 
 
 def _fixture() -> tuple[dict[str, Any], list[dict[str, str]]]:

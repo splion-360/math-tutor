@@ -1,3 +1,6 @@
+"""Verify lesson API submission, polling, media delivery, and failure states.
+The tests exercise service behavior through the FastAPI application boundary."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,9 +12,9 @@ from fastapi.testclient import TestClient
 
 from math_tutor.api import create_app
 from math_tutor.domain import Difficulty
-from math_tutor.generation import ModelHealth, ProviderError
+from math_tutor.generation.provider import ModelHealth, ProviderError
 from math_tutor.jobs import JobExecutionError, LessonService, PartialOutcome, RenderOutcome
-from math_tutor.narration import NarrationStatus
+from math_tutor.rendering.narration import NarrationStatus
 
 
 class ControlledRenderer:
@@ -381,7 +384,7 @@ def test_model_health_reports_exact_checkpoint_availability_without_secrets(
 def test_missing_model_credentials_reaches_terminal_failed_state() -> None:
     class MissingCredentialRenderer:
         def render(self, job_id: str, lesson: str) -> RenderOutcome:
-            raise ProviderError("Nebius API key is not configured")
+            raise ProviderError("model provider is not configured")
 
     service = LessonService(renderer=MissingCredentialRenderer())
 

@@ -9,20 +9,17 @@ from pathlib import Path
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from math_tutor.generation import DEMO_INFERENCE_MODEL
-
 
 class Settings(BaseSettings):
+    """Environment-backed runtime settings for providers and lesson execution."""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
 
-    nebius_api_key: SecretStr | None = None
     elevenlabs_api_key: SecretStr | None = None
-    nebius_base_url: str = "https://api.tokenfactory.nebius.com/v1"
-    nebius_model: str = DEMO_INFERENCE_MODEL
     modal_vllm_base_url: str | None = None
     modal_vllm_api_key: SecretStr | None = None
     modal_vllm_timeout_seconds: float = Field(default=120, gt=0)
@@ -36,4 +33,5 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    """Return the process-cached runtime settings."""
     return Settings()

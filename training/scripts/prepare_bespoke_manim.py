@@ -1,3 +1,6 @@
+"""Prepare internal and chat-message training records from Bespoke-Manim data.
+The script assigns reproducible identifiers and code-length difficulty proxies."""
+
 from __future__ import annotations
 
 import argparse
@@ -15,10 +18,11 @@ SYSTEM_PROMPT = (
 
 
 def main() -> None:
+    """Convert one Parquet source into deterministic JSON Lines outputs."""
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path)
     parser.add_argument("--internal-output", required=True, type=Path)
-    parser.add_argument("--nebius-output", required=True, type=Path)
+    parser.add_argument("--messages-output", required=True, type=Path)
     args = parser.parse_args()
 
     source_revision = "4542ab8b32483c30d1772946dacae2ad1ae9274c"
@@ -32,7 +36,7 @@ def main() -> None:
     upper = ordered_lengths[2 * len(ordered_lengths) // 3]
 
     internal: list[dict[str, Any]] = []
-    nebius: list[dict[str, Any]] = []
+    messages: list[dict[str, Any]] = []
     for index, row in enumerate(valid):
         code = str(row["python_code"]).strip()
         line_count = len(code.splitlines())
@@ -65,7 +69,7 @@ def main() -> None:
                 "difficulty_proxy": "target-code-line-count-tertiles",
             }
         )
-        nebius.append(
+        messages.append(
             {
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -76,7 +80,7 @@ def main() -> None:
         )
 
     write_jsonl(args.internal_output, internal)
-    write_jsonl(args.nebius_output, nebius)
+    write_jsonl(args.messages_output, messages)
     counts = {
         band: sum(row["difficulty"] == band for row in internal)
         for band in ("foundational", "intermediate", "advanced")
@@ -94,6 +98,7 @@ def main() -> None:
 
 
 def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    """Write records to a UTF-8 JSON Lines file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as output:
         for row in rows:
