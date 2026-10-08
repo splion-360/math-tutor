@@ -77,6 +77,9 @@ class VoiceoverFallbackRenderer:
         try:
             outcome = self._primary.render(job_id, prompt)
         except RenderError as error:
+            attempt_count = error.diagnostics.get("attempt_count")
+            if isinstance(attempt_count, int) and attempt_count >= 2:
+                raise
             fallback = self._fallback.render(f"{job_id}-silent", prompt)
             return replace(
                 fallback,
@@ -120,8 +123,8 @@ class GeneratedLessonPipeline:
         stage_reporter: Callable[[str, LessonStage], None] | None = None,
         narration_status_override: NarrationStatus | None = None,
     ) -> None:
-        if max_repair_attempts < 0:
-            raise ValueError("max_repair_attempts must not be negative")
+        if not 0 <= max_repair_attempts <= 1:
+            raise ValueError("max_repair_attempts must be zero or one")
         self._artifact_root = artifact_root.resolve()
         self._prompt = prompt
         self._generator = generator

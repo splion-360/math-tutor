@@ -5,9 +5,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import SecretStr
+import pytest
+from pydantic import SecretStr, ValidationError
 
 from math_tutor.settings import Settings, get_settings
+
+
+def test_settings_rejects_more_than_one_repair_attempt() -> None:
+    with pytest.raises(ValidationError):
+        Settings(validation_max_repair_attempts=2)
 
 
 def test_settings_loads_secret_and_keeps_operational_code_defaults(

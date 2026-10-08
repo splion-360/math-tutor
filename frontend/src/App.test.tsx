@@ -209,7 +209,8 @@ describe("LessonResult", () => {
           ...narratedLesson,
           difficulty: "intermediate",
           diagnostics: {
-            inference_path: "lora_adapter_with_base_normalizer",
+            inference_path: "base_model",
+            routing_path: "lora_adapter_with_base_normalizer",
             inference_model: "Qwen/Qwen3-4B",
             specialist_model: "intermediate",
             normalization_model: "Qwen/Qwen3-4B",
