@@ -75,6 +75,18 @@ class NarratedRenderer:
             captions_path=self.captions,
             narration_status=NarrationStatus.READY,
             narration_diagnostics={"narration_provider": "fake"},
+            validation_diagnostics={
+                "validation_status": "pass",
+                "validation_axes": [
+                    {
+                        "validator": "media",
+                        "status": "pass",
+                        "finding_count": 0,
+                        "advisory_count": 0,
+                        "provenance": {},
+                    }
+                ],
+            },
             renderer="narrated-test-renderer",
             elapsed_seconds=0.02,
             logs="narrated",
@@ -225,6 +237,16 @@ def test_narrated_lesson_exposes_best_silent_and_caption_artifacts(tmp_path: Pat
 
     assert ready["narration_status"] == "ready"
     assert ready["diagnostics"]["narration_provider"] == "fake"
+    assert ready["diagnostics"]["validation_status"] == "pass"
+    assert ready["diagnostics"]["validation_axes"] == [
+        {
+            "validator": "media",
+            "status": "pass",
+            "finding_count": 0,
+            "advisory_count": 0,
+            "provenance": {},
+        }
+    ]
     assert best_response.content == b"narrated"
     assert silent_response.content == b"silent"
     assert captions_response.text == "WEBVTT\n"

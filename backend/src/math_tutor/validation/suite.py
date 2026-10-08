@@ -1,19 +1,20 @@
-"""Compose independent attempt validators into one sequential validation result.
-The suite retains per-axis reports and exposes flattened findings to repair logic."""
+"""Run independent attempt validators concurrently and combine their reports.
+The suite retains per-axis evidence and exposes confirmed findings to repair logic."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
+from concurrent.futures import Future, ThreadPoolExecutor
 
 from math_tutor.validation.models import (
     AttemptValidator,
     RenderedAttempt,
+    ValidationFinding,
     ValidationReport,
     ValidationStatus,
 )
 
 _STATUS_PRECEDENCE = (
-    ValidationStatus.ERROR,
     ValidationStatus.VALIDATOR_ERROR,
     ValidationStatus.FAIL,
     ValidationStatus.UNCERTAIN,
@@ -21,7 +22,7 @@ _STATUS_PRECEDENCE = (
 
 
 class ValidatorSuite:
-    """Run independent validators in order and aggregate their reports."""
+    """Run independent validators concurrently and aggregate in declaration order."""
 
     name = "validation_suite"
 
@@ -46,7 +47,17 @@ class ValidatorSuite:
 
     def validate(self, attempt: RenderedAttempt) -> ValidationReport:
         """Run each validator and return one repair-compatible aggregate report."""
-        reports = tuple(validator.validate(attempt) for validator in self._validators)
+        with ThreadPoolExecutor(
+            max_workers=len(self._validators),
+            thread_name_prefix="lesson-validator",
+        ) as executor:
+            futures = tuple(
+                executor.submit(validator.validate, attempt) for validator in self._validators
+            )
+            reports = tuple(
+                self._resolve_report(validator, future)
+                for validator, future in zip(self._validators, futures, strict=True)
+            )
         status = ValidationStatus.PASS
         for candidate in _STATUS_PRECEDENCE:
             if any(report.status is candidate for report in reports):
@@ -59,3 +70,23 @@ class ValidatorSuite:
             advisories=tuple(advisory for report in reports for advisory in report.advisories),
             component_reports=reports,
         )
+
+    @staticmethod
+    def _resolve_report(
+        validator: AttemptValidator,
+        future: Future[ValidationReport],
+    ) -> ValidationReport:
+        """Return one report while containing an unexpected validator exception."""
+        try:
+            return future.result()
+        except Exception:
+            return ValidationReport(
+                validator=validator.name,
+                status=ValidationStatus.VALIDATOR_ERROR,
+                findings=(
+                    ValidationFinding(
+                        code="validator_exception",
+                        message=f"{validator.name} validation could not be completed.",
+                    ),
+                ),
+            )

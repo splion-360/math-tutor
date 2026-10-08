@@ -7,7 +7,7 @@ import json
 import subprocess
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from pathlib import Path
 from typing import Protocol
@@ -380,6 +380,10 @@ class VisualEvidenceValidator:
                 "malformed_visual_model_output",
                 "Visual evidence validation returned an invalid structured response.",
             )
+        report = replace(
+            report,
+            provenance={"model": result.model, "revision": result.revision},
+        )
         self._write_validation(attempt, report, result=result)
         return report
 
@@ -565,4 +569,5 @@ class VisualEvidenceValidator:
             validator=self.name,
             status=ValidationStatus.VALIDATOR_ERROR,
             findings=(ValidationFinding(code=code, message=message),),
+            provenance={"model": self._model.model, "revision": self._model.revision},
         )

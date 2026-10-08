@@ -590,6 +590,49 @@ textarea:focus {
   text-align: right;
 }
 
+.validation-card {
+  grid-column: 1 / -1;
+}
+
+.validation-results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.validation-results div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(238, 242, 232, 0.1);
+  background: rgba(10, 15, 24, 0.45);
+  padding: 10px 12px;
+}
+
+.validation-results span,
+.validation-results strong {
+  font-size: 12px;
+}
+
+.validation-results span {
+  color: var(--muted);
+}
+
+.validation-pass {
+  color: var(--primary);
+}
+
+.validation-fail,
+.validation-validator_error {
+  color: #f7a6a6;
+}
+
+.validation-uncertain {
+  color: #f2d58a;
+}
+
 .code-stage {
   display: flex;
   flex-direction: column;
@@ -666,6 +709,10 @@ textarea:focus {
 
   .inline-steps {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .validation-results {
+    grid-template-columns: 1fr;
   }
 
 }

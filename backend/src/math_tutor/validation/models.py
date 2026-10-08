@@ -30,6 +30,7 @@ class RenderedAttempt:
         generation_provider: Provider identifier recorded for this attempt.
         inference_path: Routing path used to produce this attempt.
         infrastructure_retry_count: Render retries that reused the admitted source.
+        validation_input_path: Immutable rendered-attempt manifest shared by validators.
     """
 
     number: int
@@ -45,6 +46,7 @@ class RenderedAttempt:
     generation_provider: str | None = None
     inference_path: str = "unknown"
     infrastructure_retry_count: int = 0
+    validation_input_path: Path | None = None
 
 
 class ValidationStatus(StrEnum):
@@ -54,7 +56,6 @@ class ValidationStatus(StrEnum):
     FAIL = "fail"
     UNCERTAIN = "uncertain"
     VALIDATOR_ERROR = "validator_error"
-    ERROR = "error"
 
 
 @dataclass(frozen=True)
@@ -99,6 +100,7 @@ class ValidationReport:
         findings: Blocking evidence-bearing findings produced by the validator.
         advisories: Non-blocking measurements retained for diagnostics.
         component_reports: Ordered reports from independently run validators.
+        provenance: Public model or execution identity associated with the report.
     """
 
     validator: str
@@ -106,6 +108,7 @@ class ValidationReport:
     findings: tuple[ValidationFinding, ...] = ()
     advisories: tuple[ValidationFinding, ...] = ()
     component_reports: tuple[ValidationReport, ...] = ()
+    provenance: Mapping[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.validator.strip():
@@ -130,12 +133,28 @@ class ValidationReport:
             "findings": [finding.to_dict() for finding in self.findings],
             "advisories": [advisory.to_dict() for advisory in self.advisories],
             "component_reports": [component.to_dict() for component in self.component_reports],
+            "provenance": dict(self.provenance),
         }
+
+    def axis_summaries(self) -> list[dict[str, object]]:
+        """Return ordered public summaries for the independent validation axes."""
+        reports = self.component_reports or (self,)
+        return [
+            {
+                "validator": report.validator,
+                "status": report.status.value,
+                "finding_count": len(report.findings),
+                "advisory_count": len(report.advisories),
+                "provenance": dict(report.provenance),
+            }
+            for report in reports
+        ]
 
 
 class AttemptValidator(Protocol):
     """Validate a rendered lesson attempt without mutating it."""
 
+    name: str
     expected_checks: tuple[str, ...]
 
     def validate(self, attempt: RenderedAttempt) -> ValidationReport:

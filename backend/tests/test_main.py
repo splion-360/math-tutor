@@ -42,6 +42,81 @@ def test_build_app_without_secret_keeps_provider_unavailable(tmp_path: Path) -> 
     }
 
 
+def test_build_app_wires_and_closes_the_visual_validator(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    observed_visual_connections: list[dict[str, object]] = []
+    observed_validators: list[tuple[object, ...]] = []
+    observed_pipelines: list[dict[str, object]] = []
+    close_callbacks: list[object] = []
+    visual_closed: list[bool] = []
+
+    class RecordingVisualClient:
+        model = "visual-model"
+        revision = "visual-revision"
+
+        def __init__(self, **kwargs: object) -> None:
+            observed_visual_connections.append(kwargs)
+
+        def close(self) -> None:
+            visual_closed.append(True)
+
+    class RecordingSuite:
+        expected_checks = ("media", "spatial", "visual")
+
+        def __init__(self, validators: tuple[object, ...]) -> None:
+            observed_validators.append(validators)
+
+    class RecordingPipeline:
+        def __init__(self, **kwargs: object) -> None:
+            observed_pipelines.append(kwargs)
+
+    def capture_app(service: LessonService, **kwargs: object) -> object:
+        close_callbacks.append(kwargs["close_model"])
+        return object()
+
+    import math_tutor.main as main
+
+    monkeypatch.setattr(main, "ModalVisualModelClient", RecordingVisualClient)
+    monkeypatch.setattr(main, "ValidatorSuite", RecordingSuite)
+    monkeypatch.setattr(main, "GeneratedLessonPipeline", RecordingPipeline)
+    monkeypatch.setattr(main, "create_app", capture_app)
+
+    main.build_app(
+        Settings(
+            _env_file=None,
+            modal_visual_model_base_url="https://workspace--visual.modal.run/v1",
+            modal_visual_model_api_key="visual-secret",
+            modal_visual_model_timeout_seconds=17,
+            artifact_root=tmp_path / "artifacts",
+        )
+    )
+
+    assert observed_visual_connections == [
+        {
+            "base_url": "https://workspace--visual.modal.run/v1",
+            "api_key": "visual-secret",
+            "timeout_seconds": 17,
+        }
+    ]
+    assert len(observed_validators) == 1
+    assert [validator.name for validator in observed_validators[0]] == [
+        "media",
+        "spatial",
+        "visual_evidence",
+    ]
+    assert observed_pipelines[0]["validator"].expected_checks == (
+        "media",
+        "spatial",
+        "visual",
+    )
+    close_callback = close_callbacks[0]
+    assert callable(close_callback)
+    close_callback()
+    assert visual_closed == [True]
+
+
 def test_build_app_uses_modal_base_model_by_default_and_keeps_specialists(
     tmp_path: Path,
     monkeypatch,

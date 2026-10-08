@@ -129,6 +129,7 @@ class TimeoutThenSourceRenderer(SequenceSourceRenderer):
 
 
 class SequenceValidator:
+    name = "sequence"
     expected_checks = ("lesson_duration",)
 
     def __init__(self, reports: list[ValidationReport]) -> None:
@@ -136,6 +137,57 @@ class SequenceValidator:
 
     def validate(self, attempt: RenderedAttempt) -> ValidationReport:
         return next(self._reports)
+
+
+class ManifestRecordingValidator:
+    name = "manifest_recorder"
+    expected_checks = ("manifest_available",)
+
+    def __init__(self) -> None:
+        self.manifest_paths: list[Path] = []
+
+    def validate(self, attempt: RenderedAttempt) -> ValidationReport:
+        manifest_path = attempt.validation_input_path
+        assert manifest_path is not None
+        assert manifest_path.is_file()
+        self.manifest_paths.append(manifest_path)
+        return ValidationReport(self.name, ValidationStatus.PASS)
+
+
+def _passing_validation_diagnostics(
+    *,
+    attempt_count: int,
+    repair_count: int,
+    infrastructure_retry_count: int,
+    selected_attempt: int,
+    advisories: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    """Return the complete public diagnostics for a passing media report."""
+    diagnostics: dict[str, object] = {
+        "attempt_count": attempt_count,
+        "repair_count": repair_count,
+        "infrastructure_retry_count": infrastructure_retry_count,
+        "selected_attempt": selected_attempt,
+        "validation_status": "pass",
+        "validation_axes": [
+            {
+                "validator": "media",
+                "status": "pass",
+                "finding_count": 0,
+                "advisory_count": len(advisories or []),
+                "provenance": {},
+            }
+        ],
+        "generation_provenance": {
+            "model": "Qwen/Qwen3-4B",
+            "provider": "configured_generator",
+            "inference_path": "base_model",
+        },
+        "narration_status": "not_requested",
+    }
+    if advisories:
+        diagnostics["validation_advisories"] = advisories
+    return diagnostics
 
 
 class FailingGenerator:
@@ -449,6 +501,56 @@ def test_pipeline_reports_each_generation_stage(tmp_path: Path) -> None:
     ]
 
 
+def test_pipeline_persists_one_validation_input_before_validation(tmp_path: Path) -> None:
+    validator = ManifestRecordingValidator()
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain the derivative visually.",
+        generator=FixedGenerator(_generation(f"```python\n{VALID_SCENE}```")),
+        renderer=RecordingSourceRenderer(tmp_path / "lesson.mp4"),
+        validator=validator,
+    )
+
+    outcome = pipeline.render("manifest-123")
+
+    assert len(validator.manifest_paths) == 1
+    validation_input = json.loads(validator.manifest_paths[0].read_text())
+    assert validation_input["schema_version"] == "validation-input.v1"
+    assert validation_input["expected_checks"] == ["manifest_available"]
+    assert validation_input["source"]["sha256"]
+    assert validation_input["render"]["renderer"] == "docker:test-image@sha256:abc"
+    assert validation_input["media"]["video"]["sha256"]
+    expected_axes = [
+        {
+            "validator": "manifest_recorder",
+            "status": "pass",
+            "finding_count": 0,
+            "advisory_count": 0,
+            "provenance": {},
+        }
+    ]
+    assert outcome.validation_diagnostics is not None
+    assert outcome.validation_diagnostics["validation_axes"] == expected_axes
+    assert outcome.validation_diagnostics["generation_provenance"] == {
+        "model": "Qwen/Qwen3-4B",
+        "provider": "configured_generator",
+        "inference_path": "base_model",
+    }
+    assert outcome.validation_diagnostics["narration_status"] == "not_requested"
+    attempt_dir = tmp_path / "artifacts" / "manifest-123" / "attempts" / "0"
+    attempt_manifest = json.loads((attempt_dir / "attempt.json").read_text())
+    selected = json.loads(
+        (tmp_path / "artifacts" / "manifest-123" / "selected_attempt.json").read_text()
+    )
+    assert attempt_manifest["validation_axes"] == expected_axes
+    assert attempt_manifest["validation_input"]["sha256"]
+    assert selected["validation_axes"] == expected_axes
+    assert (
+        selected["generation_provenance"] == outcome.validation_diagnostics["generation_provenance"]
+    )
+    assert selected["narration_status"] == outcome.validation_diagnostics["narration_status"]
+
+
 def test_pipeline_repairs_one_media_failure_and_preserves_both_attempts(
     tmp_path: Path,
 ) -> None:
@@ -471,9 +573,7 @@ def test_pipeline_repairs_one_media_failure_and_preserves_both_attempts(
             ),
         ),
     )
-    validator = SequenceValidator(
-        [failed_report, ValidationReport("media", ValidationStatus.PASS)]
-    )
+    validator = SequenceValidator([failed_report, ValidationReport("media", ValidationStatus.PASS)])
     observed: list[LessonStage] = []
     pipeline = GeneratedLessonPipeline(
         artifact_root=tmp_path / "artifacts",
@@ -495,20 +595,19 @@ def test_pipeline_repairs_one_media_failure_and_preserves_both_attempts(
     assert "Preserve the original mathematical topic" in generator.prompts[1]
     assert f"```python\n{VALID_SCENE}```" in generator.prompts[1]
     assert outcome.video_path.read_bytes() == b"video-repair-123-attempt-1"
-    assert outcome.validation_diagnostics == {
-        "attempt_count": 2,
-        "repair_count": 1,
-        "infrastructure_retry_count": 0,
-        "selected_attempt": 1,
-        "validation_status": "pass",
-    }
+    assert outcome.validation_diagnostics == _passing_validation_diagnostics(
+        attempt_count=2,
+        repair_count=1,
+        infrastructure_retry_count=0,
+        selected_attempt=1,
+    )
     job_dir = tmp_path / "artifacts" / "repair-123"
-    assert json.loads((job_dir / "attempts" / "0" / "validation.json").read_text())[
-        "status"
-    ] == "fail"
-    assert json.loads((job_dir / "attempts" / "1" / "validation.json").read_text())[
-        "status"
-    ] == "pass"
+    assert (
+        json.loads((job_dir / "attempts" / "0" / "validation.json").read_text())["status"] == "fail"
+    )
+    assert (
+        json.loads((job_dir / "attempts" / "1" / "validation.json").read_text())["status"] == "pass"
+    )
     selected = json.loads((job_dir / "selected_attempt.json").read_text())
     assert selected["attempt_number"] == 1
     assert selected["video_sha256"]
@@ -554,9 +653,7 @@ def test_pipeline_repairs_static_source_failure_before_rendering(tmp_path: Path)
         prompt="Explain a derivative.",
         generator=generator,
         renderer=renderer,
-        validator=SequenceValidator(
-            [ValidationReport("media", ValidationStatus.PASS)]
-        ),
+        validator=SequenceValidator([ValidationReport("media", ValidationStatus.PASS)]),
         max_repair_attempts=1,
     )
 
@@ -567,12 +664,7 @@ def test_pipeline_repairs_static_source_failure_before_rendering(tmp_path: Path)
     assert renderer.calls == ["source-repair-123-attempt-1"]
     first_validation = json.loads(
         (
-            tmp_path
-            / "artifacts"
-            / "source-repair-123"
-            / "attempts"
-            / "0"
-            / "validation.json"
+            tmp_path / "artifacts" / "source-repair-123" / "attempts" / "0" / "validation.json"
         ).read_text()
     )
     assert first_validation["status"] == "fail"
@@ -586,22 +678,19 @@ def test_pipeline_accepts_first_passing_attempt_without_repair(tmp_path: Path) -
         prompt="Explain a derivative.",
         generator=generator,
         renderer=renderer,
-        validator=SequenceValidator(
-            [ValidationReport("media", ValidationStatus.PASS)]
-        ),
+        validator=SequenceValidator([ValidationReport("media", ValidationStatus.PASS)]),
     )
 
     outcome = pipeline.render("initial-pass-123")
 
     assert len(generator.prompts) == 1
     assert renderer.calls == ["initial-pass-123-attempt-0"]
-    assert outcome.validation_diagnostics == {
-        "attempt_count": 1,
-        "repair_count": 0,
-        "infrastructure_retry_count": 0,
-        "selected_attempt": 0,
-        "validation_status": "pass",
-    }
+    assert outcome.validation_diagnostics == _passing_validation_diagnostics(
+        attempt_count=1,
+        repair_count=0,
+        infrastructure_retry_count=0,
+        selected_attempt=0,
+    )
 
 
 def test_pipeline_publishes_duration_advisory_without_repair(tmp_path: Path) -> None:
@@ -634,14 +723,13 @@ def test_pipeline_publishes_duration_advisory_without_repair(tmp_path: Path) -> 
     outcome = pipeline.render("duration-advisory-123")
 
     assert len(generator.prompts) == 1
-    assert outcome.validation_diagnostics == {
-        "attempt_count": 1,
-        "repair_count": 0,
-        "infrastructure_retry_count": 0,
-        "selected_attempt": 0,
-        "validation_status": "pass",
-        "validation_advisories": [advisory.to_dict()],
-    }
+    assert outcome.validation_diagnostics == _passing_validation_diagnostics(
+        attempt_count=1,
+        repair_count=0,
+        infrastructure_retry_count=0,
+        selected_attempt=0,
+        advisories=[advisory.to_dict()],
+    )
 
 
 def test_pipeline_preserves_both_attempts_when_repair_also_fails(tmp_path: Path) -> None:
@@ -711,9 +799,7 @@ def test_pipeline_respects_zero_repair_budget(tmp_path: Path) -> None:
     assert caught.value.diagnostics["attempt_count"] == 1
     assert caught.value.diagnostics["repair_count"] == 0
     assert len(generator.prompts) == 1
-    assert not (
-        tmp_path / "artifacts" / "no-repair-123" / "attempts" / "1"
-    ).exists()
+    assert not (tmp_path / "artifacts" / "no-repair-123" / "attempts" / "1").exists()
 
 
 def test_pipeline_does_not_use_model_repair_for_render_failures(tmp_path: Path) -> None:
@@ -723,9 +809,7 @@ def test_pipeline_does_not_use_model_repair_for_render_failures(tmp_path: Path) 
         prompt="Explain a derivative.",
         generator=generator,
         renderer=FailingSourceRenderer(),
-        validator=SequenceValidator(
-            [ValidationReport("media", ValidationStatus.PASS)]
-        ),
+        validator=SequenceValidator([ValidationReport("media", ValidationStatus.PASS)]),
         max_repair_attempts=1,
     )
     with pytest.raises(RenderFailed) as caught:
@@ -747,9 +831,7 @@ def test_pipeline_retries_transient_render_without_consuming_model_repair(
         prompt="Explain a derivative.",
         generator=generator,
         renderer=renderer,
-        validator=SequenceValidator(
-            [ValidationReport("media", ValidationStatus.PASS)]
-        ),
+        validator=SequenceValidator([ValidationReport("media", ValidationStatus.PASS)]),
     )
 
     outcome = pipeline.render("render-retry-123")
@@ -759,21 +841,15 @@ def test_pipeline_retries_transient_render_without_consuming_model_repair(
         "render-retry-123-attempt-0",
         "render-retry-123-attempt-0-retry-1",
     ]
-    assert outcome.validation_diagnostics == {
-        "attempt_count": 1,
-        "repair_count": 0,
-        "infrastructure_retry_count": 1,
-        "selected_attempt": 0,
-        "validation_status": "pass",
-    }
+    assert outcome.validation_diagnostics == _passing_validation_diagnostics(
+        attempt_count=1,
+        repair_count=0,
+        infrastructure_retry_count=1,
+        selected_attempt=0,
+    )
     manifest = json.loads(
         (
-            tmp_path
-            / "artifacts"
-            / "render-retry-123"
-            / "attempts"
-            / "0"
-            / "attempt.json"
+            tmp_path / "artifacts" / "render-retry-123" / "attempts" / "0" / "attempt.json"
         ).read_text()
     )
     assert manifest["provenance"]["infrastructure_retry_count"] == 1
@@ -805,20 +881,17 @@ def test_pipeline_reports_render_retries_from_attempts_before_selected_attempt(
         prompt="Explain a derivative.",
         generator=generator,
         renderer=renderer,
-        validator=SequenceValidator(
-            [failure, ValidationReport("media", ValidationStatus.PASS)]
-        ),
+        validator=SequenceValidator([failure, ValidationReport("media", ValidationStatus.PASS)]),
     )
 
     outcome = pipeline.render("retry-before-repair-123")
 
-    assert outcome.validation_diagnostics == {
-        "attempt_count": 2,
-        "repair_count": 1,
-        "infrastructure_retry_count": 1,
-        "selected_attempt": 1,
-        "validation_status": "pass",
-    }
+    assert outcome.validation_diagnostics == _passing_validation_diagnostics(
+        attempt_count=2,
+        repair_count=1,
+        infrastructure_retry_count=1,
+        selected_attempt=1,
+    )
     job_dir = tmp_path / "artifacts" / "retry-before-repair-123" / "attempts"
     first_manifest = json.loads((job_dir / "0" / "attempt.json").read_text())
     second_manifest = json.loads((job_dir / "1" / "attempt.json").read_text())
@@ -832,7 +905,7 @@ def test_pipeline_reports_validator_execution_error_without_model_repair(
     generator = RecordingGenerator(_generation(f"```python\n{VALID_SCENE}```"))
     report = ValidationReport(
         validator="media",
-        status=ValidationStatus.ERROR,
+        status=ValidationStatus.VALIDATOR_ERROR,
         findings=(
             ValidationFinding(
                 code="media_inspection_failed",
@@ -851,9 +924,24 @@ def test_pipeline_reports_validator_execution_error_without_model_repair(
     with pytest.raises(GeneratedLessonError) as caught:
         pipeline.render("validator-error-123")
 
-    assert caught.value.diagnostics["validation_status"] == "error"
+    assert caught.value.diagnostics["validation_status"] == "validator_error"
     assert caught.value.diagnostics["attempt_count"] == 1
     assert caught.value.diagnostics["repair_count"] == 0
+    assert caught.value.diagnostics["validation_axes"] == [
+        {
+            "validator": "media",
+            "status": "validator_error",
+            "finding_count": 1,
+            "advisory_count": 0,
+            "provenance": {},
+        }
+    ]
+    assert caught.value.diagnostics["generation_provenance"] == {
+        "model": "Qwen/Qwen3-4B",
+        "provider": "configured_generator",
+        "inference_path": "base_model",
+    }
+    assert caught.value.diagnostics["narration_status"] == "not_requested"
     assert len(generator.prompts) == 1
 
 

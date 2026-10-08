@@ -1,9 +1,10 @@
-"""Verify sequential composition of independent attempt validators.
+"""Verify concurrent execution and aggregation of attempt validators.
 The suite preserves axis reports while exposing one repair-compatible result."""
 
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Barrier
 
 from math_tutor.jobs import RenderOutcome
 from math_tutor.validation.models import (
@@ -23,6 +24,62 @@ class _Validator:
 
     def validate(self, attempt: RenderedAttempt) -> ValidationReport:
         return self._report
+
+
+class _BarrierValidator(_Validator):
+    def __init__(self, name: str, check: str, barrier: Barrier) -> None:
+        super().__init__(
+            name,
+            ValidationReport(validator=name, status=ValidationStatus.PASS),
+            check,
+        )
+        self._barrier = barrier
+
+    def validate(self, attempt: RenderedAttempt) -> ValidationReport:
+        self._barrier.wait(timeout=1)
+        return super().validate(attempt)
+
+
+class _RaisingValidator(_Validator):
+    def validate(self, attempt: RenderedAttempt) -> ValidationReport:
+        raise RuntimeError("provider response must not escape validation")
+
+
+def test_suite_starts_all_validators_concurrently(tmp_path: Path) -> None:
+    barrier = Barrier(3)
+    validators = tuple(
+        _BarrierValidator(name, f"{name}_check", barrier)
+        for name in ("media", "spatial", "visual_evidence")
+    )
+
+    report = ValidatorSuite(validators).validate(_attempt(tmp_path))
+
+    assert report.status is ValidationStatus.PASS
+    assert [component.validator for component in report.component_reports] == [
+        "media",
+        "spatial",
+        "visual_evidence",
+    ]
+
+
+def test_suite_isolates_validator_exceptions_and_collects_every_axis(tmp_path: Path) -> None:
+    passed = ValidationReport(validator="media", status=ValidationStatus.PASS)
+    validators = (
+        _Validator("media", passed, "media_check"),
+        _RaisingValidator("spatial", passed, "spatial_check"),
+        _Validator("visual_evidence", passed, "visual_check"),
+    )
+
+    report = ValidatorSuite(validators).validate(_attempt(tmp_path))
+
+    assert report.status is ValidationStatus.VALIDATOR_ERROR
+    assert [component.status for component in report.component_reports] == [
+        ValidationStatus.PASS,
+        ValidationStatus.VALIDATOR_ERROR,
+        ValidationStatus.PASS,
+    ]
+    assert report.component_reports[1].findings[0].code == "validator_exception"
+    assert "provider response" not in report.component_reports[1].findings[0].message
 
 
 def test_suite_retains_axis_reports_and_flattens_repairable_findings(
@@ -56,9 +113,25 @@ def test_suite_retains_axis_reports_and_flattens_repairable_findings(
     assert report.component_reports == (media._report, spatial._report)
     assert report.to_dict()["component_reports"][1]["validator"] == "spatial"
     assert report.repairable_findings == (spatial_finding,)
+    assert report.axis_summaries() == [
+        {
+            "validator": "media",
+            "status": "pass",
+            "finding_count": 0,
+            "advisory_count": 0,
+            "provenance": {},
+        },
+        {
+            "validator": "spatial",
+            "status": "fail",
+            "finding_count": 1,
+            "advisory_count": 0,
+            "provenance": {},
+        },
+    ]
 
 
-def test_suite_error_takes_precedence_over_failure(tmp_path: Path) -> None:
+def test_suite_validator_error_takes_precedence_over_failure(tmp_path: Path) -> None:
     failed = _Validator(
         "media",
         ValidationReport(
@@ -72,7 +145,7 @@ def test_suite_error_takes_precedence_over_failure(tmp_path: Path) -> None:
         "spatial",
         ValidationReport(
             validator="spatial",
-            status=ValidationStatus.ERROR,
+            status=ValidationStatus.VALIDATOR_ERROR,
             findings=(ValidationFinding(code="trace_error", message="No trace."),),
         ),
         "trace",
@@ -80,7 +153,7 @@ def test_suite_error_takes_precedence_over_failure(tmp_path: Path) -> None:
 
     report = ValidatorSuite((failed, errored)).validate(_attempt(tmp_path))
 
-    assert report.status is ValidationStatus.ERROR
+    assert report.status is ValidationStatus.VALIDATOR_ERROR
     assert len(report.findings) == 2
 
 

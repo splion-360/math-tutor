@@ -135,6 +135,34 @@ describe("LessonResult", () => {
     expect(screen.queryByText("Dynamic LoRA trace")).not.toBeInTheDocument();
   });
 
+  it("shows the independent output-validation results", () => {
+    render(
+      <LessonResult
+        lesson={{
+          ...narratedLesson,
+          diagnostics: {
+            validation_axes: [
+              { validator: "media", status: "pass", finding_count: 0 },
+              { validator: "spatial", status: "pass", finding_count: 0 },
+              {
+                validator: "visual_evidence",
+                status: "uncertain",
+                finding_count: 1,
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Output validation")).toBeInTheDocument();
+    expect(screen.getByText("Media")).toBeInTheDocument();
+    expect(screen.getByText("Layout")).toBeInTheDocument();
+    expect(screen.getByText("Visual evidence")).toBeInTheDocument();
+    expect(screen.getAllByText("Passed")).toHaveLength(2);
+    expect(screen.getByText("Uncertain")).toBeInTheDocument();
+  });
+
   it("shows the selected LoRA specialist when one was explicitly routed", () => {
     render(
       <LessonResult

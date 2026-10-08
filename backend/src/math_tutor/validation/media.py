@@ -206,7 +206,7 @@ class MediaValidator:
         except MediaInspectionError:
             return ValidationReport(
                 validator=self.name,
-                status=ValidationStatus.ERROR,
+                status=ValidationStatus.VALIDATOR_ERROR,
                 findings=(
                     ValidationFinding(
                         code="media_inspection_failed",
@@ -244,12 +244,8 @@ class MediaValidator:
                     message="Lesson duration is outside the target range.",
                     evidence={
                         "actual_seconds": duration,
-                        "target_minimum_seconds": (
-                            self._policy.target_min_duration_seconds
-                        ),
-                        "target_maximum_seconds": (
-                            self._policy.target_max_duration_seconds
-                        ),
+                        "target_minimum_seconds": (self._policy.target_min_duration_seconds),
+                        "target_maximum_seconds": (self._policy.target_max_duration_seconds),
                     },
                 )
             )
@@ -333,8 +329,10 @@ def _has_captions(path: Path | None) -> bool:
     if path is None:
         return False
     try:
-        return path.is_file() and path.stat().st_size > 0 and path.read_text(
-            encoding="utf-8"
-        ).lstrip().startswith("WEBVTT")
+        return (
+            path.is_file()
+            and path.stat().st_size > 0
+            and path.read_text(encoding="utf-8").lstrip().startswith("WEBVTT")
+        )
     except (OSError, UnicodeError):
         return False
