@@ -73,9 +73,13 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     def report_stage(pipeline_job_id: str, stage: LessonStage) -> None:
         """Map internal attempt suffixes back to the service job identifier."""
         job_id = pipeline_job_id
-        for suffix in ("-base", "-silent", "-normalized"):
-            if job_id.endswith(suffix):
-                job_id = job_id[: -len(suffix)]
+        while True:
+            for suffix in ("-base", "-silent", "-normalized"):
+                if job_id.endswith(suffix):
+                    job_id = job_id[: -len(suffix)]
+                    break
+            else:
+                break
         job_store.mark_stage(job_id, stage)
 
     base_renderer = DockerManimRenderer(
@@ -142,9 +146,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         prompt=GENERATED_DEMO_PROMPT,
         generator=silent_model,
         renderer=base_renderer,
-        generation_provider=(
-            "modal_vllm" if resolved.modal_vllm_base_url else "unavailable"
-        ),
+        generation_provider=("modal_vllm" if resolved.modal_vllm_base_url else "unavailable"),
         validator=media_validator,
         max_repair_attempts=resolved.validation_max_repair_attempts,
         stage_reporter=report_stage,
@@ -167,9 +169,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         health_model = voiceover_model
         voiceover_renderer = DockerManimRenderer(
             artifact_root=resolved.artifact_root,
-            scene_path=(
-                package_root / "rendering" / "scenes" / "pythagorean_theorem.py"
-            ),
+            scene_path=(package_root / "rendering" / "scenes" / "pythagorean_theorem.py"),
             image=VOICEOVER_MANIM_IMAGE,
             timeout_seconds=resolved.render_timeout_seconds,
             network="bridge",
@@ -182,9 +182,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             generator=voiceover_model,
             renderer=voiceover_renderer,
             voiceover=True,
-            generation_provider=(
-                "modal_vllm" if resolved.modal_vllm_base_url else "unavailable"
-            ),
+            generation_provider=("modal_vllm" if resolved.modal_vllm_base_url else "unavailable"),
             validator=media_validator,
             max_repair_attempts=resolved.validation_max_repair_attempts,
             stage_reporter=report_stage,
