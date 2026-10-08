@@ -16,6 +16,7 @@ def test_settings_loads_secret_and_keeps_operational_code_defaults(
     monkeypatch.setenv("MODAL_VLLM_BASE_URL", "https://workspace--qwen.modal.direct/v1")
     monkeypatch.setenv("MODAL_VLLM_API_KEY", "modal-secret")
     monkeypatch.setenv("ELEVENLABS_API_KEY", "elevenlabs-secret")
+    monkeypatch.setenv("VALIDATION_MAX_REPAIR_ATTEMPTS", "7")
 
     settings = Settings(_env_file=None)
 
@@ -71,5 +72,5 @@ def test_settings_loads_separate_visual_model_connection(monkeypatch) -> None:
 
     assert settings.modal_visual_model_base_url == ("https://workspace--visual.modal.direct/v1")
     assert settings.modal_visual_model_api_key == SecretStr("visual-secret")
-    assert settings.modal_visual_model_timeout_seconds == 30
+    assert settings.modal_visual_model_timeout_seconds == 45
     assert "visual-secret" not in repr(settings)
