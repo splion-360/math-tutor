@@ -79,6 +79,19 @@ includes the numeric summaries and shared adapter checkpoint. The
 evidence: original split metadata and completion of the third training epoch
 could not be verified.
 
+To run the paired lesson pilot, first run `make evidence-data`, then:
+
+```bash
+make evaluation-freeze
+make evaluation-generate  # Requires Modal authentication and uses GPU credits
+make evaluation-download
+make evaluation-render   # Requires Docker
+```
+
+The frozen plan records prompts, overlap checks, token measurements, and renderer
+versions. Outputs include raw responses, render diagnostics, and a human-review
+CSV in `training/artifacts/paired-pilot-v2/evaluation/`.
+
 ## Project structure
 
 ```text
