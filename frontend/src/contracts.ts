@@ -29,6 +29,7 @@ export interface LessonJob {
   completed_at: string | null;
   explanation: string | null;
   generated_code: string | null;
+  initial_video_url: string | null;
   video_url: string | null;
   silent_video_url: string | null;
   captions_url: string | null;

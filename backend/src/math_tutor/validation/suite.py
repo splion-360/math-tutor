@@ -4,8 +4,8 @@ The suite retains per-axis evidence and exposes confirmed findings to repair log
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
-from concurrent.futures import Future, ThreadPoolExecutor
+from collections.abc import Callable, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 
 from math_tutor.validation.models import (
     AttemptValidator,
@@ -27,11 +27,16 @@ class ValidatorSuite:
 
     name = "validation_suite"
 
-    def __init__(self, validators: Sequence[AttemptValidator]) -> None:
+    def __init__(
+        self,
+        validators: Sequence[AttemptValidator],
+        report_callback: Callable[[RenderedAttempt, ValidationReport], None] | None = None,
+    ) -> None:
         """Configure a non-empty sequence of validators.
 
         Args:
             validators: Independent validators executed in the provided order.
+            report_callback: Optional callback invoked as each validator finishes.
 
         Raises:
             ValueError: If no validators are provided or checks are duplicated.
@@ -44,34 +49,45 @@ class ValidatorSuite:
         if len(expected_checks) != len(set(expected_checks)):
             raise ValueError("validator suite contains a duplicate expected check")
         self._validators = tuple(validators)
+        self._report_callback = report_callback
         self.expected_checks = expected_checks
 
     def validate(self, attempt: RenderedAttempt) -> ValidationReport:
         """Run each validator and return one repair-compatible aggregate report."""
         manifest_error = self._validation_input_error(attempt)
         if manifest_error is not None:
-            return self._aggregate(
-                tuple(
-                    ValidationReport(
-                        validator=validator.name,
-                        status=ValidationStatus.VALIDATOR_ERROR,
-                        findings=(manifest_error,),
-                    )
-                    for validator in self._validators
+            reports = tuple(
+                ValidationReport(
+                    validator=validator.name,
+                    status=ValidationStatus.VALIDATOR_ERROR,
+                    findings=(manifest_error,),
                 )
+                for validator in self._validators
             )
+            for report in reports:
+                self._report(attempt, report)
+            return self._aggregate(reports)
         with ThreadPoolExecutor(
             max_workers=len(self._validators),
             thread_name_prefix="lesson-validator",
         ) as executor:
-            futures = tuple(
-                executor.submit(validator.validate, attempt) for validator in self._validators
-            )
-            reports = tuple(
-                self._resolve_report(validator, future)
-                for validator, future in zip(self._validators, futures, strict=True)
-            )
+            futures = {
+                executor.submit(validator.validate, attempt): (index, validator)
+                for index, validator in enumerate(self._validators)
+            }
+            completed: dict[int, ValidationReport] = {}
+            for future in as_completed(futures):
+                index, validator = futures[future]
+                report = self._resolve_report(validator, future)
+                completed[index] = report
+                self._report(attempt, report)
+            reports = tuple(completed[index] for index in range(len(self._validators)))
         return self._aggregate(reports)
+
+    def _report(self, attempt: RenderedAttempt, report: ValidationReport) -> None:
+        """Publish one completed axis through the configured progress callback."""
+        if self._report_callback is not None:
+            self._report_callback(attempt, report)
 
     def _validation_input_error(
         self,

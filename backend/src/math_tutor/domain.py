@@ -59,6 +59,7 @@ class LessonJob:
     attempt: int = 0
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    initial_video_path: str | None = None
     video_path: str | None = None
     silent_video_path: str | None = None
     captions_path: str | None = None

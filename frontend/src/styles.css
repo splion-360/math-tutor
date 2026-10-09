@@ -718,11 +718,16 @@ textarea:focus {
 }
 
 .segmented-control button {
-  min-width: 58px;
+  min-width: 112px;
   border: 0;
   background: transparent;
   color: var(--muted);
   padding: 6px 10px;
+}
+
+.segmented-control button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .segmented-control button.active {

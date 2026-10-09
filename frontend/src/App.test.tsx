@@ -47,6 +47,29 @@ describe("LessonResult", () => {
     expect(node("render")).toHaveClass("workflow-passed");
   });
 
+  it("updates completed validators while the remaining checks keep running", () => {
+    render(
+      <LessonResult
+        lesson={{
+          ...runningLesson,
+          stage: "validating_output",
+          initial_video_url: "/lessons/demo/video/initial",
+          diagnostics: {
+            validation_axes: [{ validator: "media", status: "pass" }],
+          },
+        }}
+      />,
+    );
+
+    expect(node("media")).toHaveClass("workflow-passed");
+    expect(node("spatial")).toHaveClass("workflow-running");
+    expect(node("visual")).toHaveClass("workflow-running");
+    expect(screen.getByTestId("lesson-video")).toHaveAttribute(
+      "src",
+      "/lessons/demo/video/initial",
+    );
+  });
+
   it("shows a repair through the same shared adapter", () => {
     render(
       <LessonResult
@@ -163,18 +186,21 @@ describe("LessonResult", () => {
     expect(screen.getByText("Stage log").closest(".support-panel")).toBeInTheDocument();
   });
 
-  it("plays the accepted video and exposes generated code", () => {
+  it("switches between the initial and validated videos", () => {
     render(<LessonResult lesson={narratedLesson} />);
 
     expect(screen.getByTestId("lesson-video")).toHaveAttribute(
       "src",
-      "/lessons/demo/video",
+      "/lessons/demo/video/initial",
     );
     expect(node("publish")).toHaveClass("workflow-passed");
 
-    fireEvent.click(screen.getByRole("button", { name: "</>" }));
-    expect(screen.getByText("Generated Manim · Python")).toBeInTheDocument();
-    expect(screen.getByText(/MathTex/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Validated video" }));
+    expect(screen.getByTestId("lesson-video")).toHaveAttribute(
+      "src",
+      "/lessons/demo/video",
+    );
+    expect(screen.queryByRole("button", { name: "</>" })).not.toBeInTheDocument();
   });
 
   it("shows only the shared-adapter inference path", () => {
@@ -225,6 +251,43 @@ describe("App lesson flow", () => {
     expect(document.querySelector(".workspace-grid > .support-panel")).toBeInTheDocument();
     expect(document.querySelector(".workspace-grid")).toHaveClass("workspace-with-details");
     expect(screen.getByRole("button", { name: /generate lesson/i })).toBeEnabled();
+  });
+
+  it("returns to the initial video when a new lesson is submitted", async () => {
+    let submission = 0;
+    const validatingSecondLesson: LessonJob = {
+      ...runningLesson,
+      id: "second",
+      stage: "validating_output",
+      initial_video_url: "/lessons/second/video/initial",
+    };
+    const transport: LessonTransport = {
+      async submitLesson(_input: CreateLessonInput) {
+        submission += 1;
+        return submission === 1 ? narratedLesson : validatingSecondLesson;
+      },
+      async getLesson(_id: string) {
+        return new Promise<LessonJob>(() => undefined);
+      },
+    };
+    render(<App transport={transport} pollIntervalMs={0} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /generate lesson/i }));
+    await waitFor(() => expect(node("publish")).toHaveClass("workflow-passed"));
+    fireEvent.click(screen.getByRole("button", { name: "Validated video" }));
+    expect(screen.getByTestId("lesson-video")).toHaveAttribute(
+      "src",
+      "/lessons/demo/video",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /generate lesson/i }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("lesson-video")).toHaveAttribute(
+        "src",
+        "/lessons/second/video/initial",
+      ),
+    );
   });
 
   it("re-enables submission when polling fails", async () => {

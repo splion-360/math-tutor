@@ -54,6 +54,7 @@ class LessonResponse(BaseModel):
     attempt: int
     started_at: datetime | None
     completed_at: datetime | None
+    initial_video_url: str | None
     video_url: str | None
     silent_video_url: str | None
     captions_url: str | None
@@ -66,6 +67,7 @@ class LessonResponse(BaseModel):
 
 def to_response(job: LessonJob) -> LessonResponse:
     """Convert an internal job snapshot into its bounded API representation."""
+    initial_video_url = f"/lessons/{job.id}/video/initial" if job.initial_video_path else None
     video_url = f"/lessons/{job.id}/video" if job.video_path else None
     silent_video_url = f"/lessons/{job.id}/video/silent" if job.silent_video_path else None
     captions_url = f"/lessons/{job.id}/captions" if job.captions_path else None
@@ -83,6 +85,7 @@ def to_response(job: LessonJob) -> LessonResponse:
         attempt=job.attempt,
         started_at=job.started_at,
         completed_at=job.completed_at,
+        initial_video_url=initial_video_url,
         video_url=video_url,
         silent_video_url=silent_video_url,
         captions_url=captions_url,
@@ -178,6 +181,20 @@ def create_app(
         if not video_path.is_file():
             raise HTTPException(status_code=410, detail="lesson video is unavailable")
         return FileResponse(video_path, media_type="video/mp4", filename="lesson.mp4")
+
+    @app.get("/lessons/{job_id}/video/initial", response_class=FileResponse)
+    def get_initial_video(job_id: str) -> FileResponse:
+        """Return the first rendered candidate while validation continues."""
+        try:
+            job = service.get(job_id)
+        except JobNotFoundError as error:
+            raise HTTPException(status_code=404, detail="lesson job not found") from error
+        if job.initial_video_path is None:
+            raise HTTPException(status_code=409, detail="initial lesson video is not ready")
+        video_path = Path(job.initial_video_path)
+        if not video_path.is_file():
+            raise HTTPException(status_code=410, detail="initial lesson video is unavailable")
+        return FileResponse(video_path, media_type="video/mp4", filename="lesson-initial.mp4")
 
     @app.get("/lessons/{job_id}/video/silent", response_class=FileResponse)
     def get_silent_video(job_id: str) -> FileResponse:

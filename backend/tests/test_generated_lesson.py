@@ -509,6 +509,28 @@ def test_pipeline_reports_each_generation_stage(tmp_path: Path) -> None:
     ]
 
 
+def test_pipeline_reports_render_before_output_validation(tmp_path: Path) -> None:
+    events: list[str] = []
+
+    class OrderedValidator(ManifestRecordingValidator):
+        def validate(self, attempt: RenderedAttempt) -> ValidationReport:
+            events.append("validation")
+            return super().validate(attempt)
+
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain the derivative visually.",
+        generator=FixedGenerator(_generation(f"```python\n{VALID_SCENE}```")),
+        renderer=RecordingSourceRenderer(tmp_path / "lesson.mp4"),
+        validator=OrderedValidator(),
+        render_reporter=lambda _job_id, _attempt, _outcome: events.append("render"),
+    )
+
+    pipeline.render("render-reported-123")
+
+    assert events == ["render", "validation"]
+
+
 def test_pipeline_persists_one_validation_input_before_validation(tmp_path: Path) -> None:
     validator = ManifestRecordingValidator()
     pipeline = GeneratedLessonPipeline(

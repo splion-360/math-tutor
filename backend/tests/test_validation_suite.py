@@ -48,8 +48,18 @@ class _RaisingValidator(_Validator):
 
 
 class _DelayedValidator(_Validator):
+    def __init__(
+        self,
+        name: str,
+        report: ValidationReport,
+        check: str,
+        delay_seconds: float = 0.15,
+    ) -> None:
+        super().__init__(name, report, check)
+        self._delay_seconds = delay_seconds
+
     def validate(self, attempt: RenderedAttempt) -> ValidationReport:
-        sleep(0.15)
+        sleep(self._delay_seconds)
         return super().validate(attempt)
 
 
@@ -255,6 +265,35 @@ def test_suite_finishes_three_delayed_axes_in_parallel(tmp_path: Path) -> None:
     elapsed = monotonic() - started
 
     assert elapsed < 0.35
+
+
+def test_suite_reports_each_axis_as_it_finishes_without_reordering_final_report(
+    tmp_path: Path,
+) -> None:
+    completed: list[str] = []
+    validators = (
+        _DelayedValidator(
+            "slow",
+            ValidationReport(validator="slow", status=ValidationStatus.PASS),
+            "slow_check",
+            delay_seconds=0.12,
+        ),
+        _DelayedValidator(
+            "fast",
+            ValidationReport(validator="fast", status=ValidationStatus.PASS),
+            "fast_check",
+            delay_seconds=0.01,
+        ),
+    )
+    suite = ValidatorSuite(
+        validators,
+        report_callback=lambda _attempt, report: completed.append(report.validator),
+    )
+
+    report = suite.validate(_attempt(tmp_path, suite.expected_checks))
+
+    assert completed == ["fast", "slow"]
+    assert [component.validator for component in report.component_reports] == ["slow", "fast"]
 
 
 def test_suite_rejects_a_manifest_with_different_required_checks(tmp_path: Path) -> None:

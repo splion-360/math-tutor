@@ -165,14 +165,69 @@ class JobStore:
 
     def mark_stage(self, job_id: str, stage: LessonStage) -> LessonJob:
         """Update the processing stage without changing terminal status."""
+
+        def update(job: LessonJob) -> LessonJob:
+            diagnostics = dict(job.diagnostics)
+            if stage is LessonStage.REPAIRING:
+                diagnostics.pop("validation_axes", None)
+                diagnostics.pop("validation_status", None)
+            return replace(
+                job,
+                stage=stage,
+                attempt=job.attempt + 1 if stage is LessonStage.REPAIRING else job.attempt,
+                diagnostics=diagnostics,
+            )
+
+        return self._mutate(
+            job_id,
+            update,
+        )
+
+    def mark_initial_render(self, job_id: str, outcome: RenderOutcome) -> LessonJob:
+        """Expose the first successfully rendered candidate before validation."""
         return self._mutate(
             job_id,
             lambda job: replace(
                 job,
-                stage=stage,
-                attempt=job.attempt + 1 if stage is LessonStage.REPAIRING else job.attempt,
+                initial_video_path=job.initial_video_path or str(outcome.video_path),
+                generated_code=outcome.generated_code or job.generated_code,
+                diagnostics={
+                    **dict(job.diagnostics),
+                    "renderer": outcome.renderer,
+                    "elapsed_seconds": outcome.elapsed_seconds,
+                    "logs": outcome.logs,
+                },
             ),
         )
+
+    def mark_validation_axis(
+        self,
+        job_id: str,
+        summary: Mapping[str, object],
+    ) -> LessonJob:
+        """Merge one completed validator summary into the live job snapshot."""
+        validator = summary.get("validator")
+        if not isinstance(validator, str) or not validator:
+            raise ValueError("validation summary must contain a validator name")
+
+        def update(job: LessonJob) -> LessonJob:
+            existing = job.diagnostics.get("validation_axes", [])
+            axes = (
+                [
+                    dict(axis)
+                    for axis in existing
+                    if isinstance(axis, Mapping) and axis.get("validator") != validator
+                ]
+                if isinstance(existing, list)
+                else []
+            )
+            axes.append(dict(summary))
+            return replace(
+                job,
+                diagnostics={**dict(job.diagnostics), "validation_axes": axes},
+            )
+
+        return self._mutate(job_id, update)
 
     def mark_ready(self, job_id: str, outcome: RenderOutcome) -> LessonJob:
         """Publish a successful render as the ready job snapshot."""
@@ -183,6 +238,7 @@ class JobStore:
                 status=LessonStatus.READY,
                 stage=LessonStage.READY,
                 completed_at=utc_now(),
+                initial_video_path=job.initial_video_path or str(outcome.video_path),
                 video_path=str(outcome.video_path),
                 silent_video_path=str(outcome.silent_video_path or outcome.video_path),
                 captions_path=(

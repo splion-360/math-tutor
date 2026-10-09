@@ -57,14 +57,12 @@ _RESPONSE_SCHEMA: dict[str, object] = {
                         "type": "array",
                         "minItems": 1,
                         "maxItems": 5,
-                        "uniqueItems": True,
                         "items": {"type": "string"},
                     },
                     "regions": {
                         "type": "array",
                         "minItems": 1,
                         "maxItems": 4,
-                        "uniqueItems": True,
                         "items": {
                             "type": "string",
                             "enum": [

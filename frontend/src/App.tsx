@@ -27,6 +27,8 @@ interface ValidationAxisSummary {
   advisoryCount?: number;
 }
 
+type VideoMode = "initial" | "validated";
+
 const examples = [
   "Explain why √2 is irrational",
   "Visualize Euler’s identity",
@@ -50,7 +52,7 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
   const [lesson, setLesson] = useState<LessonJob | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
-  const [artifactMode, setArtifactMode] = useState<"view" | "code">("view");
+  const [videoMode, setVideoMode] = useState<VideoMode>("initial");
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const mounted = useRef(true);
@@ -63,6 +65,7 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
     setPolling(true);
     setRequestError(null);
     setSelectedStage(null);
+    setVideoMode("initial");
 
     try {
       let next = await transport.submitLesson({ prompt: prompt.trim() });
@@ -143,38 +146,18 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
             onSelectStage={setSelectedStage}
           />
 
-          <div className="artifact-toolbar" aria-label="Lesson artifact controls">
-            <div className="segmented-control" role="group" aria-label="Choose lesson artifact">
-              <button
-                type="button"
-                className={artifactMode === "view" ? "active" : ""}
-                onClick={() => setArtifactMode("view")}
-              >
-                View
-              </button>
-              <button
-                type="button"
-                className={artifactMode === "code" ? "active" : ""}
-                onClick={() => setArtifactMode("code")}
-              >
-                {"</>"}
-              </button>
-            </div>
-            <label className="caption-toggle">
-              <input
-                type="checkbox"
-                checked={captionsEnabled}
-                disabled={!lesson?.captions_url || artifactMode !== "view"}
-                onChange={(event) => setCaptionsEnabled(event.target.checked)}
-              />
-              Captions
-            </label>
-          </div>
+          <VideoToolbar
+            lesson={lesson}
+            mode={videoMode}
+            onModeChange={setVideoMode}
+            captionsEnabled={captionsEnabled}
+            onCaptionsChange={setCaptionsEnabled}
+          />
 
           <VideoStage
             lesson={lesson}
             busy={busy}
-            mode={artifactMode}
+            mode={videoMode}
             captionsEnabled={captionsEnabled}
           />
 
@@ -194,7 +177,7 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
 }
 
 function LessonResult({ lesson }: { lesson: LessonJob }) {
-  const [artifactMode, setArtifactMode] = useState<"view" | "code">("view");
+  const [videoMode, setVideoMode] = useState<VideoMode>("initial");
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
 
@@ -212,37 +195,17 @@ function LessonResult({ lesson }: { lesson: LessonJob }) {
         selectedStage={selectedStage}
         onSelectStage={setSelectedStage}
       />
-      <div className="artifact-toolbar" aria-label="Lesson artifact controls">
-        <div className="segmented-control" role="group" aria-label="Choose lesson artifact">
-          <button
-            type="button"
-            className={artifactMode === "view" ? "active" : ""}
-            onClick={() => setArtifactMode("view")}
-          >
-            View
-          </button>
-          <button
-            type="button"
-            className={artifactMode === "code" ? "active" : ""}
-            onClick={() => setArtifactMode("code")}
-          >
-            {"</>"}
-          </button>
-        </div>
-        <label className="caption-toggle">
-          <input
-            type="checkbox"
-            checked={captionsEnabled}
-            disabled={!lesson.captions_url || artifactMode !== "view"}
-            onChange={(event) => setCaptionsEnabled(event.target.checked)}
-          />
-          Captions
-        </label>
-      </div>
+      <VideoToolbar
+        lesson={lesson}
+        mode={videoMode}
+        onModeChange={setVideoMode}
+        captionsEnabled={captionsEnabled}
+        onCaptionsChange={setCaptionsEnabled}
+      />
       <VideoStage
         lesson={lesson}
         busy={lesson.status === "queued" || lesson.status === "running"}
-        mode={artifactMode}
+        mode={videoMode}
         captionsEnabled={captionsEnabled}
       />
       {(selectedStage || (lesson.status !== "queued" && lesson.status !== "running")) && (
@@ -256,6 +219,52 @@ function LessonResult({ lesson }: { lesson: LessonJob }) {
   );
 }
 
+function VideoToolbar({
+  lesson,
+  mode,
+  onModeChange,
+  captionsEnabled,
+  onCaptionsChange,
+}: {
+  lesson: LessonJob | null;
+  mode: VideoMode;
+  onModeChange: (mode: VideoMode) => void;
+  captionsEnabled: boolean;
+  onCaptionsChange: (enabled: boolean) => void;
+}) {
+  return (
+    <div className="artifact-toolbar" aria-label="Lesson video controls">
+      <div className="segmented-control" role="group" aria-label="Choose lesson video">
+        <button
+          type="button"
+          className={mode === "initial" ? "active" : ""}
+          disabled={!lesson?.initial_video_url}
+          onClick={() => onModeChange("initial")}
+        >
+          Initial video
+        </button>
+        <button
+          type="button"
+          className={mode === "validated" ? "active" : ""}
+          disabled={!lesson?.video_url}
+          onClick={() => onModeChange("validated")}
+        >
+          Validated video
+        </button>
+      </div>
+      <label className="caption-toggle">
+        <input
+          type="checkbox"
+          checked={captionsEnabled}
+          disabled={!lesson?.captions_url || mode !== "validated"}
+          onChange={(event) => onCaptionsChange(event.target.checked)}
+        />
+        Captions
+      </label>
+    </div>
+  );
+}
+
 function VideoStage({
   lesson,
   busy,
@@ -264,17 +273,26 @@ function VideoStage({
 }: {
   lesson: LessonJob | null;
   busy: boolean;
-  mode: "view" | "code";
+  mode: VideoMode;
   captionsEnabled: boolean;
 }) {
   if (!lesson) return <EmptyVideo />;
+  const videoUrl = mode === "initial" ? lesson.initial_video_url : lesson.video_url;
+  if (videoUrl) {
+    return (
+      <ReadyVideo
+        videoUrl={videoUrl}
+        captionsUrl={mode === "validated" ? lesson.captions_url : null}
+        captionsEnabled={captionsEnabled}
+      />
+    );
+  }
   if (lesson.status === "queued" || lesson.status === "running") {
     return <GeneratingVideo lesson={lesson} busy={busy} />;
   }
-  if (mode === "code") return <CodeStage lesson={lesson} />;
   if (lesson.status === "failed") return <FailedVideo lesson={lesson} />;
   if (lesson.status === "partial") return <PartialVideo lesson={lesson} />;
-  return <ReadyVideo lesson={lesson} captionsEnabled={captionsEnabled} />;
+  return <div className="video-stage video-placeholder">Video asset unavailable</div>;
 }
 
 function EmptyVideo() {
@@ -739,44 +757,28 @@ function GeneratingVideo({ lesson }: { lesson: LessonJob; busy: boolean }) {
 }
 
 function ReadyVideo({
-  lesson,
+  videoUrl,
+  captionsUrl,
   captionsEnabled,
 }: {
-  lesson: LessonJob;
+  videoUrl: string;
+  captionsUrl: string | null;
   captionsEnabled: boolean;
 }) {
-  const playableVideo = lesson.video_url ?? lesson.silent_video_url;
-
   return (
     <div className="video-stage video-ready">
-      {playableVideo ? (
-        <video data-testid="lesson-video" src={playableVideo} controls preload="metadata">
-          {captionsEnabled && lesson.captions_url && (
+        <video data-testid="lesson-video" src={videoUrl} controls preload="metadata">
+          {captionsEnabled && captionsUrl && (
             <track
               title="English captions"
               kind="captions"
-              src={lesson.captions_url}
+              src={captionsUrl}
               srcLang="en"
               label="English"
               default
             />
           )}
         </video>
-      ) : (
-        <div className="video-placeholder">Video asset unavailable</div>
-      )}
-    </div>
-  );
-}
-
-function CodeStage({ lesson }: { lesson: LessonJob }) {
-  return (
-    <div className="video-stage code-stage">
-      <div className="code-stage-head">
-        <span>Generated Manim · Python</span>
-        <span>{lesson.generated_code ? "Ready" : "Waiting for source"}</span>
-      </div>
-      <pre><code>{lesson.generated_code ?? "# Manim source will appear here"}</code></pre>
     </div>
   );
 }

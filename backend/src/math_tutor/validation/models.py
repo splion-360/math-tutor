@@ -17,6 +17,7 @@ class RenderedAttempt:
     """Inputs and outputs needed to validate one rendered lesson attempt.
 
     Args:
+        job_id: Parent lesson job identifier used for progress reporting.
         number: Zero-based attempt number within the lesson job.
         artifact_dir: Directory containing immutable evidence for this attempt.
         prompt: Prompt sent to the generator for this attempt.
@@ -47,6 +48,7 @@ class RenderedAttempt:
     inference_path: str = "unknown"
     infrastructure_retry_count: int = 0
     validation_input_path: Path | None = None
+    job_id: str | None = None
 
     def generation_provenance(self) -> dict[str, object]:
         """Return the generation identity shared by artifacts and API diagnostics.

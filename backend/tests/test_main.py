@@ -42,6 +42,7 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
     observed_models: list[GenerationConfig] = []
     observed_visual_connections: list[dict[str, object]] = []
     observed_validators: list[tuple[object, ...]] = []
+    validator_callbacks: list[object] = []
     observed_pipelines: list[dict[str, object]] = []
     close_callbacks: list[object] = []
     closed: list[str] = []
@@ -80,8 +81,13 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
     class RecordingSuite:
         expected_checks = ("media", "spatial", "visual")
 
-        def __init__(self, validators: tuple[object, ...]) -> None:
+        def __init__(
+            self,
+            validators: tuple[object, ...],
+            report_callback: object,
+        ) -> None:
             observed_validators.append(validators)
+            validator_callbacks.append(report_callback)
 
     class RecordingPipeline:
         def __init__(self, **kwargs: object) -> None:
@@ -124,6 +130,7 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
         "spatial",
         "visual_evidence",
     ]
+    assert callable(validator_callbacks[0])
     assert len(observed_pipelines) == 1
     pipeline = observed_pipelines[0]
     assert pipeline["artifact_root"] == tmp_path / "artifacts"
@@ -137,6 +144,7 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
     )
     assert pipeline["max_repair_attempts"] == 1
     assert callable(pipeline["stage_reporter"])
+    assert callable(pipeline["render_reporter"])
     close_callback = close_callbacks[0]
     assert callable(close_callback)
     close_callback()

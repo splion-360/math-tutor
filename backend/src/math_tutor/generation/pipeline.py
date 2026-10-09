@@ -79,6 +79,7 @@ class GeneratedLessonPipeline:
         validator: Independent rendered-attempt validator.
         max_repair_attempts: Maximum model regenerations after the initial attempt.
         stage_reporter: Optional job progress callback.
+        render_reporter: Optional callback invoked after each successful render.
         narration_status_override: Optional status recorded for a successful silent render.
     """
 
@@ -96,6 +97,7 @@ class GeneratedLessonPipeline:
         validator: AttemptValidator | None = None,
         max_repair_attempts: int = 1,
         stage_reporter: Callable[[str, LessonStage], None] | None = None,
+        render_reporter: Callable[[str, int, RenderOutcome], None] | None = None,
         narration_status_override: NarrationStatus | None = None,
     ) -> None:
         if not 0 <= max_repair_attempts <= 1:
@@ -111,6 +113,7 @@ class GeneratedLessonPipeline:
         self._validator = validator
         self._max_repair_attempts = max_repair_attempts
         self._stage_reporter = stage_reporter
+        self._render_reporter = render_reporter
         self._narration_status_override = narration_status_override
 
     def render(self, job_id: str, prompt: str | None = None) -> RenderOutcome:
@@ -474,7 +477,7 @@ class GeneratedLessonPipeline:
             generated_code=extracted.source,
         )
         (attempt_dir / "render.log").write_text(outcome.logs, encoding="utf-8")
-        return RenderedAttempt(
+        attempt = RenderedAttempt(
             number=attempt_number,
             artifact_dir=attempt_dir,
             prompt=prompt,
@@ -488,7 +491,11 @@ class GeneratedLessonPipeline:
             generation_provider=self._generation_provider,
             inference_path=self._inference_path,
             infrastructure_retry_count=infrastructure_retry_count,
+            job_id=job_id,
         )
+        if self._render_reporter is not None:
+            self._render_reporter(job_id, attempt_number, outcome)
+        return attempt
 
     def _raise_render_failure(
         self,

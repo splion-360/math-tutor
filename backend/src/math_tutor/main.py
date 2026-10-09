@@ -17,10 +17,11 @@ from math_tutor.generation.provider import (
     ModalVllmClient,
     UnavailableModelClient,
 )
-from math_tutor.jobs import JobStore, LessonService
+from math_tutor.jobs import JobStore, LessonService, RenderOutcome
 from math_tutor.rendering.manim import DEFAULT_MANIM_IMAGE, DockerManimRenderer
 from math_tutor.settings import Settings, get_settings
 from math_tutor.validation.media import MediaValidator
+from math_tutor.validation.models import RenderedAttempt, ValidationReport
 from math_tutor.validation.spatial import SpatialValidationPolicy, SpatialValidator
 from math_tutor.validation.suite import ValidatorSuite
 from math_tutor.validation.visual import FfmpegFrameSampler, VisualEvidenceValidator, VisualModel
@@ -63,6 +64,11 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     else:
         visual_model = UnavailableVisualModelClient()
 
+    def report_validation(attempt: RenderedAttempt, report: ValidationReport) -> None:
+        """Record one completed validator axis for frontend polling."""
+        if attempt.job_id is not None:
+            job_store.mark_validation_axis(attempt.job_id, report.axis_summaries()[0])
+
     output_validator = ValidatorSuite(
         (
             MediaValidator(),
@@ -79,12 +85,17 @@ def build_app(settings: Settings | None = None) -> FastAPI:
                 sampler=FfmpegFrameSampler(),
                 model=visual_model,
             ),
-        )
+        ),
+        report_callback=report_validation,
     )
 
     def report_stage(job_id: str, stage: LessonStage) -> None:
         """Record the current workflow stage for frontend polling."""
         job_store.mark_stage(job_id, stage)
+
+    def report_render(job_id: str, _attempt_number: int, outcome: RenderOutcome) -> None:
+        """Expose the first successful render while validation continues."""
+        job_store.mark_initial_render(job_id, outcome)
 
     renderer = DockerManimRenderer(
         artifact_root=resolved.artifact_root,
@@ -124,6 +135,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         validator=output_validator,
         max_repair_attempts=resolved.validation_max_repair_attempts,
         stage_reporter=report_stage,
+        render_reporter=report_render,
     )
 
     def close_models() -> None:

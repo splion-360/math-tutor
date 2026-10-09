@@ -70,6 +70,10 @@ def test_visual_client_sends_pinned_multimodal_schema_request(tmp_path: Path) ->
     assert payload["temperature"] == 0
     assert payload["seed"] == 42
     assert payload["response_format"]["json_schema"]["strict"] is True
+    schema = payload["response_format"]["json_schema"]["schema"]
+    finding_properties = schema["properties"]["findings"]["items"]["properties"]
+    assert "uniqueItems" not in finding_properties["frame_ids"]
+    assert "uniqueItems" not in finding_properties["regions"]
     content = payload["messages"][1]["content"]
     assert content[0]["text"].endswith("frame-03: 7.500 seconds")
     assert content[1]["image_url"]["url"] == "data:image/png;base64,cG5n"
