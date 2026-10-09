@@ -89,17 +89,26 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
         "evaluation",
         "/workspace/backend/data/evaluation",
     ) in mounted_dirs
+    options_by_name = dict(zip(function_names, function_options, strict=True))
     assert {options["gpu"] for options in function_options} == {"L4", "A100-40GB", "A100-80GB"}
-    assert dict(zip(function_names, function_options, strict=True))["run_placement_arm"]["gpu"] == (
-        "A100-80GB"
-    )
+    assert options_by_name["run_placement_arm"]["gpu"] == "A100-80GB"
     expected_volumes = {
         "/root/.cache/huggingface": "volume:math-tutor-huggingface-cache",
         "/artifacts": "volume:math-tutor-training-artifacts",
     }
-    for options in function_options:
+    wandb_functions = {
+        "run_smoke",
+        "run_full_probe",
+        "run_full_corpus_signatures",
+        "run_base_weight_probe",
+        "run_placement_arm",
+    }
+    for function_name, options in options_by_name.items():
         assert options["volumes"] == expected_volumes
-        assert options["secrets"] == ["secret:WANDB_API_KEY"]
+        if function_name in wandb_functions:
+            assert options["secrets"] == ["secret:WANDB_API_KEY"]
+        else:
+            assert "secrets" not in options
 
     module["main"](full_probe=True)
     module["main"]()
