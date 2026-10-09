@@ -151,6 +151,8 @@ describe("App lesson flow", () => {
     fireEvent.click(screen.getByRole("button", { name: /generate lesson/i }));
 
     await waitFor(() => expect(node("publish")).toHaveClass("workflow-passed"));
+    expect(document.querySelector(".workspace-grid > .support-panel")).toBeInTheDocument();
+    expect(document.querySelector(".workspace-grid")).toHaveClass("workspace-with-details");
     expect(screen.getByRole("button", { name: /generate lesson/i })).toBeEnabled();
   });
 

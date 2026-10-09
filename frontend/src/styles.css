@@ -114,7 +114,6 @@ button:disabled {
 }
 
 .workspace-grid,
-.support-panel,
 .standalone-result {
   max-width: 1560px;
   margin: 0 auto;
@@ -125,6 +124,10 @@ button:disabled {
   grid-template-columns: minmax(300px, 0.54fr) minmax(620px, 1.46fr);
   gap: 12px;
   padding-top: 10px;
+}
+
+.workspace-with-details {
+  grid-template-columns: minmax(260px, 0.48fr) minmax(560px, 1fr) minmax(280px, 0.55fr);
 }
 
 .composer-panel,
@@ -328,15 +331,19 @@ textarea:focus {
 }
 
 .video-generating {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  display: grid;
+  place-items: center;
   padding: 22px;
 }
 
 .generation-topline {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  left: 20px;
   display: flex;
   justify-content: space-between;
+  gap: 24px;
   color: var(--muted);
   font-size: 12px;
   text-transform: uppercase;
@@ -345,7 +352,7 @@ textarea:focus {
 .generation-center {
   max-width: 650px;
   width: 100%;
-  margin: 0 auto;
+  margin: auto;
   text-align: center;
 }
 
@@ -576,6 +583,41 @@ textarea:focus {
   margin-top: 10px;
 }
 
+.workspace-with-details .support-panel {
+  min-width: 0;
+  margin-top: 0;
+}
+
+.workspace-with-details .support-content {
+  height: 100%;
+  padding: 10px;
+}
+
+.workspace-with-details .lesson-details-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.workspace-with-details .detail-card {
+  padding: 11px;
+}
+
+.workspace-with-details .detail-card h2 {
+  font-size: 20px;
+}
+
+.workspace-with-details .detail-card p {
+  margin-bottom: 0;
+}
+
+.workspace-with-details .validation-card {
+  grid-column: auto;
+}
+
+.workspace-with-details .validation-results {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .standalone-result {
   padding: 12px;
 }
@@ -742,6 +784,10 @@ textarea:focus {
   .workflow-validation + .workflow-arrow,
   .workflow-validation + .workflow-arrow + .workflow-node {
     grid-row: 2;
+  }
+
+  .workspace-with-details .support-panel {
+    margin-top: 0;
   }
 }
 
