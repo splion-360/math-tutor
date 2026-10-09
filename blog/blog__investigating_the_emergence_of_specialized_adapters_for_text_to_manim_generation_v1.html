@@ -125,7 +125,7 @@
     <p>The shared-adapter study then measured per-example gradients at checkpoint step 1,790. Two recovered views serve different purposes:</p>
     <ul>
       <li><strong>Exact held-out gradients:</strong> exact LoRA A/B vectors for 100 validation examples, 19 represented subjects, 36 layers, and seven projection types—252 modules in total. Only aggregated cosine summaries were recovered.</li>
-      <li><strong>Projected training signatures:</strong> 256-dimensional signatures for 481 training examples from eight subjects, covering seven projection types at layers 0, 12, 23, and 35—28 modules. These per-example vectors support label-association and clustering tests.</li>
+      <li><strong>Projected training signatures:</strong> 256-dimensional signatures for 481 training examples from eight subjects, covering seven projection types at layers 0, 12, 23, and 35—28 modules. For each module, the implementation concatenates the LoRA parameter gradients conceptually, then accumulates their coordinates into deterministic signed-hash buckets. These per-example signatures support the label-association and clustering tests.</li>
     </ul>
 
     <h3>Tests of label structure</h3>
@@ -192,7 +192,7 @@
     <h2>6. Discussion</h2>
     <div class="finding">
       <span class="label">Main finding</span>
-      <p>The gradients contain subject- and code-length-associated structure, but the structure does not form clean groups under the evaluated checkpoint. This evidence did not justify spawning one adapter per subject or per proxy band.</p>
+      <p>The projected gradient signatures contain subject- and code-length-associated structure, but the structure does not form clean groups under the evaluated checkpoint. This evidence did not justify spawning one adapter per subject or per proxy band.</p>
     </div>
     <p>The initial hypothesis treated dataset labels as plausible task boundaries. The measurements suggest that they are weak routing targets. Subject labels describe mathematical content, while the generation task remains largely the same: write a runnable visual program. The code-length proxy is closer to output structure, which may explain why it appears consistently in cosine tests, but its clusters still overlap heavily.</p>
     <p>This also changes how I interpret gradient conflict. Negative cosine is useful as a warning that examples compete locally. A spawning rule would need stronger evidence: persistence over checkpoints, agreement across seeds, a stable partition, and a downstream gain from routing. None of those follows from conflict frequency alone.</p>
@@ -202,7 +202,7 @@
     <h2>7. Limitations</h2>
     <p>The projected stream covers 481 of 895 training examples and only eight of the corpus's 23 subject labels. The exact held-out view covers 19 subjects, but some subjects have one example and the recovered file contains aggregate statistics rather than raw vectors. Exact and projected results therefore answer related but different questions.</p>
     <p>The code-length bands are a proxy derived from the target answer. They are unavailable for a new prompt unless another system predicts them, and they may capture formatting or animation verbosity. The fixed specialist checkpoints were trained with a different base-model identity and evaluation contract, which prevents a controlled comparison with the shared adapter.</p>
-    <p>The clustering study uses one checkpoint and one projected signature seed. Layer 35 received attention after exploratory visualization. The placement ablation has one seed, 64 steps, and no generation evaluation. The experiments do not measure whether any proposed router improves rendered-video quality.</p>
+    <p>The clustering study uses one checkpoint and one projected signature seed. I did not compare pairwise cosines or cluster assignments from the 256-dimensional signed-hash signatures with their exact-vector equivalents, so the study does not measure how much structure the projection preserved. The recovered exact artifact is aggregated and cannot supply that check. Layer 35 received attention after exploratory visualization. The placement ablation has one seed, 64 steps, and no generation evaluation. The experiments do not measure whether any proposed router improves rendered-video quality.</p>
   </section>
 
   <section id="conclusion">
