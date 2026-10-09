@@ -12,7 +12,10 @@ from types import SimpleNamespace
 from math_tutor.validation.visual_provider import QWEN3_VL_MODEL, QWEN3_VL_REVISION
 
 
-def test_modal_visual_model_is_scale_to_zero_and_revision_pinned(monkeypatch) -> None:
+def test_modal_visual_model_is_scale_to_zero_and_revision_pinned(
+    monkeypatch,
+    repo_root: Path,
+) -> None:
     function_options: dict[str, object] = {}
     commands: list[list[str]] = []
 
@@ -52,9 +55,7 @@ def test_modal_visual_model_is_scale_to_zero_and_revision_pinned(monkeypatch) ->
         lambda command: commands.append(command),
     )
 
-    namespace = runpy.run_path(
-        Path(__file__).parents[2] / "deployments" / "modal" / "visual_validation.py"
-    )
+    namespace = runpy.run_path(repo_root / "deployments" / "modal" / "visual_validation.py")
     namespace["serve"]()
 
     assert function_options["min_containers"] == 0

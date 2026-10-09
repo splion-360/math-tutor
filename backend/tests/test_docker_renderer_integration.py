@@ -18,15 +18,11 @@ from math_tutor.validation.spatial import SpatialValidator
 
 
 @pytest.mark.integration
-def test_known_scene_job_returns_mp4_from_locked_down_container(tmp_path: Path) -> None:
-    scene = (
-        Path(__file__).parents[1]
-        / "src"
-        / "math_tutor"
-        / "rendering"
-        / "scenes"
-        / "pythagorean_theorem.py"
-    )
+def test_known_scene_job_returns_mp4_from_locked_down_container(
+    tmp_path: Path,
+    backend_root: Path,
+) -> None:
+    scene = backend_root / "src" / "math_tutor" / "rendering" / "scenes" / "pythagorean_theorem.py"
     renderer = DockerManimRenderer(
         artifact_root=tmp_path / "artifacts",
         scene_path=scene,
@@ -64,15 +60,9 @@ def test_known_scene_job_returns_mp4_from_locked_down_container(tmp_path: Path) 
 @pytest.mark.integration
 def test_real_trace_ignores_invisible_helpers_and_accepts_axes_plot(
     tmp_path: Path,
+    backend_root: Path,
 ) -> None:
-    scene = (
-        Path(__file__).parents[1]
-        / "src"
-        / "math_tutor"
-        / "rendering"
-        / "scenes"
-        / "pythagorean_theorem.py"
-    )
+    scene = backend_root / "src" / "math_tutor" / "rendering" / "scenes" / "pythagorean_theorem.py"
     renderer = DockerManimRenderer(
         artifact_root=tmp_path / "artifacts",
         scene_path=scene,

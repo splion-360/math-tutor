@@ -12,6 +12,7 @@ from types import SimpleNamespace
 def test_modal_module_packages_one_shared_adapter_and_scales_to_zero(
     monkeypatch,
     tmp_path: Path,
+    repo_root: Path,
 ) -> None:
     installed_packages: list[str] = []
     local_files: list[tuple[Path, str]] = []
@@ -73,7 +74,7 @@ def test_modal_module_packages_one_shared_adapter_and_scales_to_zero(
         ),
     )
 
-    module = runpy.run_path(Path(__file__).parents[2] / "deployments" / "modal" / "inference.py")
+    module = runpy.run_path(repo_root / "deployments" / "modal" / "inference.py")
     module["serve"]()
 
     assert installed_packages == ["vllm==0.21.0"]
@@ -94,7 +95,11 @@ def test_modal_module_packages_one_shared_adapter_and_scales_to_zero(
     )
 
 
-def test_modal_module_imports_from_flattened_remote_path(monkeypatch, tmp_path: Path) -> None:
+def test_modal_module_imports_from_flattened_remote_path(
+    monkeypatch,
+    tmp_path: Path,
+    repo_root: Path,
+) -> None:
     local_files: list[tuple[Path, str]] = []
 
     class FakeImage:
@@ -131,9 +136,7 @@ def test_modal_module_imports_from_flattened_remote_path(monkeypatch, tmp_path: 
     )
     deployed_module = tmp_path / "inference.py"
     deployed_module.write_text(
-        (Path(__file__).parents[2] / "deployments" / "modal" / "inference.py").read_text(
-            encoding="utf-8"
-        ),
+        (repo_root / "deployments" / "modal" / "inference.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     monkeypatch.delenv("MATH_TUTOR_ADAPTER_SOURCE", raising=False)

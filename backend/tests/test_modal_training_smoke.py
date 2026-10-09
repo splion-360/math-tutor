@@ -9,6 +9,7 @@ from typing import Any
 
 def test_modal_training_smoke_packages_training_code_and_artifact_volume(
     monkeypatch: Any,
+    repo_root: Path,
 ) -> None:
     installed_packages: list[str] = []
     env_values: dict[str, str] = {}
@@ -72,9 +73,7 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
     )
     monkeypatch.setitem(sys.modules, "modal", fake_modal)
 
-    module = runpy.run_path(
-        str(Path(__file__).parents[2] / "deployments" / "modal" / "training_smoke.py")
-    )
+    module = runpy.run_path(str(repo_root / "deployments" / "modal" / "training_smoke.py"))
 
     assert "transformers>=4.51,<5" in installed_packages
     assert "wandb>=0.18,<1" in installed_packages
@@ -84,7 +83,7 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
     assert ("src", "/workspace/training/src") in mounted_dirs
     assert ("fixtures", "/workspace/training/fixtures") in mounted_dirs
     assert ("configs", "/workspace/training/configs") in mounted_dirs
-    if (Path(__file__).parents[2] / "training/data/bespoke_manim_train.jsonl").exists():
+    if (repo_root / "training/data/bespoke_manim_train.jsonl").exists():
         assert local_files[0][1] == "/workspace/training/data/bespoke_manim_train.jsonl"
     assert (
         "evaluation",

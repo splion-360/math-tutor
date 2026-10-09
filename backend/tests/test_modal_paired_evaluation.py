@@ -12,7 +12,11 @@ import pytest
 
 
 @pytest.mark.parametrize("local", [True, False])
-def test_deployment_mounts_local_sources_only_on_the_client(local: bool, monkeypatch: Any) -> None:
+def test_deployment_mounts_local_sources_only_on_the_client(
+    local: bool,
+    monkeypatch: Any,
+    repo_root: Path,
+) -> None:
     """The same deployment imports with both repository and remote module paths."""
     mounts = []
     options = []
@@ -53,7 +57,7 @@ def test_deployment_mounts_local_sources_only_on_the_client(local: bool, monkeyp
         Volume=SimpleNamespace(from_name=lambda *a, **k: object()),
     )
     monkeypatch.setitem(sys.modules, "modal", fake)
-    path = Path(__file__).parents[2] / "deployments/modal/paired_evaluation.py"
+    path = repo_root / "deployments/modal/paired_evaluation.py"
     namespace = {"__file__": str(path) if local else "/root/paired_evaluation.py"}
     exec(compile(path.read_text(), str(path), "exec"), namespace)
     assert len(mounts) == (2 if local else 0)
