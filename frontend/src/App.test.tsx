@@ -92,6 +92,43 @@ describe("LessonResult", () => {
     expect(screen.queryByTestId("lesson-video")).not.toBeInTheDocument();
   });
 
+  it("explains a failed source stage when selected", () => {
+    render(
+      <LessonResult
+        lesson={{
+          ...failedLesson,
+          diagnostics: {
+            failure_stage: "parse",
+            line: 14,
+            validation_reports: [
+              {
+                validator: "source",
+                findings: [
+                  {
+                    code: "source_admission_failed",
+                    message: "Generated source did not pass deterministic admission checks.",
+                    repair_instruction: "Return valid Python without an unterminated string.",
+                  },
+                ],
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(node("source")).toHaveClass("workflow-failed");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Inspect Source check stage" }),
+    );
+
+    expect(screen.getByText("Stage details")).toBeInTheDocument();
+    expect(screen.getByText("source_admission_failed")).toBeInTheDocument();
+    expect(
+      screen.getByText("Return valid Python without an unterminated string."),
+    ).toBeInTheDocument();
+  });
+
   it("plays the accepted video and exposes generated code", () => {
     render(<LessonResult lesson={narratedLesson} />);
 

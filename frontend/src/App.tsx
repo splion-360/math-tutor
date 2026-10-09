@@ -24,6 +24,8 @@ interface AppProps {
 interface ValidationAxisSummary {
   validator: string;
   status: "pass" | "fail" | "uncertain" | "validator_error";
+  findingCount?: number;
+  advisoryCount?: number;
 }
 
 const examples = [
@@ -279,9 +281,23 @@ interface WorkflowNode {
   state: WorkflowNodeState;
 }
 
+interface WorkflowFinding {
+  code: string;
+  message: string;
+  repairInstruction: string | null;
+}
+
+interface WorkflowStageDetails {
+  description: string;
+  facts: { label: string; value: string }[];
+  findings: WorkflowFinding[];
+}
+
 function WorkflowGraph({ lesson }: { lesson: LessonJob | null }) {
+  const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const nodes = workflowNodes(lesson);
   const node = (id: string) => nodes.find((item) => item.id === id)!;
+  const selectedNode = selectedStage ? node(selectedStage) : null;
   const repairLabel = lesson
     && lesson.attempt > 0
     && (lesson.status === "queued" || lesson.status === "running")
@@ -295,28 +311,69 @@ function WorkflowGraph({ lesson }: { lesson: LessonJob | null }) {
         <strong>{repairLabel ?? (lesson ? stageLabels[lesson.stage] : "Waiting for a prompt")}</strong>
       </div>
       <div className="workflow-graph">
-        <WorkflowNodeView node={node("prompt")} />
+        <WorkflowNodeView
+          node={node("prompt")}
+          selected={selectedStage === "prompt"}
+          onSelect={setSelectedStage}
+        />
         <WorkflowArrow />
-        <WorkflowNodeView node={node("adapter")} />
+        <WorkflowNodeView
+          node={node("adapter")}
+          selected={selectedStage === "adapter"}
+          onSelect={setSelectedStage}
+        />
         <WorkflowArrow />
-        <WorkflowNodeView node={node("source")} />
+        <WorkflowNodeView
+          node={node("source")}
+          selected={selectedStage === "source"}
+          onSelect={setSelectedStage}
+        />
         <WorkflowArrow />
-        <WorkflowNodeView node={node("render")} />
+        <WorkflowNodeView
+          node={node("render")}
+          selected={selectedStage === "render"}
+          onSelect={setSelectedStage}
+        />
         <WorkflowArrow />
         <div className="workflow-validation" aria-label="Parallel validators">
           <span className="workflow-branch-label">Parallel validation</span>
-          <WorkflowNodeView node={node("media")} />
-          <WorkflowNodeView node={node("spatial")} />
-          <WorkflowNodeView node={node("visual")} />
+          <WorkflowNodeView
+            node={node("media")}
+            selected={selectedStage === "media"}
+            onSelect={setSelectedStage}
+          />
+          <WorkflowNodeView
+            node={node("spatial")}
+            selected={selectedStage === "spatial"}
+            onSelect={setSelectedStage}
+          />
+          <WorkflowNodeView
+            node={node("visual")}
+            selected={selectedStage === "visual"}
+            onSelect={setSelectedStage}
+          />
         </div>
         <WorkflowArrow />
-        <WorkflowNodeView node={node("publish")} />
+        <WorkflowNodeView
+          node={node("publish")}
+          selected={selectedStage === "publish"}
+          onSelect={setSelectedStage}
+        />
       </div>
+      {selectedNode && <WorkflowStageInspector node={selectedNode} lesson={lesson} />}
     </section>
   );
 }
 
-function WorkflowNodeView({ node }: { node: WorkflowNode }) {
+function WorkflowNodeView({
+  node,
+  selected,
+  onSelect,
+}: {
+  node: WorkflowNode;
+  selected: boolean;
+  onSelect: (id: string) => void;
+}) {
   const symbol = node.state === "passed"
     ? "✓"
     : node.state === "failed"
@@ -327,11 +384,18 @@ function WorkflowNodeView({ node }: { node: WorkflowNode }) {
           ? "●"
           : "○";
   return (
-    <div className={`workflow-node workflow-${node.state}`} data-node={node.id}>
+    <button
+      type="button"
+      className={`workflow-node workflow-${node.state}${selected ? " workflow-selected" : ""}`}
+      data-node={node.id}
+      aria-label={`Inspect ${node.label} stage`}
+      aria-pressed={selected}
+      onClick={() => onSelect(node.id)}
+    >
       <span aria-hidden="true">{symbol}</span>
       <strong>{node.label}</strong>
       <small>{workflowStateLabel(node.state)}</small>
-    </div>
+    </button>
   );
 }
 
@@ -409,6 +473,148 @@ function workflowStateLabel(state: WorkflowNodeState) {
   if (state === "failed") return "Failed";
   if (state === "uncertain") return "Uncertain";
   return "Waiting";
+}
+
+function WorkflowStageInspector({
+  node,
+  lesson,
+}: {
+  node: WorkflowNode;
+  lesson: LessonJob | null;
+}) {
+  const details = workflowStageDetails(node, lesson);
+  return (
+    <div className={`workflow-inspector workflow-inspector-${node.state}`}>
+      <div className="workflow-inspector-heading">
+        <div>
+          <span>Stage details</span>
+          <strong>{node.label}</strong>
+        </div>
+        <span>{workflowStateLabel(node.state)}</span>
+      </div>
+      <p>{details.description}</p>
+      {details.facts.length > 0 && (
+        <dl>
+          {details.facts.map((fact) => (
+            <div key={fact.label}>
+              <dt>{fact.label}</dt>
+              <dd>{fact.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {details.findings.length > 0 && (
+        <div className="workflow-findings">
+          {details.findings.map((finding) => (
+            <article key={`${finding.code}-${finding.message}`}>
+              <code>{finding.code}</code>
+              <p>{finding.message}</p>
+              {finding.repairInstruction && <small>{finding.repairInstruction}</small>}
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function workflowStageDetails(
+  node: WorkflowNode,
+  lesson: LessonJob | null,
+): WorkflowStageDetails {
+  const descriptions: Record<string, string> = {
+    prompt: "The submitted lesson request enters the generation queue.",
+    adapter: "The shared LoRA generates a complete Manim scene from the prompt.",
+    source: (
+      "Deterministic checks parse the Python and reject unsafe or invalid Manim source."
+    ),
+    render: "The admitted scene runs inside the isolated Manim renderer.",
+    media: "Media checks inspect the rendered file, streams, duration, and captions contract.",
+    spatial: "Layout checks inspect frame boundaries, margins, object size, and intersections.",
+    visual: "The visual model checks sampled frames for bounded visible defects.",
+    publish: "A lesson is published only after every required validation axis passes.",
+  };
+  const facts: { label: string; value: string }[] = [];
+  if (!lesson) return { description: descriptions[node.id], facts, findings: [] };
+
+  const diagnostics = lesson.diagnostics;
+  const addFact = (label: string, value: unknown) => {
+    if (typeof value === "string" && value.trim()) facts.push({ label, value });
+    if (typeof value === "number") facts.push({ label, value: String(value) });
+  };
+  if (node.id === "prompt") addFact("Prompt", lesson.lesson);
+  if (node.id === "adapter") {
+    const provenance = readRecord(diagnostics.generation_provenance);
+    addFact(
+      "Model",
+      readText(diagnostics, ["inference_model"])
+        ?? (provenance ? readText(provenance, ["model"]) : null),
+    );
+    addFact("Repair attempt", lesson.attempt);
+  }
+  if (node.id === "source") {
+    addFact("Failure phase", readText(diagnostics, ["failure_stage"]));
+    addFact("Line", diagnostics.line);
+  }
+  if (node.id === "render") {
+    addFact("Renderer", diagnostics.renderer);
+    addFact("Elapsed seconds", diagnostics.elapsed_seconds);
+    addFact("Infrastructure retries", diagnostics.infrastructure_retry_count);
+  }
+  if (["media", "spatial", "visual"].includes(node.id)) {
+    const validator = node.id === "visual" ? "visual_evidence" : node.id;
+    const axis = readValidationAxes(diagnostics).find(
+      (item) => item.validator === validator,
+    );
+    addFact("Findings", axis?.findingCount);
+    addFact("Advisories", axis?.advisoryCount);
+  }
+  if (node.id === "publish") {
+    addFact("Validation", diagnostics.validation_status);
+    addFact("Attempts", diagnostics.attempt_count);
+  }
+
+  const findings = readStageFindings(diagnostics, node.id);
+  if (node.state === "failed" && findings.length === 0) {
+    findings.push(fallbackStageFinding(diagnostics, node.id));
+  }
+  return { description: descriptions[node.id], facts, findings };
+}
+
+function fallbackStageFinding(
+  diagnostics: Record<string, unknown>,
+  stageId: string,
+): WorkflowFinding {
+  const failure = readText(diagnostics, ["failure_stage", "failed_stage"]);
+  if (stageId === "source" && failure === "parse") {
+    const line = typeof diagnostics.line === "number" ? ` at line ${diagnostics.line}` : "";
+    return {
+      code: "source_parse_failed",
+      message: `The generated source could not be parsed as Python${line}.`,
+      repairInstruction: null,
+    };
+  }
+  if (stageId === "source" && failure === "extraction") {
+    return {
+      code: "source_extraction_failed",
+      message: "The model response did not contain an extractable Manim scene.",
+      repairInstruction: null,
+    };
+  }
+  if (stageId === "source") {
+    return {
+      code: "source_validation_failed",
+      message: "The generated scene violated a deterministic source-admission rule.",
+      repairInstruction: null,
+    };
+  }
+  return {
+    code: `${stageId}_failed`,
+    message: failure
+      ? `The workflow stopped during ${failure.replaceAll("_", " ")}.`
+      : "This stage did not complete.",
+    repairInstruction: null,
+  };
 }
 
 function GeneratingVideo({ lesson }: { lesson: LessonJob; busy: boolean }) {
@@ -606,6 +812,44 @@ function readText(record: Record<string, unknown>, keys: string[]) {
   return null;
 }
 
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function readStageFindings(
+  diagnostics: Record<string, unknown>,
+  stageId: string,
+): WorkflowFinding[] {
+  const validator = stageId === "visual" ? "visual_evidence" : stageId;
+  const reports = Array.isArray(diagnostics.validation_reports)
+    ? diagnostics.validation_reports
+    : [];
+  const report = reports
+    .map(readRecord)
+    .find((item) => item && item.validator === validator);
+  const values = report && Array.isArray(report.findings)
+    ? report.findings
+    : stageId === "source" && Array.isArray(diagnostics.findings)
+      ? diagnostics.findings
+      : [];
+  return values.flatMap((value) => {
+    const finding = readRecord(value);
+    if (!finding) return [];
+    const code = typeof finding.code === "string" ? finding.code : null;
+    const message = typeof finding.message === "string" ? finding.message : null;
+    if (!code || !message) return [];
+    return [{
+      code,
+      message,
+      repairInstruction: typeof finding.repair_instruction === "string"
+        ? finding.repair_instruction
+        : null,
+    }];
+  });
+}
+
 function readValidationAxes(
   diagnostics: Record<string, unknown>,
 ): ValidationAxisSummary[] {
@@ -621,6 +865,8 @@ function readValidationAxes(
     if (typeof axis !== "object" || axis === null) return [];
     const validator = "validator" in axis ? axis.validator : null;
     const status = "status" in axis ? axis.status : null;
+    const findingCount = "finding_count" in axis ? axis.finding_count : null;
+    const advisoryCount = "advisory_count" in axis ? axis.advisory_count : null;
     if (
       typeof validator !== "string"
       || typeof status !== "string"
@@ -629,6 +875,8 @@ function readValidationAxes(
     return [{
       validator,
       status: status as ValidationAxisSummary["status"],
+      findingCount: typeof findingCount === "number" ? findingCount : undefined,
+      advisoryCount: typeof advisoryCount === "number" ? advisoryCount : undefined,
     }];
   });
 }

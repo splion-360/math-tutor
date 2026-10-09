@@ -187,6 +187,8 @@ class GeneratedLessonPipeline:
                         "attempt_count": attempt_number + 1,
                         "repair_count": attempt_number,
                         "validation_status": report.status.value,
+                        "findings": [finding.to_dict() for finding in report.findings],
+                        "validation_reports": [report.to_dict()],
                         "attempt_manifest": str(manifest.resolve()),
                         "infrastructure_retry_count": infrastructure_retry_count,
                     }
@@ -263,15 +265,12 @@ class GeneratedLessonPipeline:
                 continue
             raise OutputValidationError(
                 "rendered lesson did not pass output validation",
-                diagnostics={
-                    **self._validation_diagnostics(
-                        attempt=attempt,
-                        report=report,
-                        infrastructure_retry_count=infrastructure_retry_count,
-                        manifest=manifest,
-                    ),
-                    "findings": [finding.to_dict() for finding in report.findings],
-                },
+                diagnostics=self._validation_diagnostics(
+                    attempt=attempt,
+                    report=report,
+                    infrastructure_retry_count=infrastructure_retry_count,
+                    manifest=manifest,
+                ),
             )
 
         raise AssertionError("generation attempt loop ended without a result")
@@ -576,6 +575,11 @@ class GeneratedLessonPipeline:
             "validator": report.validator,
             "validation_status": report.status.value,
             "validation_axes": report.axis_summaries(),
+            "validation_reports": [
+                component.to_dict() for component in report.component_reports or (report,)
+            ],
+            "findings": [finding.to_dict() for finding in report.findings],
+            "advisories": [advisory.to_dict() for advisory in report.advisories],
             "attempt_count": attempt.number + 1,
             "repair_count": attempt.number,
             "infrastructure_retry_count": infrastructure_retry_count,

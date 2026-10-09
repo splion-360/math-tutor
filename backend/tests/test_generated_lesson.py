@@ -1094,6 +1094,9 @@ def test_pipeline_preserves_raw_response_when_extraction_fails(tmp_path: Path) -
     assert metadata["model"] == SHARED_ADAPTER_MODEL
     assert caught.value.diagnostics["attempt_count"] == 2
     assert caught.value.diagnostics["repair_count"] == 1
+    assert caught.value.diagnostics["validation_reports"][0]["validator"] == "source"
+    assert caught.value.diagnostics["findings"][0]["code"] == "source_admission_failed"
+    assert "admission error" in str(caught.value.diagnostics["findings"][0]["repair_instruction"])
     assert Path(str(caught.value.diagnostics["attempt_manifest"])).is_file()
 
 
