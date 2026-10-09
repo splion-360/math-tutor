@@ -12,14 +12,7 @@ from threading import BoundedSemaphore, Lock
 from typing import Protocol
 from uuid import uuid4
 
-from math_tutor.domain import (
-    Difficulty,
-    LessonJob,
-    LessonStage,
-    LessonStatus,
-    NarrationStatus,
-    utc_now,
-)
+from math_tutor.domain import LessonJob, LessonStage, LessonStatus, NarrationStatus, utc_now
 
 _SAFE_JOB_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
@@ -43,6 +36,7 @@ class RenderOutcome:
     narration_diagnostics: Mapping[str, object] | None = None
     validation_diagnostics: Mapping[str, object] | None = None
     spatial_trace_path: Path | None = None
+    generated_code: str | None = None
 
 
 class JobExecutionError(RuntimeError):
@@ -133,22 +127,18 @@ class JobStore:
         self,
         lesson: str,
         *,
-        difficulty: Difficulty | None = None,
         narration_requested: bool = False,
-        routing_policy: str = "default",
     ) -> LessonJob:
         """Create and retain one queued lesson job."""
         job = LessonJob(
             id=uuid4().hex,
             lesson=lesson,
             status=LessonStatus.QUEUED,
-            stage=LessonStage.ROUTING,
+            stage=LessonStage.ACCEPTED,
             created_at=utc_now(),
-            difficulty=difficulty,
             narration_status=(
                 NarrationStatus.PENDING if narration_requested else NarrationStatus.NOT_REQUESTED
             ),
-            diagnostics=({"routing_policy": routing_policy} if routing_policy != "default" else {}),
         )
         with self._lock:
             self._jobs[job.id] = job
@@ -175,7 +165,14 @@ class JobStore:
 
     def mark_stage(self, job_id: str, stage: LessonStage) -> LessonJob:
         """Update the processing stage without changing terminal status."""
-        return self._mutate(job_id, lambda job: replace(job, stage=stage))
+        return self._mutate(
+            job_id,
+            lambda job: replace(
+                job,
+                stage=stage,
+                attempt=job.attempt + 1 if stage is LessonStage.REPAIRING else job.attempt,
+            ),
+        )
 
     def mark_ready(self, job_id: str, outcome: RenderOutcome) -> LessonJob:
         """Publish a successful render as the ready job snapshot."""
@@ -192,6 +189,7 @@ class JobStore:
                     str(outcome.captions_path) if outcome.captions_path is not None else None
                 ),
                 narration_status=outcome.narration_status,
+                generated_code=outcome.generated_code,
                 diagnostics={
                     **dict(job.diagnostics),
                     "renderer": outcome.renderer,
@@ -218,7 +216,11 @@ class JobStore:
                     job.narration_status,
                     diagnostics,
                 ),
-                diagnostics={**dict(job.diagnostics), **diagnostics},
+                diagnostics={
+                    **dict(job.diagnostics),
+                    "failed_stage": job.stage.value,
+                    **diagnostics,
+                },
             ),
         )
 
@@ -287,7 +289,6 @@ class LessonService:
         executor: ThreadPoolExecutor | None = None,
         max_pending_jobs: int = 8,
         narration_requested: bool | Callable[[str], bool] = False,
-        routed_renderers: Mapping[Difficulty, Renderer] | None = None,
     ) -> None:
         if max_pending_jobs <= 0:
             raise ValueError("max_pending_jobs must be positive")
@@ -299,14 +300,10 @@ class LessonService:
         )
         self._capacity = BoundedSemaphore(max_pending_jobs)
         self._narration_requested = narration_requested
-        self._routed_renderers = dict(routed_renderers or {})
 
     def submit(
         self,
         lesson: str,
-        *,
-        difficulty: Difficulty | None = None,
-        routing_policy: str = "default",
     ) -> LessonJob:
         """Create and asynchronously schedule one lesson job."""
         if not self._capacity.acquire(blocking=False):
@@ -318,9 +315,7 @@ class LessonService:
         )
         job = self._store.create(
             lesson,
-            difficulty=difficulty,
             narration_requested=narration_requested,
-            routing_policy=routing_policy,
         )
         try:
             self._executor.submit(self._run, job.id)
@@ -341,12 +336,7 @@ class LessonService:
         try:
             job = self._store.mark_running(job_id)
             try:
-                renderer = (
-                    self._renderer
-                    if job.difficulty is None
-                    else self._routed_renderers.get(job.difficulty, self._renderer)
-                )
-                outcome = renderer.render(job_id, job.lesson)
+                outcome = self._renderer.render(job_id, job.lesson)
             except Exception as error:
                 self._store.mark_failed(job_id, error)
             else:

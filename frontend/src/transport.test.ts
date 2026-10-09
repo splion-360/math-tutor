@@ -1,3 +1,6 @@
+// Verify that the HTTP transport sends the public prompt-only request shape.
+// These tests guard the boundary between the frontend and lesson API.
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { HttpLessonTransport } from "./transport";
@@ -14,7 +17,6 @@ describe("HttpLessonTransport", () => {
 
     await new HttpLessonTransport().submitLesson({
       prompt: "Explain Euler's identity",
-      difficulty: "advanced",
     });
 
     expect(fetch).toHaveBeenCalledWith("/lessons", {
@@ -22,7 +24,6 @@ describe("HttpLessonTransport", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         prompt: "Explain Euler's identity",
-        difficulty: "advanced",
       }),
     });
   });

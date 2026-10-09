@@ -1,5 +1,5 @@
 """Verify generated-source admission, rendering, validation, and repair.
-The tests preserve evidence and routing behavior across pipeline outcomes."""
+The tests preserve evidence and provenance across pipeline outcomes."""
 
 from __future__ import annotations
 
@@ -16,11 +16,9 @@ from math_tutor.generation.errors import (
     OutputValidationError,
     SceneValidationError,
 )
-from math_tutor.generation.pipeline import (
-    GeneratedLessonPipeline,
-    VoiceoverFallbackRenderer,
-)
+from math_tutor.generation.pipeline import GeneratedLessonPipeline
 from math_tutor.generation.provider import (
+    SHARED_ADAPTER_MODEL,
     GenerationConfig,
     GenerationResult,
     ModelHealth,
@@ -31,7 +29,6 @@ from math_tutor.generation.source import (
     extract_and_validate_raw_scene,
     extract_and_validate_scene,
 )
-from math_tutor.generation.specialist import SpecialistGuidedLessonPipeline
 from math_tutor.jobs import RenderOutcome
 from math_tutor.rendering.manim import RenderFailed, RenderTimedOut
 from math_tutor.rendering.narration import NarrationStatus
@@ -193,9 +190,9 @@ def _passing_validation_diagnostics(
             }
         ],
         "generation_provenance": {
-            "model": "Qwen/Qwen3-4B",
+            "model": SHARED_ADAPTER_MODEL,
             "provider": "configured_generator",
-            "inference_path": "base_model",
+            "inference_path": "lora_adapter",
         },
         "narration_status": "not_requested",
     }
@@ -236,32 +233,7 @@ class SequenceGenerator:
         return next(self._results)
 
 
-class RecordingPromptRenderer:
-    def __init__(self, outcome: RenderOutcome | Exception) -> None:
-        self._outcome = outcome
-        self.calls: list[tuple[str, str | None]] = []
-
-    def render(self, job_id: str, prompt: str | None = None) -> RenderOutcome:
-        self.calls.append((job_id, prompt))
-        if isinstance(self._outcome, Exception):
-            raise self._outcome
-        return self._outcome
-
-
-class SequencePromptRenderer:
-    def __init__(self, outcomes: list[RenderOutcome | Exception]) -> None:
-        self._outcomes = iter(outcomes)
-        self.calls: list[tuple[str, str | None]] = []
-
-    def render(self, job_id: str, prompt: str | None = None) -> RenderOutcome:
-        self.calls.append((job_id, prompt))
-        outcome = next(self._outcomes)
-        if isinstance(outcome, Exception):
-            raise outcome
-        return outcome
-
-
-def _generation(content: str, *, model: str = "Qwen/Qwen3-4B") -> GenerationResult:
+def _generation(content: str, *, model: str = SHARED_ADAPTER_MODEL) -> GenerationResult:
     return GenerationResult(
         content=content,
         model=model,
@@ -476,9 +448,10 @@ def test_pipeline_persists_generation_evidence_before_isolated_render(tmp_path: 
     outcome = pipeline.render("generated-123")
 
     assert outcome.video_path.read_bytes() == b"video"
+    assert outcome.generated_code == VALID_SCENE.rstrip()
     assert outcome.narration_diagnostics == {
-        "inference_path": "base_model",
-        "inference_model": "Qwen/Qwen3-4B",
+        "inference_path": "lora_adapter",
+        "inference_model": SHARED_ADAPTER_MODEL,
     }
     assert source_renderer.received == (
         "generated-123-attempt-0",
@@ -496,7 +469,7 @@ def test_pipeline_persists_generation_evidence_before_isolated_render(tmp_path: 
         "completion_tokens": 20,
         "elapsed_seconds": 0.5,
         "finish_reason": "stop",
-        "model": "Qwen/Qwen3-4B",
+        "model": SHARED_ADAPTER_MODEL,
         "prompt_tokens": 10,
         "request_id": "chatcmpl-123",
         "seed": 42,
@@ -557,9 +530,9 @@ def test_pipeline_persists_one_validation_input_before_validation(tmp_path: Path
     assert outcome.validation_diagnostics is not None
     assert outcome.validation_diagnostics["validation_axes"] == expected_axes
     assert outcome.validation_diagnostics["generation_provenance"] == {
-        "model": "Qwen/Qwen3-4B",
+        "model": SHARED_ADAPTER_MODEL,
         "provider": "configured_generator",
-        "inference_path": "base_model",
+        "inference_path": "lora_adapter",
     }
     assert outcome.validation_diagnostics["narration_status"] == "not_requested"
     attempt_dir = tmp_path / "artifacts" / "manifest-123" / "attempts" / "0"
@@ -685,8 +658,8 @@ def test_pipeline_repairs_one_media_failure_and_preserves_both_attempts(
     assert manifest["media"]["video"]["sha256"] == selected["video_sha256"]
     assert manifest["provenance"] == {
         "infrastructure_retry_count": 0,
-        "inference_path": "base_model",
-        "model": "Qwen/Qwen3-4B",
+        "inference_path": "lora_adapter",
+        "model": SHARED_ADAPTER_MODEL,
         "provider": "configured_generator",
         "renderer": "test",
     }
@@ -1035,9 +1008,9 @@ def test_pipeline_reports_validator_execution_error_without_model_repair(
         }
     ]
     assert caught.value.diagnostics["generation_provenance"] == {
-        "model": "Qwen/Qwen3-4B",
+        "model": SHARED_ADAPTER_MODEL,
         "provider": "configured_generator",
-        "inference_path": "base_model",
+        "inference_path": "lora_adapter",
     }
     assert caught.value.diagnostics["narration_status"] == "not_requested"
     assert len(generator.prompts) == 1
@@ -1106,7 +1079,7 @@ def test_pipeline_preserves_raw_response_when_extraction_fails(tmp_path: Path) -
         renderer=RecordingSourceRenderer(tmp_path / "unused.mp4"),
     )
 
-    with pytest.raises(ExtractionError) as caught:
+    with pytest.raises(SceneValidationError) as caught:
         pipeline.render("failed-123")
 
     job_dir = tmp_path / "artifacts" / "failed-123"
@@ -1117,8 +1090,8 @@ def test_pipeline_preserves_raw_response_when_extraction_fails(tmp_path: Path) -
         "I cannot provide code."
     )
     metadata = json.loads((job_dir / "attempts" / "1" / "generation.json").read_text())
-    assert metadata["status"] == "extraction_failed"
-    assert metadata["model"] == "Qwen/Qwen3-4B"
+    assert metadata["status"] == "parse_failed"
+    assert metadata["model"] == SHARED_ADAPTER_MODEL
     assert caught.value.diagnostics["attempt_count"] == 2
     assert caught.value.diagnostics["repair_count"] == 1
     assert Path(str(caught.value.diagnostics["attempt_manifest"])).is_file()
@@ -1162,309 +1135,3 @@ def test_pipeline_rejects_unsafe_job_id_before_writing_or_generation(tmp_path: P
 
     assert caught.value.diagnostics == {"failure_stage": "validation"}
     assert not (tmp_path / "escaped").exists()
-
-
-def test_voiceover_fallback_returns_primary_with_ready_narration(tmp_path: Path) -> None:
-    outcome = RenderOutcome(tmp_path / "voice.mp4", "voice", 1, "rendered")
-    primary = RecordingPromptRenderer(outcome)
-    fallback = RecordingPromptRenderer(
-        RenderOutcome(tmp_path / "silent.mp4", "silent", 1, "rendered")
-    )
-
-    result = VoiceoverFallbackRenderer(primary=primary, fallback=fallback).render(
-        "job-1", "Explain limits"
-    )
-
-    assert result.narration_status is NarrationStatus.READY
-    assert primary.calls == [("job-1", "Explain limits")]
-    assert fallback.calls == []
-
-
-def test_voiceover_fallback_retries_render_failure_as_silent_lesson(tmp_path: Path) -> None:
-    primary = RecordingPromptRenderer(RenderFailed("ElevenLabs failed"))
-    silent = RenderOutcome(tmp_path / "silent.mp4", "silent", 2, "rendered")
-    fallback = RecordingPromptRenderer(silent)
-
-    result = VoiceoverFallbackRenderer(primary=primary, fallback=fallback).render(
-        "job-2", "Explain limits"
-    )
-
-    assert result.video_path == silent.video_path
-    assert result.narration_status is NarrationStatus.UNAVAILABLE
-    assert result.narration_diagnostics == {"voiceover_error": "ElevenLabs failed"}
-    assert fallback.calls == [("job-2-silent", "Explain limits")]
-
-
-def test_voiceover_fallback_does_not_reset_an_exhausted_repair_budget(
-    tmp_path: Path,
-) -> None:
-    error = RenderFailed(
-        "voiceover render failed after repair",
-        diagnostics={"attempt_count": 2, "repair_count": 1},
-    )
-    primary = RecordingPromptRenderer(error)
-    fallback = RecordingPromptRenderer(
-        RenderOutcome(tmp_path / "must-not-render.mp4", "silent", 1, "rendered")
-    )
-
-    with pytest.raises(RenderFailed) as caught:
-        VoiceoverFallbackRenderer(primary=primary, fallback=fallback).render(
-            "job-exhausted",
-            "Explain limits",
-        )
-
-    assert caught.value is error
-    assert fallback.calls == []
-
-
-def test_voiceover_fallback_does_not_retry_generation_failure(tmp_path: Path) -> None:
-    primary = RecordingPromptRenderer(GeneratedLessonError("invalid scene"))
-    fallback = RecordingPromptRenderer(
-        RenderOutcome(tmp_path / "silent.mp4", "silent", 1, "rendered")
-    )
-
-    with pytest.raises(GeneratedLessonError, match="invalid scene"):
-        VoiceoverFallbackRenderer(primary=primary, fallback=fallback).render(
-            "job-3", "Explain limits"
-        )
-
-    assert fallback.calls == []
-
-
-def test_specialist_guidance_is_normalized_by_base_pipeline(tmp_path: Path) -> None:
-    specialist_draft = "```python\nfrom manim import *\nclass Draft(Scene):\n    pass\n```"
-    specialist = RecordingGenerator(_generation(specialist_draft, model="intermediate"))
-    normalized = RenderOutcome(
-        tmp_path / "normalized.mp4",
-        "voiceover",
-        1,
-        "rendered",
-        narration_diagnostics={
-            "inference_path": "base_model",
-            "inference_model": "Qwen/Qwen3-4B",
-        },
-    )
-    normalizer = RecordingPromptRenderer(normalized)
-    pipeline = SpecialistGuidedLessonPipeline(
-        artifact_root=tmp_path / "artifacts",
-        specialist=specialist,
-        normalizer=normalizer,
-    )
-
-    result = pipeline.render("job-5", "Explain completing the square visually.")
-
-    assert specialist.prompts == ["Explain completing the square visually."]
-    assert normalizer.calls[0][0] == "job-5-normalized"
-    normalization_prompt = normalizer.calls[0][1]
-    assert normalization_prompt is not None
-    assert "Explain completing the square visually." in normalization_prompt
-    assert specialist_draft in normalization_prompt
-    assert "mathematical and visual guidance" in normalization_prompt
-    assert result.narration_diagnostics == {
-        "inference_path": "base_model",
-        "routing_path": "lora_adapter_with_base_normalizer",
-        "inference_model": "Qwen/Qwen3-4B",
-        "specialist_model": "intermediate",
-        "normalization_model": "Qwen/Qwen3-4B",
-        "specialist_elapsed_seconds": 0.5,
-        "specialist_completion_tokens": 20,
-    }
-    job_dir = tmp_path / "artifacts" / "job-5"
-    assert (job_dir / "prompt.txt").read_text() == ("Explain completing the square visually.")
-    assert (job_dir / "specialist_response.txt").read_text() == specialist_draft
-    metadata = json.loads((job_dir / "specialist_generation.json").read_text())
-    assert metadata["status"] == "generated"
-    assert metadata["model"] == "intermediate"
-
-
-def test_specialist_routing_preserves_selected_generation_provenance(
-    tmp_path: Path,
-) -> None:
-    artifacts = tmp_path / "artifacts"
-    normalizer = GeneratedLessonPipeline(
-        artifact_root=artifacts,
-        prompt="unused",
-        generator=FixedGenerator(_generation(f"```python\n{VALID_SCENE}```")),
-        renderer=RecordingSourceRenderer(tmp_path / "normalized.mp4"),
-        validator=SequenceValidator([ValidationReport("media", ValidationStatus.PASS)]),
-    )
-    pipeline = SpecialistGuidedLessonPipeline(
-        artifact_root=artifacts,
-        specialist=RecordingGenerator(_generation("specialist guidance", model="intermediate")),
-        normalizer=normalizer,
-    )
-
-    outcome = pipeline.render("specialist-artifacts", "Explain completing the square.")
-
-    selected = json.loads(
-        (artifacts / "specialist-artifacts-normalized" / "selected_attempt.json").read_text()
-    )
-    assert outcome.validation_diagnostics is not None
-    assert (
-        outcome.validation_diagnostics["generation_provenance"] == selected["generation_provenance"]
-    )
-    assert outcome.narration_diagnostics is not None
-    assert outcome.narration_diagnostics["inference_path"] == "base_model"
-    assert outcome.narration_diagnostics["routing_path"] == "lora_adapter_with_base_normalizer"
-
-
-def test_specialist_failure_falls_back_once_to_direct_base_generation(
-    tmp_path: Path,
-) -> None:
-    specialist = RecordingGenerator(ProviderError("specialist timed out"))
-    base = RenderOutcome(
-        tmp_path / "base.mp4",
-        "voiceover",
-        1,
-        "rendered",
-        narration_diagnostics={
-            "inference_path": "base_model",
-            "inference_model": "Qwen/Qwen3-4B",
-        },
-    )
-    normalizer = RecordingPromptRenderer(base)
-    pipeline = SpecialistGuidedLessonPipeline(
-        artifact_root=tmp_path / "artifacts",
-        specialist=specialist,
-        normalizer=normalizer,
-    )
-
-    result = pipeline.render("job-6", "Explain limits visually.")
-
-    assert normalizer.calls == [("job-6-base", "Explain limits visually.")]
-    assert result.narration_diagnostics == {
-        "inference_path": "base_model",
-        "inference_model": "Qwen/Qwen3-4B",
-        "routing_fallback": "base_model",
-        "specialist_model": "intermediate",
-        "specialist_error": "Modal specialist generation could not be completed",
-    }
-    metadata = json.loads(
-        (tmp_path / "artifacts" / "job-6" / "specialist_generation.json").read_text()
-    )
-    assert metadata["status"] == "provider_failed"
-    assert metadata["failure_stage"] == "specialist_generation"
-
-
-def test_normalization_failure_retries_original_prompt_through_base_model(
-    tmp_path: Path,
-) -> None:
-    specialist = RecordingGenerator(_generation("raw scene", model="advanced"))
-    base = RenderOutcome(
-        tmp_path / "base.mp4",
-        "voiceover",
-        1,
-        "rendered",
-        narration_diagnostics={
-            "inference_path": "base_model",
-            "inference_model": "Qwen/Qwen3-4B",
-        },
-    )
-    normalizer = SequencePromptRenderer(
-        [SceneValidationError("normalized scene was invalid"), base]
-    )
-    pipeline = SpecialistGuidedLessonPipeline(
-        artifact_root=tmp_path / "artifacts",
-        specialist=specialist,
-        normalizer=normalizer,
-    )
-
-    result = pipeline.render("job-7", "Explain eigenvectors visually.")
-
-    assert normalizer.calls[0][0] == "job-7-normalized"
-    assert normalizer.calls[1] == ("job-7-base", "Explain eigenvectors visually.")
-    assert result.narration_diagnostics == {
-        "inference_path": "base_model",
-        "inference_model": "Qwen/Qwen3-4B",
-        "routing_fallback": "base_model",
-        "specialist_model": "advanced",
-        "normalization_error": "normalized scene was invalid",
-    }
-
-
-def test_specialist_does_not_fallback_after_output_validation_rejects_attempt_one(
-    tmp_path: Path,
-) -> None:
-    specialist = RecordingGenerator(_generation("raw scene", model="advanced"))
-    rejected = OutputValidationError(
-        "rendered lesson did not pass output validation",
-        diagnostics={
-            "failure_stage": "output_validation",
-            "attempt_count": 2,
-            "repair_count": 1,
-            "validation_status": "fail",
-        },
-    )
-    normalizer = SequencePromptRenderer(
-        [
-            rejected,
-            RenderOutcome(tmp_path / "must-not-render.mp4", "test", 1, "rendered"),
-        ]
-    )
-    pipeline = SpecialistGuidedLessonPipeline(
-        artifact_root=tmp_path / "artifacts",
-        specialist=specialist,
-        normalizer=normalizer,
-    )
-
-    with pytest.raises(OutputValidationError) as caught:
-        pipeline.render("job-validation-rejected", "Explain eigenvectors visually.")
-
-    assert caught.value is rejected
-    assert len(normalizer.calls) == 1
-
-
-def test_specialist_does_not_reset_an_exhausted_source_repair_budget(
-    tmp_path: Path,
-) -> None:
-    specialist = RecordingGenerator(_generation("raw scene", model="advanced"))
-    rejected = SceneValidationError(
-        "generated source still failed admission",
-        diagnostics={
-            "failure_stage": "validation",
-            "attempt_count": 2,
-            "repair_count": 1,
-        },
-    )
-    normalizer = SequencePromptRenderer(
-        [
-            rejected,
-            RenderOutcome(tmp_path / "must-not-render.mp4", "test", 1, "rendered"),
-        ]
-    )
-    pipeline = SpecialistGuidedLessonPipeline(
-        artifact_root=tmp_path / "artifacts",
-        specialist=specialist,
-        normalizer=normalizer,
-    )
-
-    with pytest.raises(SceneValidationError) as caught:
-        pipeline.render("job-source-rejected", "Explain eigenvectors visually.")
-
-    assert caught.value is rejected
-    assert len(normalizer.calls) == 1
-
-
-def test_failed_base_fallback_reports_pipeline_context(tmp_path: Path) -> None:
-    specialist = RecordingGenerator(ProviderError("specialist timed out"))
-    normalizer = RecordingPromptRenderer(
-        SceneValidationError(
-            "base scene was invalid",
-            diagnostics={"failure_stage": "validation"},
-        )
-    )
-    pipeline = SpecialistGuidedLessonPipeline(
-        artifact_root=tmp_path / "artifacts",
-        specialist=specialist,
-        normalizer=normalizer,
-    )
-
-    with pytest.raises(GeneratedLessonError) as caught:
-        pipeline.render("job-8", "Explain tensors visually.")
-
-    assert str(caught.value) == "base model could not generate the final lesson"
-    assert caught.value.diagnostics == {
-        "failure_stage": "validation",
-        "pipeline_stage": "base_fallback",
-        "specialist_model": "intermediate",
-    }

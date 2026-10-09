@@ -1,3 +1,6 @@
+// Implement browser and in-memory transports for the lesson-job API.
+// Both transports preserve the same prompt submission and polling contract.
+
 import type { CreateLessonInput, LessonJob, LessonTransport } from "./contracts";
 
 export class HttpLessonTransport implements LessonTransport {
@@ -7,7 +10,7 @@ export class HttpLessonTransport implements LessonTransport {
     return this.request("/lessons", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prompt: input.prompt, difficulty: input.difficulty }),
+      body: JSON.stringify({ prompt: input.prompt }),
     });
   }
 

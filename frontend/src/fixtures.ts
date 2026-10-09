@@ -1,11 +1,15 @@
+// Provide deterministic lesson states for frontend workflow and artifact tests.
+// Fixtures mirror the public lesson-job contract exposed by the backend.
+
 import type { LessonJob } from "./contracts";
 
 const base: LessonJob = {
   id: "demo",
   lesson: "pythagorean-theorem",
   status: "queued",
-  stage: "routing",
+  stage: "accepted",
   created_at: "2026-09-19T18:00:00Z",
+  attempt: 0,
   started_at: null,
   completed_at: null,
   explanation: null,
@@ -39,14 +43,6 @@ export const narratedLesson: LessonJob = {
   silent_video_url: "/lessons/demo/video/silent",
   captions_url: "/lessons/demo/captions",
   narration_status: "ready",
-};
-
-export const silentFallbackLesson: LessonJob = {
-  ...narratedLesson,
-  video_url: "/lessons/demo/video/silent",
-  captions_url: null,
-  narration_status: "unavailable",
-  diagnostics: { narration_error: "ElevenLabsError" },
 };
 
 export const partialLesson: LessonJob = {

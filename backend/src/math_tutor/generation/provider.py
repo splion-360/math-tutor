@@ -10,24 +10,13 @@ from typing import Any
 
 import httpx
 
-FROZEN_MODEL = "Qwen/Qwen3-4B"
-SPECIALIST_SYSTEM_PROMPT = (
+BASE_MODEL = "Qwen/Qwen3-4B-Instruct-2507"
+BASE_MODEL_REVISION = "1b4199c4f36b0cef378bfb12390c18780c18af4c"
+SHARED_ADAPTER_MODEL = "shared-lora-qwen3-4b-manim-v1"
+SYSTEM_PROMPT = (
     "You generate concise, runnable Manim Community Edition Python scenes for math tutoring. "
     "Return only Python code."
 )
-SYSTEM_PROMPT = """You generate one self-contained Manim Community Python scene.
-Return exactly one Python code fence and no prose.
-The code must import only from manim, math, or numpy.
-Start the code with exactly these three lines:
-from manim import *
-import math
-import numpy as np
-Define exactly one renderable class named GeneratedLesson that inherits from Scene.
-For directions, use only UP, DOWN, LEFT, RIGHT, UL, UR, DL, or DR; never use LR.
-Never pass a Mobject method to self.play; use object.animate.method(arguments) instead.
-Do not access files, the network, subprocesses, environment variables, or dynamic execution.
-Keep the lesson concise and use only APIs available in Manim Community v0.19.
-"""
 VOICEOVER_SYSTEM_PROMPT = """You generate one self-contained narrated Manim Community Python scene.
 Return exactly one Python code fence and no prose.
 Start the code with exactly these five lines:
@@ -64,7 +53,7 @@ class ProviderError(RuntimeError):
 class GenerationConfig:
     """Deterministic decoding configuration for one model client."""
 
-    model: str = FROZEN_MODEL
+    model: str = SHARED_ADAPTER_MODEL
     temperature: float = 0.0
     top_p: float = 1.0
     max_tokens: int = 4096
@@ -127,6 +116,7 @@ class ModalVllmClient:
             headers=headers,
             timeout=timeout_seconds,
             transport=transport,
+            follow_redirects=True,
         )
 
     def generate(self, prompt: str) -> GenerationResult:

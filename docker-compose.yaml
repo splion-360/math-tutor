@@ -5,14 +5,6 @@ services:
     image: manimcommunity/manim@sha256:ab5ad56cf685d89da96e5d459e0cde3743fbdf2141be4dcff6c26566b5ca3191
     entrypoint: ["python", "-c", "import manim"]
 
-  manim-voiceover:
-    build:
-      context: ./backend
-      dockerfile: renderer.Dockerfile
-    image: math-tutor-manim-voiceover:local
-    pull_policy: build
-    entrypoint: ["python", "-c", "import manim_voiceover"]
-
   backend:
     build:
       context: ./backend
@@ -32,8 +24,6 @@ services:
       - "8000:8000"
     depends_on:
       manim:
-        condition: service_completed_successfully
-      manim-voiceover:
         condition: service_completed_successfully
     healthcheck:
       test:

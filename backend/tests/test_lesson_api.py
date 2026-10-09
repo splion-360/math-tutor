@@ -7,11 +7,10 @@ from pathlib import Path
 from threading import Event
 from time import monotonic, sleep
 
-import pytest
 from fastapi.testclient import TestClient
 
 from math_tutor.api import create_app, to_response
-from math_tutor.domain import Difficulty
+from math_tutor.domain import LessonStage
 from math_tutor.generation.provider import ModelHealth, ProviderError
 from math_tutor.jobs import (
     JobExecutionError,
@@ -118,14 +117,15 @@ def test_submit_known_lesson_returns_before_render_and_can_be_polled(tmp_path: P
     service = LessonService(renderer=renderer)
 
     with TestClient(create_app(service)) as client:
-        submitted = client.post("/lessons", json={"lesson": "pythagorean-theorem"})
+        submitted = client.post("/lessons", json={"prompt": "Explain the Pythagorean theorem."})
 
         assert submitted.status_code == 202
         queued = submitted.json()
         assert queued["id"]
-        assert queued["lesson"] == "pythagorean-theorem"
+        assert queued["lesson"] == "Explain the Pythagorean theorem."
         assert queued["status"] == "queued"
-        assert queued["stage"] == "routing"
+        assert queued["stage"] == "accepted"
+        assert queued["attempt"] == 0
         assert queued["video_url"] is None
         assert queued["silent_video_url"] is None
         assert queued["captions_url"] is None
@@ -162,7 +162,7 @@ def test_render_failure_reaches_terminal_failed_state() -> None:
     service = LessonService(renderer=FailedRenderer())
 
     with TestClient(create_app(service)) as client:
-        submitted = client.post("/lessons", json={"lesson": "pythagorean-theorem"})
+        submitted = client.post("/lessons", json={"prompt": "Explain the Pythagorean theorem."})
         failed = wait_for_status(client, submitted.json()["id"], "failed")
 
     assert failed["completed_at"] is not None
@@ -176,10 +176,11 @@ def test_render_failure_exposes_bounded_diagnostics() -> None:
     service = LessonService(renderer=DiagnosticFailedRenderer())
 
     with TestClient(create_app(service)) as client:
-        submitted = client.post("/lessons", json={"lesson": "pythagorean-theorem"})
+        submitted = client.post("/lessons", json={"prompt": "Explain the Pythagorean theorem."})
         failed = wait_for_status(client, submitted.json()["id"], "failed")
 
     assert failed["diagnostics"] == {
+        "failed_stage": "accepted",
         "renderer": "diagnostic-test-renderer",
         "logs": "container exited 42",
         "metadata_file": "render.json",
@@ -212,7 +213,7 @@ def test_useful_incomplete_result_reaches_terminal_partial_state() -> None:
     service = LessonService(renderer=PartialRenderer())
 
     with TestClient(create_app(service)) as client:
-        submitted = client.post("/lessons", json={"lesson": "pythagorean-theorem"})
+        submitted = client.post("/lessons", json={"prompt": "Explain the Pythagorean theorem."})
         partial = wait_for_status(client, submitted.json()["id"], "partial")
 
     assert partial["completed_at"] is not None
@@ -227,10 +228,10 @@ def test_submission_is_rejected_when_render_capacity_is_full(tmp_path: Path) -> 
     service = LessonService(renderer=renderer, max_pending_jobs=1)
 
     with TestClient(create_app(service)) as client:
-        first = client.post("/lessons", json={"lesson": "pythagorean-theorem"})
+        first = client.post("/lessons", json={"prompt": "Explain the Pythagorean theorem."})
         assert renderer.started.wait(timeout=1)
 
-        second = client.post("/lessons", json={"lesson": "pythagorean-theorem"})
+        second = client.post("/lessons", json={"prompt": "Explain the Pythagorean theorem."})
 
         assert first.status_code == 202
         assert second.status_code == 503
@@ -254,7 +255,7 @@ def test_narrated_lesson_exposes_best_silent_and_caption_artifacts(tmp_path: Pat
     )
 
     with TestClient(create_app(service)) as client:
-        submitted = client.post("/lessons", json={"lesson": "pythagorean-theorem"})
+        submitted = client.post("/lessons", json={"prompt": "Explain the Pythagorean theorem."})
         assert submitted.json()["narration_status"] == "pending"
         job_id = submitted.json()["id"]
         ready = wait_for_status(client, job_id, "ready")
@@ -280,24 +281,42 @@ def test_narrated_lesson_exposes_best_silent_and_caption_artifacts(tmp_path: Pat
     assert captions_response.text == "WEBVTT\n"
 
 
-def test_generated_demo_uses_the_same_asynchronous_job_contract(tmp_path: Path) -> None:
+def test_prompt_uses_the_asynchronous_job_contract(tmp_path: Path) -> None:
     video = tmp_path / "generated.mp4"
 
     class GeneratedRenderer:
         def render(self, job_id: str, lesson: str) -> RenderOutcome:
-            assert lesson == "generated-demo"
+            assert lesson == "Explain Taylor series."
             video.write_bytes(b"video")
-            return RenderOutcome(video, "generated-renderer", 0.1, "rendered")
+            return RenderOutcome(
+                video,
+                "generated-renderer",
+                0.1,
+                "rendered",
+                generated_code="from manim import *",
+            )
 
     service = LessonService(renderer=GeneratedRenderer())
 
     with TestClient(create_app(service)) as client:
-        submitted = client.post("/lessons", json={"lesson": "generated-demo"})
+        submitted = client.post("/lessons", json={"prompt": "Explain Taylor series."})
         ready = wait_for_status(client, submitted.json()["id"], "ready")
 
     assert submitted.status_code == 202
-    assert ready["lesson"] == "generated-demo"
+    assert ready["lesson"] == "Explain Taylor series."
     assert ready["video_url"] is not None
+    assert ready["generated_code"] == "from manim import *"
+
+
+def test_job_store_tracks_the_single_repair_attempt() -> None:
+    store = JobStore()
+    job = store.create("Explain limits visually.")
+
+    repaired = store.mark_stage(job.id, LessonStage.REPAIRING)
+    generating = store.mark_stage(job.id, LessonStage.GENERATING_CODE)
+
+    assert repaired.attempt == 1
+    assert generating.attempt == 1
 
 
 def test_typed_prompt_is_submitted_as_an_asynchronous_lesson(tmp_path: Path) -> None:
@@ -322,85 +341,16 @@ def test_typed_prompt_is_submitted_as_an_asynchronous_lesson(tmp_path: Path) -> 
     assert observed == [prompt]
 
 
-def test_explicit_difficulty_routes_prompt_to_matching_specialist(tmp_path: Path) -> None:
-    default_video = tmp_path / "default.mp4"
-    advanced_video = tmp_path / "advanced.mp4"
-
-    class RecordingRenderer:
-        def __init__(self, name: str, video: Path) -> None:
-            self.name = name
-            self.video = video
-            self.prompts: list[str] = []
-
-        def render(self, job_id: str, lesson: str) -> RenderOutcome:
-            self.prompts.append(lesson)
-            self.video.write_bytes(b"video")
-            return RenderOutcome(self.video, self.name, 0.1, "rendered")
-
-    default = RecordingRenderer("default", default_video)
-    advanced = RecordingRenderer("advanced-specialist", advanced_video)
-    service = LessonService(
-        renderer=default,
-        routed_renderers={Difficulty.ADVANCED: advanced},
-    )
+def test_difficulty_routing_input_is_rejected() -> None:
+    service = LessonService(renderer=FailedRenderer())
 
     with TestClient(create_app(service)) as client:
-        submitted = client.post(
+        response = client.post(
             "/lessons",
-            json={
-                "prompt": "Visualize the Fourier transform solution to the heat equation.",
-                "difficulty": "advanced",
-            },
+            json={"prompt": "Explain limits.", "difficulty": "advanced"},
         )
-        ready = wait_for_status(client, submitted.json()["id"], "ready")
 
-    assert submitted.status_code == 202
-    assert ready["difficulty"] == "advanced"
-    assert ready["diagnostics"]["routing_policy"] == "explicit_difficulty"
-    assert ready["diagnostics"]["renderer"] == "advanced-specialist"
-    assert default.prompts == []
-    assert advanced.prompts == ["Visualize the Fourier transform solution to the heat equation."]
-
-
-@pytest.mark.parametrize(
-    ("prompt", "expected_difficulty"),
-    [
-        ("Explain how to add two fractions.", Difficulty.FOUNDATIONAL),
-        ("Visualize the quadratic formula.", Difficulty.INTERMEDIATE),
-        (
-            "Explain the Fourier transform solution to the heat equation.",
-            Difficulty.ADVANCED,
-        ),
-    ],
-)
-def test_unlabeled_prompt_is_automatically_routed_by_difficulty(
-    tmp_path: Path,
-    prompt: str,
-    expected_difficulty: Difficulty,
-) -> None:
-    videos = {difficulty: tmp_path / f"{difficulty.value}.mp4" for difficulty in Difficulty}
-
-    class RecordingRenderer:
-        def __init__(self, difficulty: Difficulty) -> None:
-            self.difficulty = difficulty
-
-        def render(self, job_id: str, lesson: str) -> RenderOutcome:
-            video = videos[self.difficulty]
-            video.write_bytes(b"video")
-            return RenderOutcome(video, self.difficulty.value, 0.1, "rendered")
-
-    service = LessonService(
-        renderer=RecordingRenderer(Difficulty.INTERMEDIATE),
-        routed_renderers={difficulty: RecordingRenderer(difficulty) for difficulty in Difficulty},
-    )
-
-    with TestClient(create_app(service)) as client:
-        submitted = client.post("/lessons", json={"prompt": prompt})
-        ready = wait_for_status(client, submitted.json()["id"], "ready")
-
-    assert ready["difficulty"] == expected_difficulty.value
-    assert ready["diagnostics"]["renderer"] == expected_difficulty.value
-    assert ready["diagnostics"]["routing_policy"] == "automatic_heuristic"
+    assert response.status_code == 422
 
 
 def test_model_health_reports_exact_checkpoint_availability_without_secrets(
@@ -439,7 +389,7 @@ def test_missing_model_credentials_reaches_terminal_failed_state() -> None:
     service = LessonService(renderer=MissingCredentialRenderer())
 
     with TestClient(create_app(service)) as client:
-        submitted = client.post("/lessons", json={"lesson": "generated-demo"})
+        submitted = client.post("/lessons", json={"prompt": "Explain Taylor series."})
         failed = wait_for_status(client, submitted.json()["id"], "failed")
 
     assert failed["error"] == "We couldn't generate this lesson. Please try again."

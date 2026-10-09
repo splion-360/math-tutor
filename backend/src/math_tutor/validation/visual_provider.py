@@ -123,6 +123,7 @@ class ModalVisualModelClient:
             headers=headers,
             timeout=timeout_seconds,
             transport=transport,
+            follow_redirects=True,
         )
 
     def inspect(

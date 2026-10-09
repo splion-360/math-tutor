@@ -38,9 +38,7 @@ def test_settings_loads_secret_and_keeps_operational_code_defaults(
     settings = Settings.from_environment(env_file=None)
 
     assert settings.modal_vllm_api_key == SecretStr("modal-secret")
-    assert settings.elevenlabs_api_key == SecretStr("elevenlabs-secret")
     assert "modal-secret" not in repr(settings)
-    assert "elevenlabs-secret" not in repr(settings)
     assert settings.modal_vllm_base_url == "https://workspace--qwen.modal.direct/v1"
     assert settings.artifact_root == Path("artifacts")
     assert settings.render_timeout_seconds == 90
@@ -51,9 +49,7 @@ def test_settings_loads_secret_and_keeps_operational_code_defaults(
     assert settings.spatial_max_height_ratio == 0.9
     assert settings.spatial_severe_overlap_ratio == 0.35
     assert settings.spatial_persistent_checkpoints == 2
-    assert settings.modal_vllm_timeout_seconds == 120
-    assert settings.modal_specialist_timeout_seconds == 60
-    assert settings.elevenlabs_voice_id == "Xb7hH8MSUJpSbSDYk0k2"
+    assert settings.modal_vllm_timeout_seconds == 15 * 60
 
 
 def test_get_settings_returns_one_cached_settings_object(monkeypatch) -> None:
@@ -75,8 +71,7 @@ def test_settings_loads_optional_modal_vllm_connection(monkeypatch) -> None:
 
     assert settings.modal_vllm_base_url == "https://workspace--qwen.modal.direct/v1"
     assert settings.modal_vllm_api_key == SecretStr("modal-secret")
-    assert settings.modal_vllm_timeout_seconds == 120
-    assert settings.modal_specialist_timeout_seconds == 60
+    assert settings.modal_vllm_timeout_seconds == 15 * 60
     assert "modal-secret" not in repr(settings)
 
 
@@ -92,5 +87,5 @@ def test_settings_loads_separate_visual_model_connection(monkeypatch) -> None:
 
     assert settings.modal_visual_model_base_url == ("https://workspace--visual.modal.direct/v1")
     assert settings.modal_visual_model_api_key == SecretStr("visual-secret")
-    assert settings.modal_visual_model_timeout_seconds == 45
+    assert settings.modal_visual_model_timeout_seconds == 10 * 60
     assert "visual-secret" not in repr(settings)

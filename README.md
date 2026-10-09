@@ -1,7 +1,6 @@
 # Math Tutor
 
-Math Tutor is a simple agentic application that turns a math prompt into an animated lesson with optional narration synchronized to the video.
-
+Math Tutor turns a math prompt into an animated visual lesson.
 
 ## Demo
 
@@ -10,11 +9,10 @@ Math Tutor is a simple agentic application that turns a math prompt into an anim
 ## How it works
 
 Math Tutor turns a question into a Manim scene and renders it as an animated lesson.
-The generation model was LoRA fine-tuned on
+The generation model uses one shared LoRA adapter fine-tuned on
 [Bespoke-Manim](https://huggingface.co/datasets/bespokelabs/bespoke-manim), a dataset
-of prompts paired with animation plans, narration, and Manim code. The project also
-contains foundational, intermediate, and advanced adapters for studying difficulty-based
-routing. Requests can use an explicit difficulty or the application's routing heuristic.
+of prompts paired with animation plans, narration, and Manim code. Every prompt follows
+the same adapter path, including the single repair attempt allowed after validation.
 
 Generated source must pass deterministic admission checks before it can run in an
 isolated renderer. A successful render produces one immutable validation input containing
@@ -39,15 +37,12 @@ Every configured axis is required. Before the validators start, the suite checks
 immutable input declares the exact checks registered by those validators. A missing or
 mismatched contract produces `validator_error` results for every axis and blocks publication.
 
-![Math Tutor generates and renders a lesson, runs media, spatial, and visual validation in parallel, and permits one evidence-based repair.](assets/math-tutor-system.drawio.svg)
-
-
 ## Setup
 
 ### Prerequisites
 
 - An existing Modal inference endpoint and its authentication token
-- Optional: an ElevenLabs API key for narration and captions
+- An existing Modal visual-validation endpoint using the same authentication token
 
 ### Configuration
 
@@ -61,11 +56,10 @@ Edit `backend/.env` to configure lesson generation:
 
 | Variable | Used for |
 | --- | --- |
-| `MODAL_VLLM_BASE_URL` | An existing Modal inference endpoint, including `/v1`; selects the three-adapter serving path |
+| `MODAL_VLLM_BASE_URL` | The Modal shared-adapter inference endpoint, including `/v1` |
 | `MODAL_VLLM_API_KEY` | Authentication with that endpoint |
 | `MODAL_VISUAL_MODEL_BASE_URL` | An existing Modal vision endpoint, including `/v1`, used for sampled-frame checks |
 | `MODAL_VISUAL_MODEL_API_KEY` | Authentication with the vision endpoint |
-| `ELEVENLABS_API_KEY` | Optional narration and captions |
 
 The service stops publication when the visual endpoint is not configured or cannot
 complete its check. This produces a `validator_error`; it does not consume the repair attempt.
@@ -76,7 +70,7 @@ complete its check. This produces a `validator_error`; it does not consume the r
 docker compose up --build
 ```
 
-Compose prepares the rendering images and starts the backend and frontend.
+Compose prepares the rendering image and starts the backend and frontend.
 Python, Node.js, and FFmpeg are included in the containers.
 
 Stop the app with `docker compose down`. Generated files are saved in

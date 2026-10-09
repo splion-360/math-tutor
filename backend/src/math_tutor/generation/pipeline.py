@@ -19,7 +19,11 @@ from math_tutor.generation.errors import (
 )
 from math_tutor.generation.provider import GenerationConfig, GenerationResult, ProviderError
 from math_tutor.generation.repair import build_repair_prompt
-from math_tutor.generation.source import ExtractedScene, extract_and_validate_scene
+from math_tutor.generation.source import (
+    ExtractedScene,
+    extract_and_validate_raw_scene,
+    extract_and_validate_scene,
+)
 from math_tutor.jobs import RenderOutcome, is_safe_job_id
 from math_tutor.rendering.manim import RenderError, RenderTimedOut
 from math_tutor.validation.models import (
@@ -57,36 +61,7 @@ class PromptLessonRenderer(Protocol):
         ...
 
 
-InferencePath = Literal["base_model", "lora_adapter"]
-
-
-class VoiceoverFallbackRenderer:
-    """Fall back to a silent lesson when voiceover rendering fails."""
-
-    def __init__(
-        self,
-        *,
-        primary: PromptLessonRenderer,
-        fallback: PromptLessonRenderer,
-    ) -> None:
-        self._primary = primary
-        self._fallback = fallback
-
-    def render(self, job_id: str, prompt: str | None = None) -> RenderOutcome:
-        """Render narrated media when available, otherwise return the silent result."""
-        try:
-            outcome = self._primary.render(job_id, prompt)
-        except RenderError as error:
-            attempt_count = error.diagnostics.get("attempt_count")
-            if isinstance(attempt_count, int) and attempt_count >= 2:
-                raise
-            fallback = self._fallback.render(f"{job_id}-silent", prompt)
-            return replace(
-                fallback,
-                narration_status=NarrationStatus.UNAVAILABLE,
-                narration_diagnostics={"voiceover_error": str(error)},
-            )
-        return replace(outcome, narration_status=NarrationStatus.READY)
+InferencePath = Literal["lora_adapter"]
 
 
 class GeneratedLessonPipeline:
@@ -104,7 +79,7 @@ class GeneratedLessonPipeline:
         validator: Independent rendered-attempt validator.
         max_repair_attempts: Maximum model regenerations after the initial attempt.
         stage_reporter: Optional job progress callback.
-        narration_status_override: Status recorded for a successful silent fallback.
+        narration_status_override: Optional status recorded for a successful silent render.
     """
 
     def __init__(
@@ -116,7 +91,7 @@ class GeneratedLessonPipeline:
         renderer: SourceRenderer,
         voiceover: bool = False,
         captions_required: bool = False,
-        inference_path: InferencePath = "base_model",
+        inference_path: InferencePath = "lora_adapter",
         generation_provider: str = "configured_generator",
         validator: AttemptValidator | None = None,
         max_repair_attempts: int = 1,
@@ -403,9 +378,10 @@ class GeneratedLessonPipeline:
             GeneratedLessonError: If extraction or source admission fails.
         """
         try:
-            extracted = extract_and_validate_scene(
-                result.content,
-                voiceover=self._voiceover,
+            extracted = (
+                extract_and_validate_scene(result.content, voiceover=True)
+                if self._voiceover
+                else extract_and_validate_raw_scene(result.content)
             )
         except GeneratedLessonError as error:
             metadata["status"] = f"{error.diagnostics.get('failure_stage', 'validation')}_failed"
@@ -496,6 +472,7 @@ class GeneratedLessonPipeline:
                 "inference_path": self._inference_path,
                 "inference_model": result.model,
             },
+            generated_code=extracted.source,
         )
         (attempt_dir / "render.log").write_text(outcome.logs, encoding="utf-8")
         return RenderedAttempt(
@@ -630,8 +607,8 @@ class GeneratedLessonPipeline:
                     message="Generated source did not pass deterministic admission checks.",
                     evidence=evidence,
                     repair_instruction=(
-                        "Return exactly one complete Python code fence whose GeneratedLesson "
-                        f"scene satisfies this admission error: {error}"
+                        "Return only one complete Manim Python scene that satisfies this "
+                        f"admission error: {error}"
                     ),
                 ),
             ),

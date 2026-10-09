@@ -1,4 +1,4 @@
-"""Define stable lesson job, routing, and progress domain types.
+"""Define stable lesson job and progress domain types.
 These records are shared by orchestration, persistence, and the HTTP API."""
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ class LessonStatus(StrEnum):
 class LessonStage(StrEnum):
     """User-visible processing stage for an active lesson job."""
 
-    ROUTING = "routing"
+    ACCEPTED = "accepted"
     GENERATING_CODE = "generating_code"
     VALIDATING_CODE = "validating_code"
     RENDERING = "rendering"
@@ -36,14 +36,6 @@ class LessonStage(StrEnum):
     REPAIRING = "repairing"
     READY = "ready"
     FAILED = "failed"
-
-
-class Difficulty(StrEnum):
-    """Difficulty labels supported by specialist routing."""
-
-    FOUNDATIONAL = "foundational"
-    INTERMEDIATE = "intermediate"
-    ADVANCED = "advanced"
 
 
 class NarrationStatus(StrEnum):
@@ -64,7 +56,7 @@ class LessonJob:
     status: LessonStatus
     stage: LessonStage
     created_at: datetime
-    difficulty: Difficulty | None = None
+    attempt: int = 0
     started_at: datetime | None = None
     completed_at: datetime | None = None
     video_path: str | None = None

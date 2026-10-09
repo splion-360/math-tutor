@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from math_tutor.generation.provider import (
+    SHARED_ADAPTER_MODEL,
     VOICEOVER_SYSTEM_PROMPT,
     GenerationConfig,
     ModalVllmClient,
@@ -29,7 +30,7 @@ def test_generate_sends_frozen_decoding_config_and_preserves_usage() -> None:
             200,
             json={
                 "id": "chatcmpl-123",
-                "model": "Qwen/Qwen3-4B",
+                "model": SHARED_ADAPTER_MODEL,
                 "choices": [
                     {
                         "index": 0,
@@ -62,7 +63,7 @@ def test_generate_sends_frozen_decoding_config_and_preserves_usage() -> None:
         "url": "https://workspace--qwen.modal.direct/v1/chat/completions",
         "authorization": "Bearer modal-secret",
         "payload": {
-            "model": "Qwen/Qwen3-4B",
+            "model": SHARED_ADAPTER_MODEL,
             "messages": [
                 {"role": "system", "content": config.system_prompt},
                 {"role": "user", "content": "Explain a derivative visually."},
@@ -75,7 +76,7 @@ def test_generate_sends_frozen_decoding_config_and_preserves_usage() -> None:
         },
     }
     assert result.content == "```python\nfrom manim import *\n```"
-    assert result.model == "Qwen/Qwen3-4B"
+    assert result.model == SHARED_ADAPTER_MODEL
     assert result.request_id == "chatcmpl-123"
     assert result.finish_reason == "stop"
     assert result.usage.prompt_tokens == 23
@@ -85,11 +86,13 @@ def test_generate_sends_frozen_decoding_config_and_preserves_usage() -> None:
     assert json.loads(result.provider_response)["id"] == "chatcmpl-123"
 
 
-def test_system_prompt_requires_imports_for_every_referenced_module() -> None:
+def test_system_prompt_matches_the_shared_adapter_training_contract() -> None:
     config = GenerationConfig()
 
-    assert "Start the code with exactly these three lines" in config.system_prompt
-    assert "from manim import *\nimport math\nimport numpy as np" in config.system_prompt
+    assert config.system_prompt == (
+        "You generate concise, runnable Manim Community Edition Python scenes for math "
+        "tutoring. Return only Python code."
+    )
 
 
 def test_voiceover_prompt_requires_timed_narration_blocks() -> None:
@@ -119,9 +122,33 @@ def test_health_distinguishes_reachable_api_from_unavailable_model() -> None:
     health = client.health()
 
     assert health.reachable is True
-    assert health.model == "Qwen/Qwen3-4B"
+    assert health.model == SHARED_ADAPTER_MODEL
     assert health.model_available is False
     assert health.error is None
+
+
+def test_health_follows_modal_web_server_startup_redirect() -> None:
+    requests = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        if requests == 1:
+            return httpx.Response(303, headers={"location": str(request.url)})
+        return httpx.Response(200, json={"data": [{"id": SHARED_ADAPTER_MODEL}]})
+
+    client = ModalVllmClient(
+        api_key="modal-secret",
+        config=GenerationConfig(),
+        base_url=MODAL_BASE_URL,
+        transport=httpx.MockTransport(handler),
+    )
+
+    health = client.health()
+
+    assert requests == 2
+    assert health.reachable is True
+    assert health.model_available is True
 
 
 def test_provider_error_does_not_expose_credentials_or_response_body() -> None:
@@ -159,7 +186,7 @@ def test_malformed_success_response_is_a_sanitized_provider_error() -> None:
         client.generate("Prompt")
 
 
-def test_modal_vllm_sends_selected_adapter_to_openai_compatible_endpoint() -> None:
+def test_modal_vllm_sends_shared_adapter_to_openai_compatible_endpoint() -> None:
     observed: dict[str, object] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -169,7 +196,7 @@ def test_modal_vllm_sends_selected_adapter_to_openai_compatible_endpoint() -> No
             200,
             json={
                 "id": "chatcmpl-modal-123",
-                "model": "advanced",
+                "model": SHARED_ADAPTER_MODEL,
                 "choices": [
                     {
                         "message": {"role": "assistant", "content": "```python\npass\n```"},
@@ -180,7 +207,7 @@ def test_modal_vllm_sends_selected_adapter_to_openai_compatible_endpoint() -> No
             },
         )
 
-    config = GenerationConfig(model="advanced")
+    config = GenerationConfig(model=SHARED_ADAPTER_MODEL)
     client = ModalVllmClient(
         api_key="modal-token",
         config=config,
@@ -193,7 +220,7 @@ def test_modal_vllm_sends_selected_adapter_to_openai_compatible_endpoint() -> No
     assert observed == {
         "authorization": "Bearer modal-token",
         "payload": {
-            "model": "advanced",
+            "model": SHARED_ADAPTER_MODEL,
             "messages": [
                 {"role": "system", "content": config.system_prompt},
                 {"role": "user", "content": "Explain a derivative visually."},
@@ -205,4 +232,4 @@ def test_modal_vllm_sends_selected_adapter_to_openai_compatible_endpoint() -> No
             "chat_template_kwargs": {"enable_thinking": False},
         },
     }
-    assert result.model == "advanced"
+    assert result.model == SHARED_ADAPTER_MODEL

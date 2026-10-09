@@ -33,29 +33,13 @@ const examples = [
   "Fourier transform from heat diffusion",
 ];
 
-const progressSteps = [
-  "Route prompt",
-  "Generate code",
-  "Validate code",
-  "Render + narrate",
-  "Validate output",
-];
-
-const stageOrder: LessonStage[] = [
-  "routing",
-  "generating_code",
-  "validating_code",
-  "rendering",
-  "validating_output",
-];
-
 const stageLabels: Record<LessonStage, string> = {
-  routing: "Routing prompt",
-  generating_code: "Generating code",
-  validating_code: "Validating code",
-  rendering: "Rendering + narrating",
-  validating_output: "Validating output",
-  repairing: "Repairing lesson",
+  accepted: "Prompt accepted",
+  generating_code: "Generating with the shared LoRA",
+  validating_code: "Checking generated source",
+  rendering: "Rendering the Manim scene",
+  validating_output: "Running validators in parallel",
+  repairing: "Sending validator feedback to the shared LoRA",
   ready: "Ready",
   failed: "Failed",
 };
@@ -104,7 +88,7 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
             <small>Visual math studio</small>
           </span>
         </a>
-        <span className="engine-pill">Modal Qwen · LoRA specialists · Manim</span>
+        <span className="engine-pill">Shared LoRA · Manim · Parallel validation</span>
       </header>
 
       <section className="workspace-grid">
@@ -142,8 +126,8 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
           </button>
 
           <div className="composer-meta">
-            <span>1080p · 60 fps</span>
-            <span>Typical render 18–24 sec</span>
+            <span>One shared adapter</span>
+            <span>One repair attempt</span>
           </div>
         </form>
 
@@ -155,6 +139,8 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
             </div>
             <StatusBadge lesson={lesson} busy={busy} />
           </div>
+
+          <WorkflowGraph lesson={lesson} />
 
           <div className="artifact-toolbar" aria-label="Lesson artifact controls">
             <div className="segmented-control" role="group" aria-label="Choose lesson artifact">
@@ -218,6 +204,7 @@ function LessonResult({ lesson }: { lesson: LessonJob }) {
         </div>
         <StatusBadge lesson={lesson} busy={false} />
       </div>
+      <WorkflowGraph lesson={lesson} />
       <div className="artifact-toolbar" aria-label="Lesson artifact controls">
         <div className="segmented-control" role="group" aria-label="Choose lesson artifact">
           <button
@@ -290,20 +277,147 @@ function EmptyVideo() {
   );
 }
 
-function GeneratingVideo({ lesson }: { lesson: LessonJob; busy: boolean }) {
-  const progressState = useRef({ jobId: lesson.id, furthestStage: -1 });
-  if (progressState.current.jobId !== lesson.id) {
-    progressState.current = { jobId: lesson.id, furthestStage: -1 };
-  }
-  const reportedStage = lesson.stage === "repairing"
-    ? stageOrder.length - 1
-    : stageOrder.indexOf(lesson.stage);
-  progressState.current.furthestStage = Math.max(
-    progressState.current.furthestStage,
-    reportedStage,
+type WorkflowNodeState = "pending" | "running" | "passed" | "failed" | "uncertain";
+
+interface WorkflowNode {
+  id: string;
+  label: string;
+  state: WorkflowNodeState;
+}
+
+function WorkflowGraph({ lesson }: { lesson: LessonJob | null }) {
+  const nodes = workflowNodes(lesson);
+  const node = (id: string) => nodes.find((item) => item.id === id)!;
+  const repairLabel = lesson
+    && lesson.attempt > 0
+    && (lesson.status === "queued" || lesson.status === "running")
+    ? `Repair attempt ${lesson.attempt}`
+    : null;
+
+  return (
+    <section className="workflow" aria-label="Lesson generation workflow">
+      <div className="workflow-heading">
+        <span>Workflow</span>
+        <strong>{repairLabel ?? (lesson ? stageLabels[lesson.stage] : "Waiting for a prompt")}</strong>
+      </div>
+      <div className="workflow-graph">
+        <WorkflowNodeView node={node("prompt")} />
+        <WorkflowArrow />
+        <WorkflowNodeView node={node("adapter")} />
+        <WorkflowArrow />
+        <WorkflowNodeView node={node("source")} />
+        <WorkflowArrow />
+        <WorkflowNodeView node={node("render")} />
+        <WorkflowArrow />
+        <div className="workflow-validation" aria-label="Parallel validators">
+          <span className="workflow-branch-label">Parallel validation</span>
+          <WorkflowNodeView node={node("media")} />
+          <WorkflowNodeView node={node("spatial")} />
+          <WorkflowNodeView node={node("visual")} />
+        </div>
+        <WorkflowArrow />
+        <WorkflowNodeView node={node("publish")} />
+      </div>
+    </section>
   );
-  const activeStage = progressState.current.furthestStage;
-  const progress = activeStage < 0 ? 100 : ((activeStage + 0.5) / stageOrder.length) * 100;
+}
+
+function WorkflowNodeView({ node }: { node: WorkflowNode }) {
+  const symbol = node.state === "passed"
+    ? "✓"
+    : node.state === "failed"
+      ? "×"
+      : node.state === "uncertain"
+        ? "?"
+        : node.state === "running"
+          ? "●"
+          : "○";
+  return (
+    <div className={`workflow-node workflow-${node.state}`} data-node={node.id}>
+      <span aria-hidden="true">{symbol}</span>
+      <strong>{node.label}</strong>
+      <small>{workflowStateLabel(node.state)}</small>
+    </div>
+  );
+}
+
+function WorkflowArrow() {
+  return <span className="workflow-arrow" aria-hidden="true">→</span>;
+}
+
+function workflowNodes(lesson: LessonJob | null): WorkflowNode[] {
+  const labels: Record<string, string> = {
+    prompt: "Prompt",
+    adapter: "Shared LoRA",
+    source: "Source check",
+    render: "Manim render",
+    media: "Media",
+    spatial: "Layout",
+    visual: "Visual",
+    publish: "Video ready",
+  };
+  const states = Object.fromEntries(
+    Object.keys(labels).map((id) => [id, "pending" as WorkflowNodeState]),
+  );
+  if (!lesson) return Object.entries(labels).map(([id, label]) => ({ id, label, state: states[id] }));
+
+  states.prompt = "passed";
+  const stage = lesson.stage;
+  const stageIndex = ["accepted", "generating_code", "validating_code", "rendering", "validating_output", "ready"].indexOf(stage);
+  if (stageIndex >= 1 || stage === "repairing") states.adapter = "passed";
+  if (stageIndex >= 2) states.source = "passed";
+  if (stageIndex >= 3) states.render = "passed";
+  if (stageIndex >= 4) {
+    states.media = "running";
+    states.spatial = "running";
+    states.visual = "running";
+  }
+  if (stage === "accepted") states.prompt = "running";
+  if (stage === "generating_code" || stage === "repairing") states.adapter = "running";
+  if (stage === "validating_code") states.source = "running";
+  if (stage === "rendering") states.render = "running";
+
+  const axes = readValidationAxes(lesson.diagnostics);
+  for (const axis of axes) {
+    const id = axis.validator === "visual_evidence" ? "visual" : axis.validator;
+    if (!(id in states)) continue;
+    states[id] = axis.status === "pass"
+      ? "passed"
+      : axis.status === "uncertain"
+        ? "uncertain"
+        : "failed";
+  }
+
+  if (lesson.status === "ready") {
+    for (const id of Object.keys(states)) states[id] = "passed";
+  } else if (lesson.status === "failed" || lesson.status === "partial") {
+    const failedNode = failedWorkflowNode(lesson);
+    if (failedNode) states[failedNode] = "failed";
+  }
+
+  return Object.entries(labels).map(([id, label]) => ({ id, label, state: states[id] }));
+}
+
+function failedWorkflowNode(lesson: LessonJob): string | null {
+  const failure = readText(lesson.diagnostics, ["failure_stage", "failed_stage"]);
+  if (failure === "provider" || failure === "generating_code") return "adapter";
+  if (["extraction", "parse", "validation", "validating_code"].includes(failure ?? "")) {
+    return "source";
+  }
+  if (failure === "render" || failure === "rendering") return "render";
+  if (failure === "output_validation" || failure === "validating_output") return null;
+  return "publish";
+}
+
+function workflowStateLabel(state: WorkflowNodeState) {
+  if (state === "running") return "Running";
+  if (state === "passed") return "Passed";
+  if (state === "failed") return "Failed";
+  if (state === "uncertain") return "Uncertain";
+  return "Waiting";
+}
+
+function GeneratingVideo({ lesson }: { lesson: LessonJob; busy: boolean }) {
   const heading = lesson.status === "queued"
     ? "Queued for a render worker"
     : stageLabels[lesson.stage];
@@ -318,27 +432,7 @@ function GeneratingVideo({ lesson }: { lesson: LessonJob; busy: boolean }) {
       <div className="generation-center">
         <span className="spinner-mark">∑</span>
         <h3>{heading}</h3>
-        <div className="progress-track">
-          <span style={{ width: `${progress}%` }} />
-        </div>
-      </div>
-      <div className="inline-steps">
-        {progressSteps.map((step, index) => {
-          const className = index < activeStage
-            ? "is-complete"
-            : index === activeStage
-              ? "is-active"
-              : "";
-          return (
-            <div
-              key={step}
-              className={className}
-            >
-              <span />
-              <p>{index + 1}. {step}</p>
-            </div>
-          );
-        })}
+        <p>Follow the workflow above for live progress.</p>
       </div>
     </div>
   );
@@ -421,7 +515,7 @@ function SupportTabs({ lesson }: { lesson: LessonJob | null }) {
               </p>
             </section>
             <section className="detail-card adapter-card">
-              <p className="section-kicker">Model routing</p>
+              <p className="section-kicker">Generation</p>
               <h2>Inference trace</h2>
               <InferenceRouting lesson={lesson} />
             </section>
@@ -444,7 +538,7 @@ function SupportTabs({ lesson }: { lesson: LessonJob | null }) {
           </article>
         ) : (
           <div className="awaiting-content">
-            Generate a visual lesson to unlock its explanation and adapter diagnostics.
+            Generate a visual lesson to see its explanation and validation results.
           </div>
         )}
       </div>
@@ -453,48 +547,23 @@ function SupportTabs({ lesson }: { lesson: LessonJob | null }) {
 }
 
 function InferenceRouting({ lesson }: { lesson: LessonJob }) {
-  const reportedPath = readText(lesson.diagnostics, ["routing_path", "inference_path"]);
-  const usesBaseNormalizer = reportedPath === "lora_adapter_with_base_normalizer";
-  const usesAdapter = reportedPath === "lora_adapter" || usesBaseNormalizer || (
-    reportedPath === null && lesson.difficulty != null
-  );
-  const inferenceModel = readText(lesson.diagnostics, ["inference_model"]);
-  const specialistModel = readText(lesson.diagnostics, ["specialist_model"])
-    ?? lesson.difficulty;
-  const normalizationModel = readText(lesson.diagnostics, ["normalization_model"])
-    ?? inferenceModel;
-  const model = usesBaseNormalizer
-    ? `${specialistModel ?? "LoRA specialist"} → ${normalizationModel ?? "base model"}`
-    : inferenceModel ?? (usesAdapter ? lesson.difficulty : "Qwen/Qwen3-4B");
-  const policy = readText(lesson.diagnostics, ["routing_policy"]);
-  const fallback = readText(lesson.diagnostics, ["routing_fallback"]);
-  const route = policy === "automatic_heuristic"
-    ? fallback === "base_model"
-      ? "Automatic heuristic · base fallback"
-      : "Automatic heuristic"
-    : policy === "explicit_difficulty" || usesAdapter
-      ? fallback === "base_model"
-        ? "Explicit specialist route · base fallback"
-        : "Explicit specialist route"
-      : "Default synchronized path";
+  const model = readText(lesson.diagnostics, ["inference_model"])
+    ?? "shared-lora-qwen3-4b-manim-v1";
+  const repairCount = lesson.attempt || Number(lesson.diagnostics.repair_count ?? 0);
 
   return (
     <div className="adapter-routing">
       <div>
         <span>Inference</span>
-        <strong>
-          {usesBaseNormalizer
-            ? "LoRA specialist + base normalizer"
-            : usesAdapter ? "LoRA specialist" : "Base model"}
-        </strong>
+        <strong>Shared LoRA</strong>
       </div>
       <div>
-        <span>Model or adapter</span>
+        <span>Adapter</span>
         <strong>{model}</strong>
       </div>
       <div>
-        <span>Routing</span>
-        <strong>{route}</strong>
+        <span>Generation path</span>
+        <strong>{repairCount > 0 ? `Direct · ${repairCount} repair` : "Direct"}</strong>
       </div>
     </div>
   );
@@ -519,15 +588,14 @@ function lessonTitle(lesson: LessonJob) {
   if (lesson.status === "queued") return "Queued";
   if (lesson.status === "running") return "Rendering";
   if (lesson.narration_status === "ready") return "Narrated lesson ready";
-  if (lesson.narration_status === "unavailable") return "Video ready · narration unavailable";
   return "Video ready";
 }
 
 function narrationLabel(status: NarrationStatus) {
   if (status === "ready") return "Voice + captions";
   if (status === "pending") return "Narration pending";
-  if (status === "unavailable") return "Silent fallback active";
-  return "Narration not requested";
+  if (status === "unavailable") return "Narration unavailable";
+  return "Silent lesson";
 }
 
 function artifactStatus(lesson: LessonJob | null, captionsEnabled: boolean) {

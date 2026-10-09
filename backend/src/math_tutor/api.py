@@ -7,41 +7,30 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.concurrency import run_in_threadpool
 
-from math_tutor.domain import (
-    Difficulty,
-    LessonJob,
-    LessonStage,
-    LessonStatus,
-    NarrationStatus,
-)
-from math_tutor.generation.provider import FROZEN_MODEL, ModelHealth
-from math_tutor.generation.routing import infer_difficulty
+from math_tutor.domain import LessonJob, LessonStage, LessonStatus, NarrationStatus
+from math_tutor.generation.provider import SHARED_ADAPTER_MODEL, ModelHealth
 from math_tutor.jobs import JobNotFoundError, LessonService, RenderQueueFullError
 
 
 class CreateLessonRequest(BaseModel):
-    """Request containing either a known lesson or a free-form prompt."""
+    """Request containing one free-form math lesson prompt."""
 
-    lesson: Literal["pythagorean-theorem", "generated-demo"] | None = None
-    prompt: str | None = Field(default=None, min_length=1, max_length=2_000)
-    difficulty: Difficulty | None = None
+    model_config = ConfigDict(extra="forbid")
+
+    prompt: str = Field(min_length=1, max_length=2_000)
 
     @model_validator(mode="after")
-    def require_one_input(self) -> CreateLessonRequest:
-        """Normalize a prompt and require exactly one request input."""
-        if (self.lesson is None) == (self.prompt is None):
-            raise ValueError("provide exactly one of lesson or prompt")
-        if self.prompt is not None:
-            self.prompt = self.prompt.strip()
-            if not self.prompt:
-                raise ValueError("prompt must not be blank")
+    def normalize_prompt(self) -> CreateLessonRequest:
+        """Strip surrounding whitespace and reject a blank prompt."""
+        self.prompt = self.prompt.strip()
+        if not self.prompt:
+            raise ValueError("prompt must not be blank")
         return self
 
 
@@ -62,7 +51,7 @@ class LessonResponse(BaseModel):
     status: LessonStatus
     stage: LessonStage
     created_at: datetime
-    difficulty: Difficulty | None
+    attempt: int
     started_at: datetime | None
     completed_at: datetime | None
     video_url: str | None
@@ -91,7 +80,7 @@ def to_response(job: LessonJob) -> LessonResponse:
         status=job.status,
         stage=job.stage,
         created_at=job.created_at,
-        difficulty=job.difficulty,
+        attempt=job.attempt,
         started_at=job.started_at,
         completed_at=job.completed_at,
         video_url=video_url,
@@ -121,6 +110,7 @@ def create_app(
     Returns:
         Configured FastAPI application.
     """
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         """Close service and model resources during application shutdown."""
@@ -139,7 +129,7 @@ def create_app(
             if model_health is not None
             else ModelHealth(
                 reachable=False,
-                model=FROZEN_MODEL,
+                model=SHARED_ADAPTER_MODEL,
                 model_available=False,
                 error="model provider is not configured",
             )
@@ -157,23 +147,9 @@ def create_app(
         status_code=status.HTTP_202_ACCEPTED,
     )
     def submit_lesson(request: CreateLessonRequest) -> LessonResponse:
-        """Queue a known or prompted lesson for asynchronous rendering."""
-        difficulty = request.difficulty
-        routing_policy = "default"
-        if request.prompt is not None:
-            if difficulty is None:
-                difficulty = infer_difficulty(request.prompt)
-                routing_policy = "automatic_heuristic"
-            else:
-                routing_policy = "explicit_difficulty"
+        """Queue a prompted lesson for asynchronous rendering."""
         try:
-            return to_response(
-                service.submit(
-                    request.prompt or request.lesson or "",
-                    difficulty=difficulty if request.prompt is not None else None,
-                    routing_policy=routing_policy,
-                )
-            )
+            return to_response(service.submit(request.prompt))
         except RenderQueueFullError as error:
             raise HTTPException(
                 status_code=503,

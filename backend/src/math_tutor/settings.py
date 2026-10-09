@@ -19,7 +19,6 @@ class _EnvironmentSettings(BaseSettings):
         extra="ignore",
     )
 
-    elevenlabs_api_key: SecretStr | None = None
     modal_vllm_base_url: str | None = None
     modal_vllm_api_key: SecretStr | None = None
     modal_visual_model_base_url: str | None = None
@@ -31,15 +30,12 @@ class Settings(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    elevenlabs_api_key: SecretStr | None = None
     modal_vllm_base_url: str | None = None
     modal_vllm_api_key: SecretStr | None = None
     modal_visual_model_base_url: str | None = None
     modal_visual_model_api_key: SecretStr | None = None
-    modal_vllm_timeout_seconds: float = Field(default=120, gt=0)
-    modal_specialist_timeout_seconds: float = Field(default=60, gt=0)
-    modal_visual_model_timeout_seconds: float = Field(default=45, gt=0)
-    elevenlabs_voice_id: str = "Xb7hH8MSUJpSbSDYk0k2"
+    modal_vllm_timeout_seconds: float = Field(default=15 * 60, gt=0)
+    modal_visual_model_timeout_seconds: float = Field(default=10 * 60, gt=0)
     artifact_root: Path = Path("artifacts")
     render_timeout_seconds: float = Field(default=90, gt=0)
     max_pending_jobs: int = Field(default=8, gt=0)
