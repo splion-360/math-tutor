@@ -363,9 +363,10 @@ def test_token_budget_audit_flags_specialist_truncation_pressure(
     report = audit_artifact_root(artifact_root)
 
     assert report["records"][0]["finish_reasons"] == ("length", "stop")
-    assert "Investigate context/output pressure before tuning: job-3" in report[
-        "recommended_limits"
-    ][-1]
+    assert (
+        "Investigate context/output pressure before tuning: job-3"
+        in report["recommended_limits"][-1]
+    )
 
 
 def _write_json(path: Path, value: object) -> None:

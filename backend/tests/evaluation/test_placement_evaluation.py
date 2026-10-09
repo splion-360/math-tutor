@@ -17,15 +17,12 @@ def test_evaluation_counts_parse_and_render_failures_separately(tmp_path: Path) 
             "id": "foundational-1",
             "difficulty": "foundational",
             "response": (
-                "from manim import *\nclass Example(Scene):\n"
-                "    def construct(self):\n        pass"
+                "from manim import *\nclass Example(Scene):\n    def construct(self):\n        pass"
             ),
         },
         {"id": "advanced-1", "difficulty": "advanced", "response": "not Python %"},
     ]
-    generation_path.write_text(
-        "".join(json.dumps(item) + "\n" for item in items), encoding="utf-8"
-    )
+    generation_path.write_text("".join(json.dumps(item) + "\n" for item in items), encoding="utf-8")
 
     class Renderer:
         def render_source(self, job_id: str, source: str, scene_class: str) -> RenderOutcome:

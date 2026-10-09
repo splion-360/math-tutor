@@ -107,3 +107,8 @@ def test_modal_training_smoke_packages_training_code_and_artifact_volume(
         ("run_full_probe", ("modal_probe_qwen3_4b.json",)),
         ("run_smoke", ("modal_smoke_qwen3_4b.json",)),
     ]
+
+
+"""Verify the Modal training-smoke deployment packages its required runtime inputs.
+Keep deployment configuration assertions separate from training behavior tests.
+"""
