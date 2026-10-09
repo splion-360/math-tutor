@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import TypedDict, cast
+from typing import NotRequired, TypedDict, cast
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
@@ -47,6 +47,7 @@ class EvidenceManifest(TypedDict):
     schema_version: int
     dataset: DatasetIdentity
     artifacts: list[NumericArtifact]
+    optional_artifacts: NotRequired[list[NumericArtifact]]
 
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -171,6 +172,29 @@ def verify_artifacts(manifest: EvidenceManifest, root: Path) -> None:
         verify_file(path, entry["sha256"])
 
 
+def fetch_artifacts(artifacts: list[NumericArtifact], root: Path) -> None:
+    """Download and verify a selected collection of public evidence artifacts.
+
+    Args:
+        artifacts: Manifest entries selected for the current reproduction task.
+        root: Directory that receives the verified files.
+
+    Raises:
+        ValueError: If an entry has no public URL or fails validation.
+        OSError: If an artifact cannot be downloaded or written.
+    """
+    unpublished = [entry["path"] for entry in artifacts if not entry["url"]]
+    if unpublished:
+        raise ValueError("public artifact URLs unavailable: " + ", ".join(unpublished))
+    for entry in artifacts:
+        download_verified(
+            cast(str, entry["url"]),
+            artifact_path(root, entry["path"]),
+            entry["sha256"],
+        )
+    verify_artifacts(cast(EvidenceManifest, {"artifacts": artifacts}), root)
+
+
 def prepare_dataset(manifest: EvidenceManifest, root: Path, repository: Path) -> None:
     """Rebuild the original corpus and write a deterministic split for comparison.
 
@@ -194,9 +218,13 @@ def prepare_dataset(manifest: EvidenceManifest, root: Path, repository: Path) ->
     prepared = root / "bespoke_manim_train.jsonl"
     subprocess.run(
         [
-            sys.executable, str(repository / "training/scripts/prepare_bespoke_manim.py"),
-            str(parquet), "--internal-output", str(prepared),
-            "--messages-output", str(root / "messages.jsonl"),
+            sys.executable,
+            str(repository / "training/scripts/prepare_bespoke_manim.py"),
+            str(parquet),
+            "--internal-output",
+            str(prepared),
+            "--messages-output",
+            str(root / "messages.jsonl"),
         ],
         check=True,
     )
@@ -204,7 +232,9 @@ def prepare_dataset(manifest: EvidenceManifest, root: Path, repository: Path) ->
     records = [json.loads(line) for line in prepared.read_text().splitlines() if line.strip()]
     plan = build_full_corpus_plan(records, seed=dataset["seed"], epochs=dataset["epochs"])
     if (len(records), len(plan.training_ids), len(plan.validation_ids)) != (
-        dataset["prepared_records"], dataset["training_count"], dataset["validation_count"]
+        dataset["prepared_records"],
+        dataset["training_count"],
+        dataset["validation_count"],
     ):
         raise ValueError("reconstructed corpus or split counts differ from the recorded run")
     split = {
@@ -247,7 +277,7 @@ def render_figures(manifest: EvidenceManifest, root: Path, repository: Path) -> 
 def main() -> None:
     """Run CPU dataset reconstruction, evidence retrieval, verification, or plotting."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("dataset", "fetch", "verify", "figures"))
+    parser.add_argument("command", choices=("dataset", "fetch", "fetch-all", "verify", "figures"))
     parser.add_argument("--manifest", type=Path, default=Path("training/evidence/manifest.json"))
     parser.add_argument("--output", type=Path, default=Path("training/artifacts/evidence"))
     parser.add_argument("--repository", type=Path, default=Path.cwd())
@@ -260,17 +290,11 @@ def main() -> None:
         repository = args.repository.resolve()
         if args.command == "dataset":
             prepare_dataset(manifest, args.output, repository)
-        elif args.command == "fetch":
-            unpublished = [entry["path"] for entry in manifest["artifacts"] if not entry["url"]]
-            if unpublished:
-                raise ValueError("public artifact URLs unavailable: " + ", ".join(unpublished))
-            for entry in manifest["artifacts"]:
-                download_verified(
-                    cast(str, entry["url"]),
-                    artifact_path(args.output, entry["path"]),
-                    entry["sha256"],
-                )
-            verify_artifacts(manifest, args.output)
+        elif args.command in {"fetch", "fetch-all"}:
+            selected = list(manifest["artifacts"])
+            if args.command == "fetch-all":
+                selected.extend(manifest.get("optional_artifacts", []))
+            fetch_artifacts(selected, args.output)
         elif args.command == "verify":
             verify_artifacts(manifest, args.output)
         else:

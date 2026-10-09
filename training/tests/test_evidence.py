@@ -73,7 +73,9 @@ def test_manifest_symlinks_cannot_escape(tmp_path: Path) -> None:
         evidence.artifact_path(tmp_path, "escape/file")
 
 
-@pytest.mark.parametrize("url", ["http://example.com/data", "file:///tmp/data", "https://u:p@example.com/data"])
+@pytest.mark.parametrize(
+    "url", ["http://example.com/data", "file:///tmp/data", "https://u:p@example.com/data"]
+)
 def test_private_or_non_https_urls_are_rejected(tmp_path: Path, url: str) -> None:
     """Evidence retrieval accepts public HTTPS URLs without embedded credentials."""
     with pytest.raises(ValueError, match="public HTTPS"):
@@ -103,6 +105,52 @@ def test_verify_rejects_duplicate_evidence(tmp_path: Path) -> None:
         evidence.verify_artifacts({"artifacts": [entry, entry]}, tmp_path)
 
 
+def test_fetch_all_includes_optional_analysis_artifacts(tmp_path: Path, monkeypatch: Any) -> None:
+    """The analysis fetch path retrieves both core and optional numeric evidence."""
+    import json
+
+    required = b"required"
+    optional = b"optional"
+    manifest = {
+        "schema_version": 1,
+        "dataset": {},
+        "artifacts": [
+            {
+                "path": "required.json",
+                "sha256": _sha(required),
+                "url": "https://example.com/required.json",
+            }
+        ],
+        "optional_artifacts": [
+            {
+                "path": "signatures.jsonl",
+                "sha256": _sha(optional),
+                "url": "https://example.com/signatures.jsonl",
+            }
+        ],
+    }
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    output = tmp_path / "evidence"
+
+    def download(url: str, destination: Path, expected_sha256: str) -> None:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(optional if "signatures" in url else required)
+        assert _sha(destination.read_bytes()) == expected_sha256
+
+    monkeypatch.setattr(evidence, "download_verified", download)
+    monkeypatch.setattr(
+        evidence.sys,
+        "argv",
+        ["evidence", "fetch-all", "--manifest", str(manifest_path), "--output", str(output)],
+    )
+
+    evidence.main()
+
+    assert (output / "required.json").read_bytes() == required
+    assert (output / "signatures.jsonl").read_bytes() == optional
+
+
 def test_figures_require_verified_numeric_inputs(tmp_path: Path) -> None:
     """Figure generation checks integrity before importing plotting dependencies."""
     manifest = {"artifacts": [{"path": "summary.json", "sha256": _sha(b"original")}]}
@@ -122,12 +170,19 @@ def test_figures_accept_verified_supporting_metadata(tmp_path: Path, monkeypatch
     def plot(source: Path, output: Path) -> None:
         calls.append(source)
 
-    monkeypatch.setattr(evidence.runpy, "run_path", lambda path: {
-        "plot_heatmap": plot, "plot_cosines": plot,
-    })
+    monkeypatch.setattr(
+        evidence.runpy,
+        "run_path",
+        lambda path: {
+            "plot_heatmap": plot,
+            "plot_cosines": plot,
+        },
+    )
     evidence.render_figures({"artifacts": entries}, tmp_path, tmp_path)
     assert [path.name for path in calls] == [
-        "base_norms.json", "lora_norms.json", "lora_cosines.json",
+        "base_norms.json",
+        "lora_norms.json",
+        "lora_cosines.json",
     ]
     (tmp_path / "provenance.json").write_bytes(b"altered")
     calls.clear()
@@ -230,9 +285,7 @@ def test_dataset_invalidates_stale_split_on_failure(tmp_path: Path, monkeypatch:
     assert not (root / "split.json").exists()
 
 
-def test_manifest_location_does_not_change_repository(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
+def test_manifest_location_does_not_change_repository(tmp_path: Path, monkeypatch: Any) -> None:
     """A copied manifest still uses the explicitly selected checkout for conversion."""
     import json
 
@@ -241,8 +294,10 @@ def test_manifest_location_does_not_change_repository(
     repository = tmp_path / "checkout"
     selected: list[Path] = []
     monkeypatch.setattr(evidence, "prepare_dataset", lambda m, r, repo: selected.append(repo))
-    monkeypatch.setattr(evidence.sys, "argv", [
-        "evidence", "dataset", "--manifest", str(manifest_path), "--repository", str(repository)
-    ])
+    monkeypatch.setattr(
+        evidence.sys,
+        "argv",
+        ["evidence", "dataset", "--manifest", str(manifest_path), "--repository", str(repository)],
+    )
     evidence.main()
     assert selected == [repository.resolve()]
