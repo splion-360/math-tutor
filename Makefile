@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down logs renderer evidence-data evidence-figures evaluation-freeze evaluation-generate evaluation-download evaluation-render evaluation-review test lint validate-staged-python lint-staged format-check format-staged typecheck secrets pre-commit-check install-gitleaks setup-hooks check
+.PHONY: help setup up down logs renderer evidence-data evidence-figures gradient-label-analysis evaluation-freeze evaluation-generate evaluation-download evaluation-render evaluation-review test lint validate-staged-python lint-staged format-check format-staged typecheck secrets pre-commit-check install-gitleaks setup-hooks check
 
 MODAL_PROFILE ?=
 MODAL_PROFILE_FLAG := $(if $(MODAL_PROFILE),--profile $(MODAL_PROFILE),)
@@ -19,6 +19,7 @@ help:
 		'make renderer   Rebuild the narration renderer' \
 		'make evidence-data     Rebuild and verify the pinned experiment dataset' \
 		'make evidence-figures  Regenerate figures once numeric summaries are released' \
+		'make gradient-label-analysis  Test projected gradients against subject and difficulty labels' \
 		'make evaluation-freeze  Freeze prompts, token allowance, and renderer contract on CPU' \
 		'make evaluation-generate  Run the frozen paired pilot on Modal (uses GPU credits)' \
 		'make evaluation-download  Download the completed paired run' \
@@ -58,6 +59,13 @@ evidence-data:
 evidence-figures:
 	uv run --frozen --project training --python 3.12 python -m dynamic_lora.evidence fetch
 	uv run --frozen --project training --python 3.12 python -m dynamic_lora.evidence figures
+
+gradient-label-analysis:
+	uv run --frozen --project training --python 3.12 python training/scripts/analyze_gradient_label_alignment.py \
+		--signatures training/artifacts/evidence/full_corpus_signatures.jsonl \
+		--records training/artifacts/evidence/bespoke_manim_train.jsonl \
+		--exact-summary training/artifacts/evidence/lora_cosines.json \
+		--output-directory training/artifacts/gradient-label-alignment
 
 evaluation-freeze:
 	uv run --frozen --project training --python 3.12 --with transformers==4.57.6 --with jinja2==3.1.6 --with-editable ./backend python -m dynamic_lora.paired_generation
