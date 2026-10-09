@@ -13,12 +13,20 @@ from math_tutor.domain import LessonStage
 from math_tutor.generation.pipeline import GeneratedLessonPipeline
 from math_tutor.generation.provider import (
     SHARED_ADAPTER_MODEL,
+    SYSTEM_PROMPT,
+    VOICEOVER_SYSTEM_PROMPT,
     GenerationConfig,
     ModalVllmClient,
     UnavailableModelClient,
 )
 from math_tutor.jobs import JobStore, LessonService, RenderOutcome
+from math_tutor.rendering.elevenlabs import ElevenLabsNarrationProvider
 from math_tutor.rendering.manim import DEFAULT_MANIM_IMAGE, DockerManimRenderer
+from math_tutor.rendering.media import FfmpegMediaAssembler, probe_audio_duration
+from math_tutor.rendering.narration import (
+    NarratedSourceRenderer,
+    SourceRenderer,
+)
 from math_tutor.settings import Settings, get_settings
 from math_tutor.validation.media import MediaValidator
 from math_tutor.validation.models import RenderedAttempt, ValidationReport
@@ -97,18 +105,46 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         """Expose the first successful render while validation continues."""
         job_store.mark_initial_render(job_id, outcome)
 
-    renderer = DockerManimRenderer(
+    elevenlabs_api_key = (
+        resolved.elevenlabs_api_key.get_secret_value()
+        if resolved.elevenlabs_api_key is not None
+        else ""
+    )
+    narration_enabled = bool(elevenlabs_api_key)
+    base_renderer = DockerManimRenderer(
         artifact_root=resolved.artifact_root,
         scene_path=(Path(__file__).parent / "rendering" / "scenes" / "pythagorean_theorem.py"),
         image=DEFAULT_MANIM_IMAGE,
         timeout_seconds=resolved.render_timeout_seconds,
     )
+    renderer: SourceRenderer = base_renderer
+    if narration_enabled:
+        renderer = NarratedSourceRenderer(
+            renderer=base_renderer,
+            provider=ElevenLabsNarrationProvider(
+                api_key=elevenlabs_api_key,
+                voice_id=resolved.elevenlabs_voice_id,
+                duration_probe=probe_audio_duration,
+            ),
+            assembler=FfmpegMediaAssembler(),
+            artifact_root=resolved.artifact_root,
+        )
     modal_api_key = (
         resolved.modal_vllm_api_key.get_secret_value()
         if resolved.modal_vllm_api_key is not None
         else ""
     )
-    generation_config = GenerationConfig(model=SHARED_ADAPTER_MODEL)
+    generation_config = GenerationConfig(
+        model=SHARED_ADAPTER_MODEL,
+        system_prompt=(
+            VOICEOVER_SYSTEM_PROMPT.replace(
+                "__VOICE_ID__",
+                resolved.elevenlabs_voice_id,
+            )
+            if narration_enabled
+            else SYSTEM_PROMPT
+        ),
+    )
     model: ModelClient
     if resolved.modal_vllm_base_url:
         model = ModalVllmClient(
@@ -136,6 +172,8 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         max_repair_attempts=resolved.validation_max_repair_attempts,
         stage_reporter=report_stage,
         render_reporter=report_render,
+        voiceover=narration_enabled,
+        captions_required=narration_enabled,
     )
 
     def close_models() -> None:
@@ -149,6 +187,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             renderer=pipeline,
             store=job_store,
             max_pending_jobs=resolved.max_pending_jobs,
+            narration_requested=narration_enabled,
         ),
         model_health=model.health,
         close_model=close_models,

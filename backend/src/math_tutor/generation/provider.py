@@ -35,8 +35,10 @@ self.set_speech_service(
     )
 )
 Create 3 to 6 short narration blocks using `with self.voiceover(text="...") as tracker:`.
-Place each related visual animation inside its narration block and set the primary animation's
-run_time to tracker.duration. Keep narration concise and explain the mathematics being shown.
+Place those blocks directly and sequentially in construct; do not wrap them in loops or conditions.
+Each block must contain exactly one timed call: either `self.play(..., run_time=tracker.duration)`
+or `self.wait(tracker.duration)`. Never call `self.play` or `self.wait` outside a narration block.
+Keep narration concise and explain the mathematics being shown.
 For directions, use only UP, DOWN, LEFT, RIGHT, UL, UR, DL, or DR; never use LR.
 Never pass a Mobject method to self.play; use object.animate.method(arguments) instead.
 Do not access files, subprocesses, environment variables, dynamic execution, or any network API

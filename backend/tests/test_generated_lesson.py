@@ -376,6 +376,63 @@ def test_voiceover_validation_requires_three_to_six_blocks_and_tracker_duration(
         extract_and_validate_scene(f"```python\n{without_duration}```", voiceover=True)
 
 
+def test_voiceover_validation_requires_literal_text_and_tracker_binding() -> None:
+    dynamic_text = VOICEOVER_SCENE.replace(
+        'with self.voiceover(text="Draw the circle.") as tracker:',
+        "with self.voiceover(text=str(circle)) as tracker:",
+    )
+    without_tracker = VOICEOVER_SCENE.replace(
+        'with self.voiceover(text="Draw the circle.") as tracker:',
+        'with self.voiceover(text="Draw the circle."):',
+    )
+
+    with pytest.raises(SceneValidationError, match="non-empty literal"):
+        extract_and_validate_scene(f"```python\n{dynamic_text}```", voiceover=True)
+    with pytest.raises(SceneValidationError, match="bind a tracker"):
+        extract_and_validate_scene(f"```python\n{without_tracker}```", voiceover=True)
+
+
+def test_voiceover_validation_rejects_timing_outside_or_beyond_blocks() -> None:
+    timed_prelude = VOICEOVER_SCENE.replace(
+        "        circle = Circle()",
+        "        circle = Circle()\n        self.play(Write(circle))",
+    )
+    extra_wait = VOICEOVER_SCENE.replace(
+        "            self.play(Create(circle), run_time=tracker.duration)",
+        (
+            "            self.play(Create(circle), run_time=tracker.duration)\n"
+            "            self.wait(1)"
+        ),
+    )
+
+    with pytest.raises(SceneValidationError, match="inside voiceover blocks"):
+        extract_and_validate_scene(f"```python\n{timed_prelude}```", voiceover=True)
+    with pytest.raises(SceneValidationError, match="one play or wait"):
+        extract_and_validate_scene(f"```python\n{extra_wait}```", voiceover=True)
+
+
+def test_voiceover_validation_requires_direct_sequential_blocks_and_timing() -> None:
+    looped_block = VOICEOVER_SCENE.replace(
+        '        with self.voiceover(text="Draw the circle.") as tracker:\n'
+        "            self.play(Create(circle), run_time=tracker.duration)",
+        "        for _ in range(2):\n"
+        '            with self.voiceover(text="Draw the circle.") as tracker:\n'
+        "                self.play(Create(circle), run_time=tracker.duration)",
+    )
+    conditional_timing = VOICEOVER_SCENE.replace(
+        "            self.play(Create(circle), run_time=tracker.duration)",
+        (
+            "            if circle:\n"
+            "                self.play(Create(circle), run_time=tracker.duration)"
+        ),
+    )
+
+    with pytest.raises(SceneValidationError, match="direct sequential statements"):
+        extract_and_validate_scene(f"```python\n{looped_block}```", voiceover=True)
+    with pytest.raises(SceneValidationError, match="one play or wait"):
+        extract_and_validate_scene(f"```python\n{conditional_timing}```", voiceover=True)
+
+
 def test_voiceover_validation_disables_optional_whisper_transcription() -> None:
     default_transcription = VOICEOVER_SCENE.replace(
         "                transcription_model=None,\n",

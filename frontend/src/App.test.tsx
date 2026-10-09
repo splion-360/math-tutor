@@ -244,12 +244,17 @@ describe("App lesson flow", () => {
     expect(screen.queryByText("Shared LoRA · Manim · Parallel validation")).not.toBeInTheDocument();
     expect(screen.queryByText("One repair attempt")).not.toBeInTheDocument();
     expect(screen.getByText("Your generated visual lesson will appear here.")).toBeInTheDocument();
+    expect(document.querySelector(".workspace-grid > .support-panel")).toBeInTheDocument();
+    expect(document.querySelector(".workspace-grid")).toHaveClass("workspace-with-details");
+    expect(
+      screen.getByText(
+        "Generate a visual lesson to see its explanation and validation results.",
+      ),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /generate lesson/i }));
 
     await waitFor(() => expect(node("publish")).toHaveClass("workflow-passed"));
-    expect(document.querySelector(".workspace-grid > .support-panel")).toBeInTheDocument();
-    expect(document.querySelector(".workspace-grid")).toHaveClass("workspace-with-details");
     expect(screen.getByRole("button", { name: /generate lesson/i })).toBeEnabled();
   });
 

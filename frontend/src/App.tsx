@@ -96,7 +96,7 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
         </a>
       </header>
 
-      <section className={`workspace-grid${lesson ? " workspace-with-details" : ""}`}>
+      <section className="workspace-grid workspace-with-details">
         <form className="composer-panel" onSubmit={submit}>
           <div className="panel-copy">
             <p className="section-kicker">Create a visual lesson</p>
@@ -164,13 +164,11 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
           {requestError && <p className="request-error" role="alert">{requestError}</p>}
         </section>
 
-        {lesson && (
-          <SupportTabs
-            lesson={lesson}
-            selectedStage={selectedStage}
-            onCloseStage={() => setSelectedStage(null)}
-          />
-        )}
+        <SupportTabs
+          lesson={lesson}
+          selectedStage={selectedStage}
+          onCloseStage={() => setSelectedStage(null)}
+        />
       </section>
     </main>
   );

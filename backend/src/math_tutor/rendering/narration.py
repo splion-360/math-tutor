@@ -3,6 +3,7 @@ Provider and assembler protocols keep orchestration independent of external serv
 
 from __future__ import annotations
 
+import ast
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -96,9 +97,7 @@ class MediaBundle:
     narration_status: NarrationStatus
     captions_path: Path | None = None
     timeline_path: Path | None = None
-    diagnostics: Mapping[str, object] = field(
-        default_factory=lambda: MappingProxyType({})
-    )
+    diagnostics: Mapping[str, object] = field(default_factory=lambda: MappingProxyType({}))
 
 
 class NarrationProvider(Protocol):
@@ -125,6 +124,212 @@ class MediaAssembler(Protocol):
     ) -> MediaBundle:
         """Combine silent video and narration into a media bundle."""
         ...
+
+
+class SourceRenderer(Protocol):
+    """Render one admitted Manim source artifact."""
+
+    def render_source(
+        self,
+        job_id: str,
+        source: str,
+        scene_class: str,
+    ) -> RenderOutcome:
+        """Render admitted source and return its media outcome."""
+        ...
+
+
+class NarratedSourceRenderer:
+    """Synthesize narration outside generated code, then render and mux it."""
+
+    def __init__(
+        self,
+        *,
+        renderer: SourceRenderer,
+        provider: NarrationProvider,
+        assembler: MediaAssembler,
+        artifact_root: Path,
+    ) -> None:
+        self._renderer = renderer
+        self._provider = provider
+        self._assembler = assembler
+        self._artifact_root = artifact_root
+
+    def render_source(
+        self,
+        job_id: str,
+        source: str,
+        scene_class: str,
+    ) -> RenderOutcome:
+        """Render a voiceover scene without exposing credentials to its container.
+
+        Args:
+            job_id: Safe job identifier used for narration artifacts.
+            source: Admitted VoiceoverScene source containing literal narration text.
+            scene_class: Renderable class name from source admission.
+
+        Returns:
+            Render outcome containing the muxed narration and caption artifacts.
+        """
+        plan = _voiceover_plan(job_id, source)
+        job_dir = self._artifact_root / job_id
+        narration = self._provider.synthesize(plan, job_dir / "audio")
+        render_source = _silent_scene_source(source, narration)
+        outcome = self._renderer.render_source(job_id, render_source, scene_class)
+        bundle = self._assembler.assemble(
+            silent_video=outcome.video_path,
+            narration=narration,
+            output_dir=job_dir / "narration",
+        )
+        return replace(
+            outcome,
+            video_path=bundle.video_path,
+            silent_video_path=bundle.silent_video_path,
+            captions_path=bundle.captions_path,
+            narration_status=bundle.narration_status,
+            narration_diagnostics=bundle.diagnostics,
+        )
+
+
+def _voiceover_plan(job_id: str, source: str) -> NarrationPlan:
+    tree = ast.parse(source)
+    collector = _VoiceoverCollector()
+    collector.visit(tree)
+    if not 3 <= len(collector.segments) <= 6:
+        raise ValueError("voiceover source must contain 3 to 6 narration blocks")
+    return NarrationPlan(
+        lesson_id=job_id,
+        segments=tuple(
+            NarrationSegment(
+                id=f"segment-{index:02d}",
+                text=text,
+                cue=f"voiceover-block-{index:02d}",
+            )
+            for index, text in enumerate(collector.segments, start=1)
+        ),
+    )
+
+
+class _VoiceoverCollector(ast.NodeVisitor):
+    """Collect literal narration text in source order."""
+
+    def __init__(self) -> None:
+        self.segments: list[str] = []
+
+    def visit_With(self, node: ast.With) -> None:  # noqa: N802
+        call = _voiceover_call(node)
+        if call is not None:
+            text = next(
+                (
+                    keyword.value.value
+                    for keyword in call.keywords
+                    if keyword.arg == "text"
+                    and isinstance(keyword.value, ast.Constant)
+                    and isinstance(keyword.value.value, str)
+                ),
+                None,
+            )
+            if text is None or not text.strip():
+                raise ValueError("voiceover narration text must be a non-empty literal")
+            self.segments.append(text)
+        self.generic_visit(node)
+
+
+def _silent_scene_source(source: str, narration: SynthesizedNarration) -> str:
+    tree = ast.parse(source)
+    transformer = _VoiceoverToScene(
+        tuple(segment.duration_seconds for segment in narration.segments)
+    )
+    transformed = transformer.visit(tree)
+    if transformer.transformed_blocks != len(narration.segments):
+        raise ValueError("narration segments do not match voiceover blocks")
+    ast.fix_missing_locations(transformed)
+    return ast.unparse(transformed) + "\n"
+
+
+class _VoiceoverToScene(ast.NodeTransformer):
+    """Replace voiceover-only syntax with a credential-free Manim scene."""
+
+    def __init__(self, durations: tuple[float, ...]) -> None:
+        self._durations = durations
+        self.transformed_blocks = 0
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> ast.ImportFrom | None:  # noqa: N802
+        if node.module in {
+            "manim_voiceover",
+            "manim_voiceover.services.elevenlabs",
+        }:
+            return None
+        return node
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> ast.ClassDef:  # noqa: N802
+        node.bases = [
+            ast.Name(id="Scene", ctx=ast.Load())
+            if isinstance(base, ast.Name) and base.id == "VoiceoverScene"
+            else base
+            for base in node.bases
+        ]
+        return self.generic_visit(node)
+
+    def visit_Expr(self, node: ast.Expr) -> ast.Expr | None:  # noqa: N802
+        if (
+            isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Attribute)
+            and node.value.func.attr == "set_speech_service"
+        ):
+            return None
+        return self.generic_visit(node)
+
+    def visit_With(self, node: ast.With) -> ast.With | list[ast.stmt]:  # noqa: N802
+        if _voiceover_call(node) is None:
+            return self.generic_visit(node)
+        if self.transformed_blocks >= len(self._durations):
+            raise ValueError("voiceover block has no synthesized narration segment")
+        tracker = node.items[0].optional_vars
+        if not isinstance(tracker, ast.Name):
+            raise ValueError("voiceover block must bind a tracker name")
+        duration = self._durations[self.transformed_blocks]
+        self.transformed_blocks += 1
+        rewriter = _TrackerDurationRewriter(tracker.id, duration)
+        transformed_body: list[ast.stmt] = []
+        for statement in node.body:
+            rewritten = rewriter.visit(statement)
+            visited = self.visit(rewritten)
+            if isinstance(visited, list):
+                transformed_body.extend(visited)
+            elif visited is not None:
+                transformed_body.append(visited)
+        return transformed_body
+
+
+class _TrackerDurationRewriter(ast.NodeTransformer):
+    """Replace one voiceover tracker's duration with measured audio length."""
+
+    def __init__(self, tracker: str, duration: float) -> None:
+        self._tracker = tracker
+        self._duration = duration
+
+    def visit_Attribute(self, node: ast.Attribute) -> ast.expr:  # noqa: N802
+        if (
+            node.attr == "duration"
+            and isinstance(node.value, ast.Name)
+            and node.value.id == self._tracker
+        ):
+            return ast.copy_location(ast.Constant(value=self._duration), node)
+        return self.generic_visit(node)
+
+
+def _voiceover_call(node: ast.With) -> ast.Call | None:
+    if len(node.items) != 1:
+        return None
+    context = node.items[0].context_expr
+    if not (
+        isinstance(context, ast.Call)
+        and isinstance(context.func, ast.Attribute)
+        and context.func.attr == "voiceover"
+    ):
+        return None
+    return context
 
 
 class NarratingRenderer:
