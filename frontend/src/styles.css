@@ -126,6 +126,12 @@ button:disabled {
   padding-top: 10px;
 }
 
+.workspace-grid > .composer-panel,
+.workspace-grid > .video-panel,
+.workspace-grid > .support-panel {
+  min-height: calc(100vh - 74px);
+}
+
 .workspace-with-details {
   grid-template-columns: minmax(260px, 0.48fr) minmax(560px, 1fr) minmax(280px, 0.55fr);
 }
@@ -183,6 +189,12 @@ textarea {
   color: var(--ink);
   padding: 11px;
   line-height: 1.45;
+}
+
+.composer-panel textarea {
+  flex: 1;
+  min-height: 140px;
+  max-height: 240px;
 }
 
 textarea:focus {
@@ -272,8 +284,8 @@ textarea:focus {
 
 .video-stage {
   position: relative;
-  height: clamp(280px, 38vh, 410px);
-  min-height: 280px;
+  flex: 1;
+  min-height: 360px;
   overflow: hidden;
   border: 1px solid rgba(112, 197, 184, 0.28);
   background:
@@ -768,7 +780,21 @@ textarea:focus {
   }
 
   .video-stage {
+    flex: none;
     height: clamp(280px, 50vw, 390px);
+    min-height: 280px;
+  }
+
+  .workspace-grid > .composer-panel,
+  .workspace-grid > .video-panel,
+  .workspace-grid > .support-panel {
+    min-height: auto;
+  }
+
+  .composer-panel textarea {
+    flex: none;
+    min-height: 120px;
+    max-height: none;
   }
 
   .workflow-graph {
