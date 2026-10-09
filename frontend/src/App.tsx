@@ -52,6 +52,7 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
   const [polling, setPolling] = useState(false);
   const [artifactMode, setArtifactMode] = useState<"view" | "code">("view");
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
+  const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const mounted = useRef(true);
   const busy = polling;
 
@@ -61,6 +62,7 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
     mounted.current = true;
     setPolling(true);
     setRequestError(null);
+    setSelectedStage(null);
 
     try {
       let next = await transport.submitLesson({ prompt: prompt.trim() });
@@ -135,21 +137,31 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
             <StatusBadge lesson={lesson} busy={busy} />
           </div>
 
-          <WorkflowGraph lesson={lesson} />
+          <WorkflowGraph
+            lesson={lesson}
+            selectedStage={selectedStage}
+            onSelectStage={setSelectedStage}
+          />
 
           <div className="artifact-toolbar" aria-label="Lesson artifact controls">
             <div className="segmented-control" role="group" aria-label="Choose lesson artifact">
               <button
                 type="button"
                 className={artifactMode === "view" ? "active" : ""}
-                onClick={() => setArtifactMode("view")}
+                onClick={() => {
+                  setArtifactMode("view");
+                  setSelectedStage(null);
+                }}
               >
                 View
               </button>
               <button
                 type="button"
                 className={artifactMode === "code" ? "active" : ""}
-                onClick={() => setArtifactMode("code")}
+                onClick={() => {
+                  setArtifactMode("code");
+                  setSelectedStage(null);
+                }}
               >
                 {"</>"}
               </button>
@@ -165,12 +177,20 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
             </label>
           </div>
 
-          <VideoStage
-            lesson={lesson}
-            busy={busy}
-            mode={artifactMode}
-            captionsEnabled={captionsEnabled}
-          />
+          {selectedStage ? (
+            <WorkflowStageInspector
+              node={workflowNode(lesson, selectedStage)}
+              lesson={lesson}
+              onClose={() => setSelectedStage(null)}
+            />
+          ) : (
+            <VideoStage
+              lesson={lesson}
+              busy={busy}
+              mode={artifactMode}
+              captionsEnabled={captionsEnabled}
+            />
+          )}
 
           {requestError && <p className="request-error" role="alert">{requestError}</p>}
         </section>
@@ -184,6 +204,7 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
 function LessonResult({ lesson }: { lesson: LessonJob }) {
   const [artifactMode, setArtifactMode] = useState<"view" | "code">("view");
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
+  const [selectedStage, setSelectedStage] = useState<string | null>(null);
 
   return (
     <section className="standalone-result">
@@ -194,20 +215,30 @@ function LessonResult({ lesson }: { lesson: LessonJob }) {
         </div>
         <StatusBadge lesson={lesson} busy={false} />
       </div>
-      <WorkflowGraph lesson={lesson} />
+      <WorkflowGraph
+        lesson={lesson}
+        selectedStage={selectedStage}
+        onSelectStage={setSelectedStage}
+      />
       <div className="artifact-toolbar" aria-label="Lesson artifact controls">
         <div className="segmented-control" role="group" aria-label="Choose lesson artifact">
           <button
             type="button"
             className={artifactMode === "view" ? "active" : ""}
-            onClick={() => setArtifactMode("view")}
+            onClick={() => {
+              setArtifactMode("view");
+              setSelectedStage(null);
+            }}
           >
             View
           </button>
           <button
             type="button"
             className={artifactMode === "code" ? "active" : ""}
-            onClick={() => setArtifactMode("code")}
+            onClick={() => {
+              setArtifactMode("code");
+              setSelectedStage(null);
+            }}
           >
             {"</>"}
           </button>
@@ -222,12 +253,20 @@ function LessonResult({ lesson }: { lesson: LessonJob }) {
           Captions
         </label>
       </div>
-      <VideoStage
-        lesson={lesson}
-        busy={lesson.status === "queued" || lesson.status === "running"}
-        mode={artifactMode}
-        captionsEnabled={captionsEnabled}
-      />
+      {selectedStage ? (
+        <WorkflowStageInspector
+          node={workflowNode(lesson, selectedStage)}
+          lesson={lesson}
+          onClose={() => setSelectedStage(null)}
+        />
+      ) : (
+        <VideoStage
+          lesson={lesson}
+          busy={lesson.status === "queued" || lesson.status === "running"}
+          mode={artifactMode}
+          captionsEnabled={captionsEnabled}
+        />
+      )}
       {lesson.status !== "queued" && lesson.status !== "running" && <SupportTabs lesson={lesson} />}
     </section>
   );
@@ -287,13 +326,19 @@ interface WorkflowStageDetails {
   findings: WorkflowFinding[];
 }
 
-function WorkflowGraph({ lesson }: { lesson: LessonJob | null }) {
-  const [selectedStage, setSelectedStage] = useState<string | null>(null);
+function WorkflowGraph({
+  lesson,
+  selectedStage,
+  onSelectStage,
+}: {
+  lesson: LessonJob | null;
+  selectedStage: string | null;
+  onSelectStage: (stage: string | null) => void;
+}) {
   const nodes = workflowNodes(lesson);
   const active = lesson?.status === "queued" || lesson?.status === "running";
   const repairActive = Boolean(active && lesson && lesson.attempt > 0);
   const node = (id: string) => nodes.find((item) => item.id === id)!;
-  const selectedNode = selectedStage ? node(selectedStage) : null;
   const repairLabel = lesson
     && lesson.attempt > 0
     && (lesson.status === "queued" || lesson.status === "running")
@@ -315,19 +360,19 @@ function WorkflowGraph({ lesson }: { lesson: LessonJob | null }) {
             <WorkflowNodeView
               node={node("prompt")}
               selected={selectedStage === "prompt"}
-              onSelect={setSelectedStage}
+              onSelect={onSelectStage}
             />
             <WorkflowArrow />
             <WorkflowNodeView
               node={node("repair")}
               selected={selectedStage === "repair"}
-              onSelect={setSelectedStage}
+              onSelect={onSelectStage}
             />
             <WorkflowArrow />
             <WorkflowNodeView
               node={node("publish")}
               selected={selectedStage === "publish"}
-              onSelect={setSelectedStage}
+              onSelect={onSelectStage}
             />
           </>
         ) : (
@@ -335,25 +380,25 @@ function WorkflowGraph({ lesson }: { lesson: LessonJob | null }) {
             <WorkflowNodeView
               node={node("prompt")}
               selected={selectedStage === "prompt"}
-              onSelect={setSelectedStage}
+              onSelect={onSelectStage}
             />
             <WorkflowArrow />
             <WorkflowNodeView
               node={node("adapter")}
               selected={selectedStage === "adapter"}
-              onSelect={setSelectedStage}
+              onSelect={onSelectStage}
             />
             <WorkflowArrow />
             <WorkflowNodeView
               node={node("source")}
               selected={selectedStage === "source"}
-              onSelect={setSelectedStage}
+              onSelect={onSelectStage}
             />
             <WorkflowArrow />
             <WorkflowNodeView
               node={node("render")}
               selected={selectedStage === "render"}
-              onSelect={setSelectedStage}
+              onSelect={onSelectStage}
             />
             <WorkflowArrow />
             <div className="workflow-validation" aria-label="Parallel validators">
@@ -361,29 +406,28 @@ function WorkflowGraph({ lesson }: { lesson: LessonJob | null }) {
               <WorkflowNodeView
                 node={node("media")}
                 selected={selectedStage === "media"}
-                onSelect={setSelectedStage}
+                onSelect={onSelectStage}
               />
               <WorkflowNodeView
                 node={node("spatial")}
                 selected={selectedStage === "spatial"}
-                onSelect={setSelectedStage}
+                onSelect={onSelectStage}
               />
               <WorkflowNodeView
                 node={node("visual")}
                 selected={selectedStage === "visual"}
-                onSelect={setSelectedStage}
+                onSelect={onSelectStage}
               />
             </div>
             <WorkflowArrow />
             <WorkflowNodeView
               node={node("publish")}
               selected={selectedStage === "publish"}
-              onSelect={setSelectedStage}
+              onSelect={onSelectStage}
             />
           </>
         )}
       </div>
-      {selectedNode && <WorkflowStageInspector node={selectedNode} lesson={lesson} />}
     </section>
   );
 }
@@ -395,7 +439,7 @@ function WorkflowNodeView({
 }: {
   node: WorkflowNode;
   selected: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: string | null) => void;
 }) {
   const symbol = node.state === "passed"
     ? "✓"
@@ -413,13 +457,17 @@ function WorkflowNodeView({
       data-node={node.id}
       aria-label={`Inspect ${node.label} stage`}
       aria-pressed={selected}
-      onClick={() => onSelect(node.id)}
+      onClick={() => onSelect(selected ? null : node.id)}
     >
       <span aria-hidden="true">{symbol}</span>
       <strong>{node.label}</strong>
       <small>{workflowStateLabel(node.state)}</small>
     </button>
   );
+}
+
+function workflowNode(lesson: LessonJob | null, id: string) {
+  return workflowNodes(lesson).find((item) => item.id === id)!;
 }
 
 function WorkflowArrow() {
@@ -521,19 +569,29 @@ function workflowStateLabel(state: WorkflowNodeState) {
 function WorkflowStageInspector({
   node,
   lesson,
+  onClose,
 }: {
   node: WorkflowNode;
   lesson: LessonJob | null;
+  onClose: () => void;
 }) {
   const details = workflowStageDetails(node, lesson);
+  const logs = node.id === "render" && lesson
+    ? readText(lesson.diagnostics, ["logs"])
+    : null;
   return (
-    <div className={`workflow-inspector workflow-inspector-${node.state}`}>
+    <div className={`video-stage workflow-inspector workflow-inspector-${node.state}`}>
       <div className="workflow-inspector-heading">
         <div>
-          <span>Stage details</span>
+          <span>Stage log</span>
           <strong>{node.label}</strong>
         </div>
-        <span>{workflowStateLabel(node.state)}</span>
+        <div className="workflow-inspector-actions">
+          <span>{workflowStateLabel(node.state)}</span>
+          <button className="stage-log-close" type="button" onClick={onClose}>
+            Back to lesson
+          </button>
+        </div>
       </div>
       <p>{details.description}</p>
       {details.facts.length > 0 && (
@@ -556,6 +614,12 @@ function WorkflowStageInspector({
             </article>
           ))}
         </div>
+      )}
+      {logs && (
+        <section className="stage-execution-log">
+          <span>Execution output</span>
+          <pre>{logs}</pre>
+        </section>
       )}
     </div>
   );

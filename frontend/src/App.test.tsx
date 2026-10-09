@@ -128,13 +128,37 @@ describe("LessonResult", () => {
       screen.getByRole("button", { name: "Inspect Source check stage" }),
     );
 
-    expect(screen.getByText("Stage details")).toBeInTheDocument();
+    const stageLog = screen.getByText("Stage log").closest(".workflow-inspector");
+    expect(stageLog).toHaveClass("video-stage");
+    expect(document.querySelector(".workflow .workflow-inspector")).not.toBeInTheDocument();
     expect(screen.getByText("Generation attempts")).toBeInTheDocument();
     expect(screen.getByText("Repair attempts")).toBeInTheDocument();
     expect(screen.getByText("source_admission_failed")).toBeInTheDocument();
     expect(
       screen.getByText("Return valid Python without an unterminated string."),
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to lesson" }));
+    expect(screen.getByText("Generation stopped")).toBeInTheDocument();
+  });
+
+  it("shows available render logs in the lesson viewport", () => {
+    render(
+      <LessonResult
+        lesson={{
+          ...narratedLesson,
+          diagnostics: { ...narratedLesson.diagnostics, logs: "Rendered scene.mp4" },
+        }}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Inspect Manim render stage" }),
+    );
+
+    expect(screen.getByText("Execution output")).toBeInTheDocument();
+    expect(screen.getByText("Rendered scene.mp4")).toBeInTheDocument();
+    expect(screen.queryByTestId("lesson-video")).not.toBeInTheDocument();
   });
 
   it("plays the accepted video and exposes generated code", () => {

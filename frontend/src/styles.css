@@ -519,12 +519,10 @@ textarea:focus {
 }
 
 .workflow-inspector {
-  max-height: 190px;
-  margin-top: 8px;
   overflow: auto;
   border: 1px solid var(--border);
   background: rgba(17, 24, 39, 0.94);
-  padding: 9px 10px;
+  padding: 14px;
 }
 
 .workflow-inspector-failed {
@@ -547,6 +545,10 @@ textarea:focus {
   gap: 2px;
 }
 
+.workflow-inspector-actions {
+  justify-items: end;
+}
+
 .workflow-inspector-heading span,
 .workflow-inspector dt,
 .workflow-findings code {
@@ -562,10 +564,10 @@ textarea:focus {
 }
 
 .workflow-inspector > p {
-  margin: 7px 0;
+  margin: 12px 0;
   color: var(--muted);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .workflow-inspector dl {
@@ -584,7 +586,43 @@ textarea:focus {
 
 .workflow-inspector dd {
   margin: 0;
+  font-size: 11px;
+}
+
+.stage-log-close {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink);
+  padding: 5px 8px;
   font-size: 10px;
+}
+
+.stage-log-close:hover {
+  border-color: var(--primary);
+}
+
+.stage-execution-log {
+  margin-top: 12px;
+}
+
+.stage-execution-log > span {
+  color: var(--primary);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stage-execution-log pre {
+  max-height: 260px;
+  margin: 6px 0 0;
+  overflow: auto;
+  border: 1px solid rgba(238, 242, 232, 0.12);
+  background: var(--formula);
+  color: var(--muted);
+  padding: 10px;
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
 }
 
 .workflow-findings {
