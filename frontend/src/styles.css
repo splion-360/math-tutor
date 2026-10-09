@@ -403,6 +403,10 @@ textarea:focus {
   gap: 6px;
 }
 
+.workflow-repair-graph {
+  grid-template-columns: minmax(90px, 0.65fr) auto minmax(180px, 1.4fr) auto minmax(90px, 0.65fr);
+}
+
 .workflow-node {
   position: relative;
   width: 100%;

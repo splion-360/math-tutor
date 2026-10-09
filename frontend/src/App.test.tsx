@@ -55,7 +55,10 @@ describe("LessonResult", () => {
     );
 
     expect(screen.getByText("Repair attempt 1")).toBeInTheDocument();
-    expect(node("adapter")).toHaveClass("workflow-running");
+    expect(node("repair")).toHaveClass("workflow-running");
+    expect(node("adapter")).not.toBeInTheDocument();
+    expect(node("source")).not.toBeInTheDocument();
+    expect(node("render")).not.toBeInTheDocument();
   });
 
   it("shows terminal validator results in the graph", () => {

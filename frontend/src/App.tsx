@@ -291,6 +291,7 @@ function WorkflowGraph({ lesson }: { lesson: LessonJob | null }) {
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const nodes = workflowNodes(lesson);
   const active = lesson?.status === "queued" || lesson?.status === "running";
+  const repairActive = Boolean(active && lesson && lesson.attempt > 0);
   const node = (id: string) => nodes.find((item) => item.id === id)!;
   const selectedNode = selectedStage ? node(selectedStage) : null;
   const repairLabel = lesson
@@ -308,55 +309,79 @@ function WorkflowGraph({ lesson }: { lesson: LessonJob | null }) {
         <span>Workflow</span>
         <strong>{repairLabel ?? (lesson ? stageLabels[lesson.stage] : "Waiting for a prompt")}</strong>
       </div>
-      <div className="workflow-graph">
-        <WorkflowNodeView
-          node={node("prompt")}
-          selected={selectedStage === "prompt"}
-          onSelect={setSelectedStage}
-        />
-        <WorkflowArrow />
-        <WorkflowNodeView
-          node={node("adapter")}
-          selected={selectedStage === "adapter"}
-          onSelect={setSelectedStage}
-        />
-        <WorkflowArrow />
-        <WorkflowNodeView
-          node={node("source")}
-          selected={selectedStage === "source"}
-          onSelect={setSelectedStage}
-        />
-        <WorkflowArrow />
-        <WorkflowNodeView
-          node={node("render")}
-          selected={selectedStage === "render"}
-          onSelect={setSelectedStage}
-        />
-        <WorkflowArrow />
-        <div className="workflow-validation" aria-label="Parallel validators">
-          <span className="workflow-branch-label">Parallel validation</span>
-          <WorkflowNodeView
-            node={node("media")}
-            selected={selectedStage === "media"}
-            onSelect={setSelectedStage}
-          />
-          <WorkflowNodeView
-            node={node("spatial")}
-            selected={selectedStage === "spatial"}
-            onSelect={setSelectedStage}
-          />
-          <WorkflowNodeView
-            node={node("visual")}
-            selected={selectedStage === "visual"}
-            onSelect={setSelectedStage}
-          />
-        </div>
-        <WorkflowArrow />
-        <WorkflowNodeView
-          node={node("publish")}
-          selected={selectedStage === "publish"}
-          onSelect={setSelectedStage}
-        />
+      <div className={`workflow-graph${repairActive ? " workflow-repair-graph" : ""}`}>
+        {repairActive ? (
+          <>
+            <WorkflowNodeView
+              node={node("prompt")}
+              selected={selectedStage === "prompt"}
+              onSelect={setSelectedStage}
+            />
+            <WorkflowArrow />
+            <WorkflowNodeView
+              node={node("repair")}
+              selected={selectedStage === "repair"}
+              onSelect={setSelectedStage}
+            />
+            <WorkflowArrow />
+            <WorkflowNodeView
+              node={node("publish")}
+              selected={selectedStage === "publish"}
+              onSelect={setSelectedStage}
+            />
+          </>
+        ) : (
+          <>
+            <WorkflowNodeView
+              node={node("prompt")}
+              selected={selectedStage === "prompt"}
+              onSelect={setSelectedStage}
+            />
+            <WorkflowArrow />
+            <WorkflowNodeView
+              node={node("adapter")}
+              selected={selectedStage === "adapter"}
+              onSelect={setSelectedStage}
+            />
+            <WorkflowArrow />
+            <WorkflowNodeView
+              node={node("source")}
+              selected={selectedStage === "source"}
+              onSelect={setSelectedStage}
+            />
+            <WorkflowArrow />
+            <WorkflowNodeView
+              node={node("render")}
+              selected={selectedStage === "render"}
+              onSelect={setSelectedStage}
+            />
+            <WorkflowArrow />
+            <div className="workflow-validation" aria-label="Parallel validators">
+              <span className="workflow-branch-label">Parallel validation</span>
+              <WorkflowNodeView
+                node={node("media")}
+                selected={selectedStage === "media"}
+                onSelect={setSelectedStage}
+              />
+              <WorkflowNodeView
+                node={node("spatial")}
+                selected={selectedStage === "spatial"}
+                onSelect={setSelectedStage}
+              />
+              <WorkflowNodeView
+                node={node("visual")}
+                selected={selectedStage === "visual"}
+                onSelect={setSelectedStage}
+              />
+            </div>
+            <WorkflowArrow />
+            <WorkflowNodeView
+              node={node("publish")}
+              selected={selectedStage === "publish"}
+              onSelect={setSelectedStage}
+            />
+          </>
+        )}
       </div>
       {selectedNode && <WorkflowStageInspector node={selectedNode} lesson={lesson} />}
     </section>
@@ -410,6 +435,7 @@ function workflowNodes(lesson: LessonJob | null): WorkflowNode[] {
     media: "Media",
     spatial: "Layout",
     visual: "Visual",
+    repair: "Repair attempt",
     publish: "Video ready",
   };
   const states = Object.fromEntries(
@@ -432,6 +458,9 @@ function workflowNodes(lesson: LessonJob | null): WorkflowNode[] {
   if (stage === "generating_code" || stage === "repairing") states.adapter = "running";
   if (stage === "validating_code") states.source = "running";
   if (stage === "rendering") states.render = "running";
+  if (lesson.attempt > 0 && (lesson.status === "queued" || lesson.status === "running")) {
+    states.repair = "running";
+  }
 
   const axes = readValidationAxes(lesson.diagnostics);
   for (const axis of axes) {
@@ -546,6 +575,7 @@ function workflowStageDetails(
     media: "Media checks inspect the rendered file, streams, duration, and captions contract.",
     spatial: "Layout checks inspect frame boundaries, margins, object size, and intersections.",
     visual: "The visual model checks sampled frames for bounded visible defects.",
+    repair: "One bounded repair reruns generation, source admission, rendering, and validation.",
     publish: "A lesson is published only after every required validation axis passes.",
   };
   const facts: { label: string; value: string }[] = [];
@@ -571,6 +601,10 @@ function workflowStageDetails(
     addFact("Line", diagnostics.line);
     addFact("Generation attempts", diagnostics.attempt_count);
     addFact("Repair attempts", diagnostics.repair_count);
+  }
+  if (node.id === "repair") {
+    addFact("Repair attempt", lesson.attempt);
+    addFact("Current phase", stageLabels[lesson.stage]);
   }
   if (node.id === "render") {
     addFact("Renderer", diagnostics.renderer);
