@@ -141,6 +141,35 @@ class FixedVisualModel:
         )
 
 
+@dataclass
+class SequencedVisualModel:
+    """Return configured responses in order while retaining submitted prompts."""
+
+    responses: list[str]
+    model: str = "Qwen/Qwen3-VL-4B-Instruct"
+    revision: str = "ebb281ec70b05090aa6165b016eac8ec08e71b17"
+
+    def __post_init__(self) -> None:
+        self.prompts: list[str] = []
+
+    def inspect(
+        self,
+        *,
+        prompt: str,
+        frames: tuple[FrameSample, ...],
+    ) -> VisualModelResult:
+        del frames
+        self.prompts.append(prompt)
+        content = self.responses[len(self.prompts) - 1]
+        return VisualModelResult(
+            content=content,
+            model=self.model,
+            revision=self.revision,
+            request_id=f"visual-{len(self.prompts)}",
+            provider_response=json.dumps({"attempt": len(self.prompts)}),
+        )
+
+
 def _validate(tmp_path: Path, response: str | Exception):
     return VisualEvidenceValidator(
         sampler=FixedSampler(),
@@ -171,6 +200,7 @@ def test_visual_validator_returns_controlled_frame_specific_failure(
     assert report.provenance == {
         "model": "Qwen/Qwen3-VL-4B-Instruct",
         "revision": "ebb281ec70b05090aa6165b016eac8ec08e71b17",
+        "model_attempt_count": 1,
     }
     assert report.findings[0].code == "visible_cropping_or_truncation"
     assert report.findings[0].evidence == {
@@ -196,6 +226,42 @@ def test_visual_validator_returns_controlled_frame_specific_failure(
     evidence = json.loads((tmp_path / "visual_validation" / "validation.json").read_text())
     assert evidence["provenance"]["model_revision"] == ("ebb281ec70b05090aa6165b016eac8ec08e71b17")
     assert len(evidence["artifacts"]["model_response_sha256"]) == 64
+
+
+def test_visual_validator_retries_malformed_status_finding_combination(
+    tmp_path: Path,
+) -> None:
+    finding = {
+        "rule": "caption_visible_content_mismatch",
+        "frame_ids": ["frame-01"],
+        "regions": ["full_frame"],
+    }
+    model = SequencedVisualModel(
+        responses=[
+            json.dumps({"status": "uncertain", "findings": [finding]}),
+            json.dumps({"status": "fail", "findings": [finding]}),
+        ]
+    )
+    validator = VisualEvidenceValidator(
+        sampler=FixedSampler(),
+        model=model,
+        max_model_retries=1,
+    )
+
+    report = validator.validate(_attempt(tmp_path))
+
+    assert report.status is ValidationStatus.FAIL
+    assert report.findings[0].code == "caption_visible_content_mismatch"
+    assert report.findings[0].repair_instruction is not None
+    assert report.provenance["model_attempt_count"] == 2
+    assert len(model.prompts) == 2
+    assert "previous response violated the response contract" in model.prompts[1]
+    assert (
+        tmp_path / "visual_validation" / "model_attempts" / "0" / "model_response.txt"
+    ).is_file()
+    assert (
+        tmp_path / "visual_validation" / "model_attempts" / "1" / "model_response.txt"
+    ).is_file()
 
 
 def test_visual_validator_passes_schema_valid_clean_evidence(tmp_path: Path) -> None:

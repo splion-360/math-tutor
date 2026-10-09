@@ -25,7 +25,9 @@ Judge only visible cropping or truncation, elements outside the frame, an explic
 visual element missing from all supplied frames, obvious rendering corruption,
 caption-to-visible-content mismatch, or severe clutter that prevents reading individual elements.
 Do not judge pedagogy, mathematical correctness, or general coherence.
-Return only JSON matching the supplied schema. Use uncertain when the frames do not prove a claim.
+Return only JSON matching the supplied schema. A pass or uncertain response must have an empty
+findings array. If you include any finding, status must be fail. Use uncertain only when the
+frames do not prove any permitted finding.
 """
 
 _RESPONSE_SCHEMA: dict[str, object] = {

@@ -25,6 +25,7 @@ interface ValidationAxisSummary {
   status: "pass" | "fail" | "uncertain" | "validator_error";
   findingCount?: number;
   advisoryCount?: number;
+  provenance?: Record<string, unknown>;
 }
 
 type VideoMode = "initial" | "validated";
@@ -316,7 +317,13 @@ function EmptyVideo() {
   );
 }
 
-type WorkflowNodeState = "pending" | "running" | "passed" | "failed" | "uncertain";
+type WorkflowNodeState =
+  | "pending"
+  | "running"
+  | "passed"
+  | "failed"
+  | "uncertain"
+  | "error";
 
 interface WorkflowNode {
   id: string;
@@ -455,6 +462,8 @@ function WorkflowNodeView({
     ? "✓"
     : node.state === "failed"
       ? "×"
+      : node.state === "error"
+        ? "!"
       : node.state === "uncertain"
         ? "?"
         : node.state === "running"
@@ -528,7 +537,9 @@ function workflowNodes(lesson: LessonJob | null): WorkflowNode[] {
       ? "passed"
       : axis.status === "uncertain"
         ? "uncertain"
-        : "failed";
+        : axis.status === "validator_error"
+          ? "error"
+          : "failed";
   }
 
   if (lesson.status === "ready") {
@@ -577,6 +588,7 @@ function workflowStateLabel(state: WorkflowNodeState) {
   if (state === "running") return "Running";
   if (state === "passed") return "Passed";
   if (state === "failed") return "Failed";
+  if (state === "error") return "Error";
   if (state === "uncertain") return "Uncertain";
   return "Waiting";
 }
@@ -702,6 +714,7 @@ function workflowStageDetails(
     );
     addFact("Findings", axis?.findingCount);
     addFact("Advisories", axis?.advisoryCount);
+    addFact("Model attempts", axis?.provenance?.model_attempt_count);
     if (node.id === "media") {
       addFact("Narration", lesson.narration_status);
       addFact("Narration attempts", diagnostics.narration_plan_attempt_count);
@@ -1002,6 +1015,7 @@ function readValidationAxes(
     const status = "status" in axis ? axis.status : null;
     const findingCount = "finding_count" in axis ? axis.finding_count : null;
     const advisoryCount = "advisory_count" in axis ? axis.advisory_count : null;
+    const provenance = "provenance" in axis ? readRecord(axis.provenance) : null;
     if (
       typeof validator !== "string"
       || typeof status !== "string"
@@ -1012,6 +1026,7 @@ function readValidationAxes(
       status: status as ValidationAxisSummary["status"],
       findingCount: typeof findingCount === "number" ? findingCount : undefined,
       advisoryCount: typeof advisoryCount === "number" ? advisoryCount : undefined,
+      provenance: provenance ?? undefined,
     }];
   });
 }

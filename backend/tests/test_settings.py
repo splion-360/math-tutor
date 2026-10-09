@@ -48,6 +48,7 @@ def test_settings_loads_secret_and_keeps_operational_code_defaults(
     assert settings.narration_plan_max_retries == 1
     assert settings.max_pending_jobs == 8
     assert settings.validation_max_repair_attempts == 1
+    assert settings.visual_validation_max_retries == 1
     assert settings.spatial_unsafe_margin == 0.25
     assert settings.spatial_max_width_ratio == 0.9
     assert settings.spatial_max_height_ratio == 0.9

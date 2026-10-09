@@ -299,15 +299,28 @@ class VisualEvidenceValidator:
     name = "visual_evidence"
     expected_checks: tuple[str, ...] = tuple(_RULES)
 
-    def __init__(self, *, sampler: FrameSampler, model: VisualModel) -> None:
+    def __init__(
+        self,
+        *,
+        sampler: FrameSampler,
+        model: VisualModel,
+        max_model_retries: int = 1,
+    ) -> None:
         """Configure independent sampling and visual-model boundaries.
 
         Args:
             sampler: Deterministic retained-frame sampler.
             model: Separately hosted visual evidence model.
+            max_model_retries: Retries allowed after malformed structured output.
+
+        Raises:
+            ValueError: If more than one model retry is requested.
         """
+        if not 0 <= max_model_retries <= 1:
+            raise ValueError("visual validation supports at most one model retry")
         self._sampler = sampler
         self._model = model
+        self._max_model_retries = max_model_retries
 
     def validate(self, attempt: RenderedAttempt) -> ValidationReport:
         """Inspect objective evidence in sampled frames.
@@ -333,9 +346,9 @@ class VisualEvidenceValidator:
             return report
 
         try:
-            result = self._model.inspect(
-                prompt=self._inspection_prompt(attempt),
-                frames=frames,
+            report, result, model_attempt_count = self._inspect_with_schema_retry(
+                attempt,
+                frames,
             )
         except VisualModelTimedOut:
             report = self._error_report(
@@ -359,33 +372,73 @@ class VisualEvidenceValidator:
             self._write_validation(attempt, report, result=None)
             return report
 
-        self._retain_model_response(attempt, result)
-        try:
-            report = self._parse_report(result.content, frames)
-        except UnsupportedVisualClaim:
-            report = ValidationReport(
-                validator=self.name,
-                status=ValidationStatus.UNCERTAIN,
-                findings=(
-                    ValidationFinding(
-                        code="unsupported_visual_claim",
-                        message=(
-                            "The visual model requested a judgment outside the supported rules."
-                        ),
-                    ),
-                ),
-            )
-        except MalformedVisualModelOutput:
-            report = self._error_report(
-                "malformed_visual_model_output",
-                "Visual evidence validation returned an invalid structured response.",
-            )
         report = replace(
             report,
-            provenance={"model": result.model, "revision": result.revision},
+            provenance={
+                "model": result.model,
+                "revision": result.revision,
+                "model_attempt_count": model_attempt_count,
+            },
         )
         self._write_validation(attempt, report, result=result)
         return report
+
+    def _inspect_with_schema_retry(
+        self,
+        attempt: RenderedAttempt,
+        frames: tuple[FrameSample, ...],
+    ) -> tuple[ValidationReport, VisualModelResult, int]:
+        """Inspect retained frames and retry one malformed structured response.
+
+        Args:
+            attempt: Rendered lesson attempt supplying prompt and caption context.
+            frames: Retained frames to send on each model attempt.
+
+        Returns:
+            Parsed report, final provider result, and total model attempt count.
+
+        Raises:
+            VisualModelError: If the configured model request cannot complete.
+        """
+        prompt = self._inspection_prompt(attempt)
+        for model_attempt in range(self._max_model_retries + 1):
+            result = self._model.inspect(prompt=prompt, frames=frames)
+            self._retain_model_response(attempt, result, model_attempt=model_attempt)
+            try:
+                return self._parse_report(result.content, frames), result, model_attempt + 1
+            except UnsupportedVisualClaim:
+                report = ValidationReport(
+                    validator=self.name,
+                    status=ValidationStatus.UNCERTAIN,
+                    findings=(
+                        ValidationFinding(
+                            code="unsupported_visual_claim",
+                            message=(
+                                "The visual model requested a judgment outside the supported rules."
+                            ),
+                        ),
+                    ),
+                )
+                return report, result, model_attempt + 1
+            except MalformedVisualModelOutput:
+                if model_attempt == self._max_model_retries:
+                    report = self._error_report(
+                        "malformed_visual_model_output",
+                        "Visual evidence validation returned an invalid structured response.",
+                    )
+                    return report, result, model_attempt + 1
+                prompt = self._schema_retry_prompt(attempt)
+        raise AssertionError("visual-model attempt loop ended without a report")
+
+    def _schema_retry_prompt(self, attempt: RenderedAttempt) -> str:
+        """Return bounded correction guidance after a malformed model response."""
+        return (
+            f"{self._inspection_prompt(attempt)}\n\n"
+            "Your previous response violated the response contract. Return findings=[] when "
+            "status is pass or uncertain. If any permitted finding is present, set status to "
+            "fail. Include only status and findings, and include only rule, frame_ids, and "
+            "regions inside each finding."
+        )
 
     @staticmethod
     def _inspection_prompt(attempt: RenderedAttempt) -> str:
@@ -548,9 +601,22 @@ class VisualEvidenceValidator:
     def _retain_model_response(
         attempt: RenderedAttempt,
         result: VisualModelResult,
+        *,
+        model_attempt: int,
     ) -> None:
+        """Retain every model response and update the canonical final-response files."""
         visual_dir = attempt.artifact_dir / "visual_validation"
         visual_dir.mkdir(parents=True, exist_ok=True)
+        response_dir = visual_dir / "model_attempts" / str(model_attempt)
+        response_dir.mkdir(parents=True, exist_ok=False)
+        (response_dir / "model_response.txt").write_text(
+            result.content,
+            encoding="utf-8",
+        )
+        (response_dir / "provider_response.json").write_text(
+            result.provider_response,
+            encoding="utf-8",
+        )
         (visual_dir / "model_response.txt").write_text(
             result.content,
             encoding="utf-8",

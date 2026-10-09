@@ -104,6 +104,44 @@ describe("LessonResult", () => {
     expect(node("publish")).toHaveClass("workflow-pending");
   });
 
+  it("distinguishes a validator error from a lesson validation failure", () => {
+    render(
+      <LessonResult
+        lesson={{
+          ...failedLesson,
+          diagnostics: {
+            failure_stage: "output_validation",
+            validation_axes: [
+              {
+                validator: "visual_evidence",
+                status: "validator_error",
+                finding_count: 1,
+                provenance: { model_attempt_count: 2 },
+              },
+            ],
+            validation_reports: [
+              {
+                validator: "visual_evidence",
+                findings: [
+                  {
+                    code: "malformed_visual_model_output",
+                    message: "The visual check returned an invalid response.",
+                  },
+                ],
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(node("visual")).toHaveClass("workflow-error");
+    expect(node("visual")).toHaveTextContent("Error");
+    fireEvent.click(screen.getByRole("button", { name: "Inspect Visual stage" }));
+    expect(screen.getByText("Model attempts")).toBeInTheDocument();
+    expect(screen.getByText("malformed_visual_model_output")).toBeInTheDocument();
+  });
+
   it("identifies the failed component", () => {
     render(
       <LessonResult
@@ -291,10 +329,12 @@ describe("App lesson flow", () => {
     fireEvent.click(screen.getByRole("button", { name: /generate lesson/i }));
 
     await waitFor(() => expect(node("publish")).toHaveClass("workflow-passed"));
-    expect(screen.getByTestId("lesson-video")).toHaveAttribute(
-      "src",
-      "/lessons/demo/video",
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId("lesson-video")).toHaveAttribute(
+        "src",
+        "/lessons/demo/video",
+      );
+    });
     expect(screen.getByRole("button", { name: /generate lesson/i })).toBeEnabled();
   });
 
@@ -319,10 +359,12 @@ describe("App lesson flow", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /generate lesson/i }));
     await waitFor(() => expect(node("publish")).toHaveClass("workflow-passed"));
-    expect(screen.getByTestId("lesson-video")).toHaveAttribute(
-      "src",
-      "/lessons/demo/video",
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId("lesson-video")).toHaveAttribute(
+        "src",
+        "/lessons/demo/video",
+      );
+    });
 
     fireEvent.click(screen.getByRole("button", { name: /generate lesson/i }));
 

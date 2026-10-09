@@ -503,6 +503,16 @@ textarea:focus {
   color: var(--danger);
 }
 
+.workflow-error {
+  border-color: var(--warning);
+  box-shadow: 0 0 0 1px rgba(242, 166, 90, 0.18);
+}
+
+.workflow-error > span,
+.workflow-error small {
+  color: var(--warning);
+}
+
 .workflow-uncertain {
   border-color: rgba(242, 166, 90, 0.5);
 }
@@ -527,6 +537,10 @@ textarea:focus {
 
 .workflow-inspector-failed {
   border-color: var(--danger);
+}
+
+.workflow-inspector-error {
+  border-color: var(--warning);
 }
 
 .workflow-inspector-passed {
@@ -906,11 +920,11 @@ textarea:focus {
   color: var(--primary);
 }
 
-.validation-fail,
-.validation-validator_error {
+.validation-fail {
   color: #f7a6a6;
 }
 
+.validation-validator_error,
 .validation-uncertain {
   color: #f2d58a;
 }

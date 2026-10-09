@@ -93,6 +93,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             VisualEvidenceValidator(
                 sampler=FfmpegFrameSampler(),
                 model=visual_model,
+                max_model_retries=resolved.visual_validation_max_retries,
             ),
         ),
         report_callback=report_validation,

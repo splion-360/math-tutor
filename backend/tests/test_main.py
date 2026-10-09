@@ -175,6 +175,7 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
         "spatial",
         "visual_evidence",
     ]
+    assert observed_validators[0][2]._max_model_retries == 1
     assert callable(validator_callbacks[0])
     assert observed_renderers == [
         {
