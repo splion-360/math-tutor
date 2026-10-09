@@ -1,0 +1,3062 @@
+{
+  "figures": [
+    "gradient_label_effects.svg",
+    "gradient_label_clustering.svg"
+  ],
+  "inputs": {
+    "exact_held_out_reference": {
+      "gradient_source": "exact_LoRA_A_B_vectors",
+      "layer_count": 36,
+      "layer_cross_subject_negative_rate_range": [
+        0.15605573419078242,
+        0.4883172561629153
+      ],
+      "limitation": "The recovered exact artifact contains aggregated subject-pair statistics, not per-example vectors, so it cannot support the label-association tests.",
+      "module_count": 252,
+      "module_cross_subject_negative_rate_range": [
+        0.13933547695605572,
+        0.5076098606645231
+      ],
+      "path": "training/artifacts/evidence/lora_cosines.json",
+      "sha256": "c21d4398a7be61cd0ab2de99a8fb03da428327a644168c710d799cae06a05baa",
+      "subject_count": 19,
+      "validation_count": 100
+    },
+    "records": {
+      "difficulty_definition": "target-code-line-count-tertiles",
+      "path": "training/artifacts/evidence/bespoke_manim_train.jsonl",
+      "sha256": "b811de3070bb5084cdf8092c7d05a9ad20454de195a33551ac96c5a8b4096e65"
+    },
+    "signatures": {
+      "checkpoint_step": 1790,
+      "kind": "projected_per-example_gradients",
+      "path": "training/artifacts/evidence/full_corpus_signatures.jsonl",
+      "sha256": "6fbea5c90a87c9f8d8f745539ee22bd7ffe420cf66117bea933dff75d1e86173"
+    }
+  },
+  "results": {
+    "bootstrap_repeats": 2000,
+    "cluster_starts": 10,
+    "label_summaries": {
+      "difficulty": {
+        "ari_range": [
+          -0.002766971314979445,
+          0.04071792071917613
+        ],
+        "effect_median": 0.002297284253713913,
+        "effect_range": [
+          0.0007644646625862493,
+          0.011470887810201889
+        ],
+        "modules_with_bh_q_at_most_0_05": 26,
+        "modules_with_bonferroni_p_at_most_0_05": 18,
+        "nmi_range": [
+          0.0010282195740608222,
+          0.04933803245016281
+        ]
+      },
+      "subject": {
+        "ari_range": [
+          -0.003313380910316728,
+          0.05744519438627909
+        ],
+        "effect_median": 0.001889360474064334,
+        "effect_range": [
+          -0.0010396040036821075,
+          0.016560261479230547
+        ],
+        "modules_with_bh_q_at_most_0_05": 17,
+        "modules_with_bonferroni_p_at_most_0_05": 11,
+        "nmi_range": [
+          0.0202617920103403,
+          0.09349641955791406
+        ]
+      }
+    },
+    "module_count": 28,
+    "modules": {
+      "layer_0.down_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.007676404804950406,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": -0.0014718665676265715,
+            "ari_null_interval_95": [
+              -0.0035757172112621223,
+              0.007961371156267064
+            ],
+            "ari_null_mean": 0.0001085343478133231,
+            "ari_permutation_p_value": 0.6506746626686657,
+            "cluster_count": 3,
+            "nmi": 0.002324109498747632,
+            "nmi_null_interval_95": [
+              0.0005245646466915657,
+              0.01110378237509635
+            ],
+            "nmi_null_mean": 0.003908766119435001,
+            "nmi_permutation_p_value": 0.6781609195402298,
+            "selected_objective": 0.18542131419376146,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0011354396384768272,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.024627686156921538,
+            "bonferroni_p_value": 0.6156921539230384,
+            "null_interval_95": [
+              -0.0008081639181658003,
+              0.0009066598153954458
+            ],
+            "null_mean": 2.746298286103824e-06,
+            "observed_record_mean_contrast": 0.0010020121232059583,
+            "two_sided_p_value": 0.021989005497251374
+          },
+          "record_bootstrap_interval_95": [
+            0.00029433087602239637,
+            0.001739789018562662
+          ],
+          "record_mean_contrast": 0.0010020121232059583,
+          "standardized_pair_mean_difference": 0.01598409224379829,
+          "within_mean_cosine": 0.008811844443427233,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.008135734035853723,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.002723844743489789,
+            "ari_null_interval_95": [
+              -0.0050587769946778376,
+              0.006186718355270413
+            ],
+            "ari_null_mean": 5.4091037935134845e-05,
+            "ari_permutation_p_value": 0.19640179910044978,
+            "cluster_count": 8,
+            "nmi": 0.029980909813010204,
+            "nmi_null_interval_95": [
+              0.016646944707304007,
+              0.03666017332704479
+            ],
+            "nmi_null_mean": 0.025626335693712483,
+            "nmi_permutation_p_value": 0.19540229885057472,
+            "selected_objective": 0.24015877522413806,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": -0.0006479750798209262,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.37847742795269035,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.0011863585157328208,
+              0.0012799811130020384
+            ],
+            "null_mean": 8.87209266850681e-06,
+            "observed_record_mean_contrast": -0.0006796304382978943,
+            "two_sided_p_value": 0.28385807096451776
+          },
+          "record_bootstrap_interval_95": [
+            -0.0015605949824064773,
+            0.00019323780798098991
+          ],
+          "record_mean_contrast": -0.0006796304382978943,
+          "standardized_pair_mean_difference": -0.009091033297991921,
+          "within_mean_cosine": 0.007487758956032797,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_0.gate_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.005488891106825766,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.00652813957638254,
+            "ari_null_interval_95": [
+              -0.003578055634167179,
+              0.007699603763996685
+            ],
+            "ari_null_mean": 4.021780792665197e-05,
+            "ari_permutation_p_value": 0.041979010494752625,
+            "cluster_count": 3,
+            "nmi": 0.009721681275517802,
+            "nmi_null_interval_95": [
+              0.0005194094400673725,
+              0.010879870481613008
+            ],
+            "nmi_null_mean": 0.003845706081532739,
+            "nmi_permutation_p_value": 0.043478260869565216,
+            "selected_objective": 0.19576778373913212,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0025627291265696694,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0016462357056765736,
+            "bonferroni_p_value": 0.02798600699650175,
+            "null_interval_95": [
+              -0.000835598569180441,
+              0.0010528238440649482
+            ],
+            "null_mean": 1.7675071403841633e-05,
+            "observed_record_mean_contrast": 0.0024294875500634715,
+            "two_sided_p_value": 0.0009995002498750624
+          },
+          "record_bootstrap_interval_95": [
+            0.0014340240335278846,
+            0.0034586018251760733
+          ],
+          "record_mean_contrast": 0.0024294875500634715,
+          "standardized_pair_mean_difference": 0.033821678898475954,
+          "within_mean_cosine": 0.008051620233395436,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.006302811456471541,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.0022588969101971198,
+            "ari_null_interval_95": [
+              -0.0053854333300343464,
+              0.006395025593750921
+            ],
+            "ari_null_mean": -8.271032989896003e-06,
+            "ari_permutation_p_value": 0.22038980509745126,
+            "cluster_count": 8,
+            "nmi": 0.027416667027505674,
+            "nmi_null_interval_95": [
+              0.01575944903534873,
+              0.03697725490527548
+            ],
+            "nmi_null_mean": 0.02563387304730837,
+            "nmi_permutation_p_value": 0.3373313343328336,
+            "selected_objective": 0.2547675119980507,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.0002966331451746112,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.8880175296966901,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.0012797592042218136,
+              0.0013518550230755956
+            ],
+            "null_mean": 9.552010753566612e-07,
+            "observed_record_mean_contrast": 0.00013766598115156722,
+            "two_sided_p_value": 0.8245877061469266
+          },
+          "record_bootstrap_interval_95": [
+            -0.0008084398347074933,
+            0.000975523346975087
+          ],
+          "record_mean_contrast": 0.00013766598115156722,
+          "standardized_pair_mean_difference": 0.003911509083825348,
+          "within_mean_cosine": 0.0065994446016461525,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_0.k_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.006372375501928329,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": -0.0021691273594446354,
+            "ari_null_interval_95": [
+              -0.00365116451852227,
+              0.007154056400489788
+            ],
+            "ari_null_mean": 1.011078053434972e-05,
+            "ari_permutation_p_value": 0.751624187906047,
+            "cluster_count": 3,
+            "nmi": 0.0018094340917917551,
+            "nmi_null_interval_95": [
+              0.0004788923094551501,
+              0.010307348863620735
+            ],
+            "nmi_null_mean": 0.0038224913006144057,
+            "nmi_permutation_p_value": 0.7566216891554223,
+            "selected_objective": 0.27029839637650555,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0014870841911276854,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.04305539537923346,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.00116519648042856,
+              0.0014738523910093368
+            ],
+            "null_mean": 1.0433152177662917e-05,
+            "observed_record_mean_contrast": 0.0013911874023763253,
+            "two_sided_p_value": 0.0399800099950025
+          },
+          "record_bootstrap_interval_95": [
+            0.0005439344233982058,
+            0.0022785447810230795
+          ],
+          "record_mean_contrast": 0.0013911874023763253,
+          "standardized_pair_mean_difference": 0.01327158645058179,
+          "within_mean_cosine": 0.007859459693056015,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.00677649973099982,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": -0.0013619832106223824,
+            "ari_null_interval_95": [
+              -0.005310602002422108,
+              0.006457830475098641
+            ],
+            "ari_null_mean": -9.056667161181025e-05,
+            "ari_permutation_p_value": 0.6466766616691654,
+            "cluster_count": 8,
+            "nmi": 0.02204305118694612,
+            "nmi_null_interval_95": [
+              0.01634523255522089,
+              0.03681922138181815
+            ],
+            "nmi_null_mean": 0.025505742296509346,
+            "nmi_permutation_p_value": 0.7416291854072964,
+            "selected_objective": 0.3346179457132498,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.0007103823425812558,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.7774512743628186,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.0018810204844110592,
+              0.0019782197659218123
+            ],
+            "null_mean": -1.0700609527843973e-05,
+            "observed_record_mean_contrast": 0.0003808414827572301,
+            "two_sided_p_value": 0.6941529235382309
+          },
+          "record_bootstrap_interval_95": [
+            -0.0008781774292264548,
+            0.001761526029264439
+          ],
+          "record_mean_contrast": 0.0003808414827572301,
+          "standardized_pair_mean_difference": 0.006286820605287105,
+          "within_mean_cosine": 0.0074868820735810755,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_0.o_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.008341435029032913,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": -0.002766971314979445,
+            "ari_null_interval_95": [
+              -0.0035790692844599624,
+              0.007288541757123962
+            ],
+            "ari_null_mean": -3.653288494462583e-06,
+            "ari_permutation_p_value": 0.8585707146426786,
+            "cluster_count": 3,
+            "nmi": 0.0010282195740608222,
+            "nmi_null_interval_95": [
+              0.00045457258691557385,
+              0.010589709373655566
+            ],
+            "nmi_null_mean": 0.0038387207235373397,
+            "nmi_permutation_p_value": 0.894552723638181,
+            "selected_objective": 0.255009080854492,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0022263283992570524,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.006360456135568579,
+            "bonferroni_p_value": 0.13993003498250875,
+            "null_interval_95": [
+              -0.001131818281567255,
+              0.001437001440751196
+            ],
+            "null_mean": -1.1919151677116117e-05,
+            "observed_record_mean_contrast": 0.002005871699413678,
+            "two_sided_p_value": 0.004997501249375313
+          },
+          "record_bootstrap_interval_95": [
+            0.0009871643980996206,
+            0.0030885535442868486
+          ],
+          "record_mean_contrast": 0.002005871699413678,
+          "standardized_pair_mean_difference": 0.02143242709077518,
+          "within_mean_cosine": 0.010567763428289965,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.00912221165603662,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.0008176414410274125,
+            "ari_null_interval_95": [
+              -0.0052342949483123735,
+              0.0067163642508902425
+            ],
+            "ari_null_mean": 0.0001402459027649181,
+            "ari_permutation_p_value": 0.38630684657671166,
+            "cluster_count": 8,
+            "nmi": 0.024582310935130167,
+            "nmi_null_interval_95": [
+              0.016434253720796814,
+              0.03812508428527233
+            ],
+            "nmi_null_mean": 0.0260640198368989,
+            "nmi_permutation_p_value": 0.5822088955522239,
+            "selected_objective": 0.3293489378396382,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": -0.0003241776718011548,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.6552375985920084,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.0016446474320072882,
+              0.0019407133589282991
+            ],
+            "null_mean": 1.569376113357411e-05,
+            "observed_record_mean_contrast": -0.0005432139400477933,
+            "two_sided_p_value": 0.5382308845577212
+          },
+          "record_bootstrap_interval_95": [
+            -0.00175557768133948,
+            0.0007074227304035151
+          ],
+          "record_mean_contrast": -0.0005432139400477933,
+          "standardized_pair_mean_difference": -0.003096089290026814,
+          "within_mean_cosine": 0.008798033984235466,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_0.q_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.0033792100622598237,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": -0.0002506353669929578,
+            "ari_null_interval_95": [
+              -0.0036009714711218504,
+              0.0070753030560470115
+            ],
+            "ari_null_mean": -6.969773867171775e-05,
+            "ari_permutation_p_value": 0.4447776111944028,
+            "cluster_count": 3,
+            "nmi": 0.0034771124398004245,
+            "nmi_null_interval_95": [
+              0.0005035389572192008,
+              0.010160545240083162
+            ],
+            "nmi_null_mean": 0.0037557654390280807,
+            "nmi_permutation_p_value": 0.4572713643178411,
+            "selected_objective": 0.23534603681072727,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.00198791995429427,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.006692306020902592,
+            "bonferroni_p_value": 0.1539230384807596,
+            "null_interval_95": [
+              -0.0010795803748421115,
+              0.0013290411563777322
+            ],
+            "null_mean": -1.0269666982067307e-05,
+            "observed_record_mean_contrast": 0.0019014221810415496,
+            "two_sided_p_value": 0.005497251374312844
+          },
+          "record_bootstrap_interval_95": [
+            0.0008419212784495783,
+            0.0029660446596878327
+          ],
+          "record_mean_contrast": 0.0019014221810415496,
+          "standardized_pair_mean_difference": 0.019763590022749303,
+          "within_mean_cosine": 0.0053671300165540935,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.003912928857020677,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.00741783867178732,
+            "ari_null_interval_95": [
+              -0.004951749755077236,
+              0.007108598961115706
+            ],
+            "ari_null_mean": 5.00092902169489e-05,
+            "ari_permutation_p_value": 0.02048975512243878,
+            "cluster_count": 8,
+            "nmi": 0.03505391086078796,
+            "nmi_null_interval_95": [
+              0.01683134403836935,
+              0.03811471471261967
+            ],
+            "nmi_null_mean": 0.025796620682654186,
+            "nmi_permutation_p_value": 0.06146926536731634,
+            "selected_objective": 0.3124184804023014,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.0010010368716037235,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.43759938212711824,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.0016757500862334851,
+              0.0017914955312061606
+            ],
+            "null_mean": -2.7988176849759433e-05,
+            "observed_record_mean_contrast": 0.0008442316151084645,
+            "two_sided_p_value": 0.34382808595702147
+          },
+          "record_bootstrap_interval_95": [
+            -0.0005219963090016239,
+            0.0021713535172324223
+          ],
+          "record_mean_contrast": 0.0008442316151084645,
+          "standardized_pair_mean_difference": 0.009900551033818223,
+          "within_mean_cosine": 0.004913965728624401,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_0.up_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.0052983143772332856,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.0024609489701971237,
+            "ari_null_interval_95": [
+              -0.0036591616594112805,
+              0.007960277677662112
+            ],
+            "ari_null_mean": 2.8711755680553245e-05,
+            "ari_permutation_p_value": 0.18340829585207397,
+            "cluster_count": 3,
+            "nmi": 0.005855975754640506,
+            "nmi_null_interval_95": [
+              0.0004568580344028573,
+              0.011268899812012229
+            ],
+            "nmi_null_mean": 0.003834996316154744,
+            "nmi_permutation_p_value": 0.19790104947526238,
+            "selected_objective": 0.18359558434225093,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0012951306274636542,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.013993003498250875,
+            "bonferroni_p_value": 0.335832083958021,
+            "null_interval_95": [
+              -0.0007910145718694969,
+              0.0009563944094815145
+            ],
+            "null_mean": 1.536402325931002e-05,
+            "observed_record_mean_contrast": 0.00116683174353342,
+            "two_sided_p_value": 0.01199400299850075
+          },
+          "record_bootstrap_interval_95": [
+            0.00039948341601809634,
+            0.001900440588046018
+          ],
+          "record_mean_contrast": 0.00116683174353342,
+          "standardized_pair_mean_difference": 0.018251315263550554,
+          "within_mean_cosine": 0.00659344500469694,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.00568188728426218,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": -0.001795435174865154,
+            "ari_null_interval_95": [
+              -0.0052841689879016066,
+              0.006497329652235921
+            ],
+            "ari_null_mean": 1.388650951810691e-06,
+            "ari_permutation_p_value": 0.7211394302848576,
+            "cluster_count": 8,
+            "nmi": 0.0246260946423278,
+            "nmi_null_interval_95": [
+              0.01645762181166638,
+              0.03704847266178975
+            ],
+            "nmi_null_mean": 0.025673127794807783,
+            "nmi_permutation_p_value": 0.5637181409295352,
+            "selected_objective": 0.23826559387052265,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.00036908378083444146,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.6681659170414793,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.0012108919638224257,
+              0.0012680447125889953
+            ],
+            "null_mean": 1.1569345868472467e-05,
+            "observed_record_mean_contrast": 0.000338054759381062,
+            "two_sided_p_value": 0.5727136431784108
+          },
+          "record_bootstrap_interval_95": [
+            -0.0005016971876228278,
+            0.0011657538671587787
+          ],
+          "record_mean_contrast": 0.000338054759381062,
+          "standardized_pair_mean_difference": 0.005177053827927781,
+          "within_mean_cosine": 0.006050971065096621,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_0.v_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.010806622960037347,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.004241207515487668,
+            "ari_null_interval_95": [
+              -0.003593734736156927,
+              0.007008774181491479
+            ],
+            "ari_null_mean": -1.6986148750676547e-05,
+            "ari_permutation_p_value": 0.08545727136431784,
+            "cluster_count": 3,
+            "nmi": 0.008023274481120862,
+            "nmi_null_interval_95": [
+              0.0005109006390890657,
+              0.010508335885408015
+            ],
+            "nmi_null_mean": 0.003805748947196091,
+            "nmi_permutation_p_value": 0.07396301849075462,
+            "selected_objective": 0.2350999692601493,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0040532768514307625,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0009057141630110841,
+              0.0011276573833880188
+            ],
+            "null_mean": 9.81288797306636e-06,
+            "observed_record_mean_contrast": 0.003741530704619226,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.002405048554996725,
+            0.005089337049697701
+          ],
+          "record_mean_contrast": 0.003741530704619226,
+          "standardized_pair_mean_difference": 0.04722913882809521,
+          "within_mean_cosine": 0.014859899811468109,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.012273024750343189,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": -0.0011195715954321098,
+            "ari_null_interval_95": [
+              -0.00493617931411072,
+              0.006359811183876319
+            ],
+            "ari_null_mean": 1.6453375525594615e-05,
+            "ari_permutation_p_value": 0.6326836581709145,
+            "cluster_count": 8,
+            "nmi": 0.02618846915719379,
+            "nmi_null_interval_95": [
+              0.016915341492259955,
+              0.036034766166788884
+            ],
+            "nmi_null_mean": 0.02564900249436517,
+            "nmi_permutation_p_value": 0.4292853573213393,
+            "selected_objective": 0.2884293417123145,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": -0.0009448010231467227,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.22904337305031694,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.0013768776087405927,
+              0.0015545739123674475
+            ],
+            "null_mean": 8.309264869201971e-06,
+            "observed_record_mean_contrast": -0.0010396040036821075,
+            "two_sided_p_value": 0.15542228885557222
+          },
+          "record_bootstrap_interval_95": [
+            -0.002037721524667838,
+            -7.266683996668692e-05
+          ],
+          "record_mean_contrast": -0.0010396040036821075,
+          "standardized_pair_mean_difference": -0.010982368667727347,
+          "within_mean_cosine": 0.011328223727196466,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_12.down_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.012925727574386169,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.0010273964756875099,
+            "ari_null_interval_95": [
+              -0.00363153795710305,
+              0.00720339643315548
+            ],
+            "ari_null_mean": 1.0894631359822964e-05,
+            "ari_permutation_p_value": 0.28785607196401797,
+            "cluster_count": 3,
+            "nmi": 0.004132513281784436,
+            "nmi_null_interval_95": [
+              0.0004618350221766729,
+              0.010727483062165009
+            ],
+            "nmi_null_mean": 0.003832879266613627,
+            "nmi_permutation_p_value": 0.3633183408295852,
+            "selected_objective": 0.17475351584728946,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0012915917889769549,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.002332167249708479,
+            "bonferroni_p_value": 0.041979010494752625,
+            "null_interval_95": [
+              -0.0007493232177077072,
+              0.00079193523109492
+            ],
+            "null_mean": -1.955995854606168e-05,
+            "observed_record_mean_contrast": 0.001185464947335792,
+            "two_sided_p_value": 0.0014992503748125937
+          },
+          "record_bootstrap_interval_95": [
+            0.0005250151062594989,
+            0.0018415333008187304
+          ],
+          "record_mean_contrast": 0.001185464947335792,
+          "standardized_pair_mean_difference": 0.019701009269101857,
+          "within_mean_cosine": 0.014217319363363123,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.013072947262115064,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": -0.003313380910316728,
+            "ari_null_interval_95": [
+              -0.005099810773752942,
+              0.006711985812423641
+            ],
+            "ari_null_mean": 9.08165361882313e-05,
+            "ari_permutation_p_value": 0.8770614692653673,
+            "cluster_count": 8,
+            "nmi": 0.022370720295486566,
+            "nmi_null_interval_95": [
+              0.016210708173206446,
+              0.03726772632512089
+            ],
+            "nmi_null_mean": 0.02583835570254269,
+            "nmi_permutation_p_value": 0.7331334332833583,
+            "selected_objective": 0.2251974255667462,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.002225925306516406,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.002544182454227432,
+            "bonferroni_p_value": 0.02798600699650175,
+            "null_interval_95": [
+              -0.0011391125863567826,
+              0.0011625588376409132
+            ],
+            "null_mean": 7.042947732036278e-06,
+            "observed_record_mean_contrast": 0.0021247483863659797,
+            "two_sided_p_value": 0.0009995002498750624
+          },
+          "record_bootstrap_interval_95": [
+            0.0012661976606757727,
+            0.002957956771139487
+          ],
+          "record_mean_contrast": 0.0021247483863659797,
+          "standardized_pair_mean_difference": 0.03388154753597365,
+          "within_mean_cosine": 0.01529887256863147,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_12.gate_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.013426156981953387,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.0038486027693058235,
+            "ari_null_interval_95": [
+              -0.0036827739681547177,
+              0.007909887919312054
+            ],
+            "ari_null_mean": 0.00013504869757683424,
+            "ari_permutation_p_value": 0.10994502748625687,
+            "cluster_count": 3,
+            "nmi": 0.007601220904277413,
+            "nmi_null_interval_95": [
+              0.00043539459076304924,
+              0.011078818993155642
+            ],
+            "nmi_null_mean": 0.003934649306050252,
+            "nmi_permutation_p_value": 0.09745127436281859,
+            "selected_objective": 0.18133804786106797,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0025088997753872026,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0007871960634144425,
+              0.0008483793355507608
+            ],
+            "null_mean": 7.445559649742805e-06,
+            "observed_record_mean_contrast": 0.0023973411777941573,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.0016233913921517218,
+            0.0031962970147511208
+          ],
+          "record_mean_contrast": 0.0023973411777941573,
+          "standardized_pair_mean_difference": 0.03745631357757255,
+          "within_mean_cosine": 0.01593505675734059,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.013831436328246332,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.002372539774961114,
+            "ari_null_interval_95": [
+              -0.005136276026538694,
+              0.006244998645786133
+            ],
+            "ari_null_mean": -7.86241213954911e-05,
+            "ari_permutation_p_value": 0.20839580209895053,
+            "cluster_count": 8,
+            "nmi": 0.029918243943000807,
+            "nmi_null_interval_95": [
+              0.016681615934014096,
+              0.03716761235350284
+            ],
+            "nmi_null_mean": 0.025569367773883123,
+            "nmi_permutation_p_value": 0.19140429785107446,
+            "selected_objective": 0.23088644660313629,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.003381842011400977,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0013993003498250875,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0011337864953549178,
+              0.0012486522589085058
+            ],
+            "null_mean": 1.1939725782031487e-05,
+            "observed_record_mean_contrast": 0.003184133921416922,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.002297017298206885,
+            0.0040711977984782734
+          ],
+          "record_mean_contrast": 0.003184133921416922,
+          "standardized_pair_mean_difference": 0.05017449722983526,
+          "within_mean_cosine": 0.01721327833964731,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_12.k_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.012780422614953385,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.014718947757612483,
+            "ari_null_interval_95": [
+              -0.003701160054907006,
+              0.00673560293400467
+            ],
+            "ari_null_mean": -0.00015891101352673854,
+            "ari_permutation_p_value": 0.0004997501249375312,
+            "cluster_count": 3,
+            "nmi": 0.016873612104381538,
+            "nmi_null_interval_95": [
+              0.000429230605680191,
+              0.009800083021568732
+            ],
+            "nmi_null_mean": 0.0036793959838315603,
+            "nmi_permutation_p_value": 0.0004997501249375312,
+            "selected_objective": 0.2615642642350052,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.004747808437157835,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0011080505332490389,
+              0.0013130107798576107
+            ],
+            "null_mean": 1.0366998884052246e-05,
+            "observed_record_mean_contrast": 0.004700781793540183,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.0030933403740193077,
+            0.006293939601136906
+          ],
+          "record_mean_contrast": 0.004700781793540183,
+          "standardized_pair_mean_difference": 0.045604616021342505,
+          "within_mean_cosine": 0.01752823105211122,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.014118934303454587,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": -0.002125123092053491,
+            "ari_null_interval_95": [
+              -0.004967704321308779,
+              0.006556273635131579
+            ],
+            "ari_null_mean": 1.841363436412512e-05,
+            "ari_permutation_p_value": 0.760119940029985,
+            "cluster_count": 8,
+            "nmi": 0.022288861073884173,
+            "nmi_null_interval_95": [
+              0.016894027366507722,
+              0.03707349204551854
+            ],
+            "nmi_null_mean": 0.02584044733547153,
+            "nmi_permutation_p_value": 0.7326336831584208,
+            "selected_objective": 0.33032001149412604,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.0018869537716330563,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.10650230440335388,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.001712590918585134,
+              0.0018714781373143387
+            ],
+            "null_mean": 1.872811124361141e-05,
+            "observed_record_mean_contrast": 0.0016355325865356415,
+            "two_sided_p_value": 0.06846576711644178
+          },
+          "record_bootstrap_interval_95": [
+            0.00019180333796159788,
+            0.003018426622174836
+          ],
+          "record_mean_contrast": 0.0016355325865356415,
+          "standardized_pair_mean_difference": 0.018166052929042168,
+          "within_mean_cosine": 0.016005888075087644,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_12.o_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.012916029101360183,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.03223983336374538,
+            "ari_null_interval_95": [
+              -0.003639928867681489,
+              0.007502860483289047
+            ],
+            "ari_null_mean": 1.2521846767398877e-05,
+            "ari_permutation_p_value": 0.0004997501249375312,
+            "cluster_count": 3,
+            "nmi": 0.032539132144290925,
+            "nmi_null_interval_95": [
+              0.00046653224259767483,
+              0.01061799680029938
+            ],
+            "nmi_null_mean": 0.0038205170781454843,
+            "nmi_permutation_p_value": 0.0004997501249375312,
+            "selected_objective": 0.18334358510689214,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0035689571564445875,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0007632250429799396,
+              0.0008197562038176002
+            ],
+            "null_mean": -2.906378472892662e-06,
+            "observed_record_mean_contrast": 0.0034015990476119855,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.002537406366067814,
+            0.004285425091751164
+          ],
+          "record_mean_contrast": 0.0034015990476119855,
+          "standardized_pair_mean_difference": 0.053476122466863014,
+          "within_mean_cosine": 0.01648498625780477,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.01373207085171279,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.0013140335764792446,
+            "ari_null_interval_95": [
+              -0.005294889086606066,
+              0.005981099257087419
+            ],
+            "ari_null_mean": -7.597836363025698e-05,
+            "ari_permutation_p_value": 0.3003498250874563,
+            "cluster_count": 8,
+            "nmi": 0.028927924885152802,
+            "nmi_null_interval_95": [
+              0.016488513920066897,
+              0.03631552900786741
+            ],
+            "nmi_null_mean": 0.02557582441430982,
+            "nmi_permutation_p_value": 0.25037481259370314,
+            "selected_objective": 0.23184143455398576,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.0029195719192862297,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0013993003498250875,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0011768307068536832,
+              0.0010868419241134104
+            ],
+            "null_mean": -2.250548189739514e-05,
+            "observed_record_mean_contrast": 0.0030600922329546074,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.002167596247909651,
+            0.0039771859823814655
+          ],
+          "record_mean_contrast": 0.0030600922329546074,
+          "standardized_pair_mean_difference": 0.043548283880801196,
+          "within_mean_cosine": 0.01665164277099902,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_12.q_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.012733953827219917,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.0016806685090941023,
+            "ari_null_interval_95": [
+              -0.0036215566713391155,
+              0.006866907513705338
+            ],
+            "ari_null_mean": -8.772482496359767e-06,
+            "ari_permutation_p_value": 0.2383808095952024,
+            "cluster_count": 3,
+            "nmi": 0.005130023048414295,
+            "nmi_null_interval_95": [
+              0.0004952248084166391,
+              0.010149525073477453
+            ],
+            "nmi_null_mean": 0.003804959796961529,
+            "nmi_permutation_p_value": 0.2513743128435782,
+            "selected_objective": 0.2579265354225255,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0008932912019490036,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.21093157125141135,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.001019987778314855,
+              0.0013655643984517112
+            ],
+            "null_mean": 6.139819628206787e-06,
+            "observed_record_mean_contrast": 0.0007644646625862493,
+            "two_sided_p_value": 0.20339830084957522
+          },
+          "record_bootstrap_interval_95": [
+            -0.00027351820207468353,
+            0.0018863805270287726
+          ],
+          "record_mean_contrast": 0.0007644646625862493,
+          "standardized_pair_mean_difference": 0.009018207858866412,
+          "within_mean_cosine": 0.01362724502916892,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.012742030974408179,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.0022851540558175127,
+            "ari_null_interval_95": [
+              -0.004944945345967579,
+              0.006716505302072891
+            ],
+            "ari_null_mean": 8.413298900419407e-05,
+            "ari_permutation_p_value": 0.22588705647176413,
+            "cluster_count": 8,
+            "nmi": 0.030834330441907667,
+            "nmi_null_interval_95": [
+              0.016927031640407455,
+              0.037592253814639216
+            ],
+            "nmi_null_mean": 0.02582349271077019,
+            "nmi_permutation_p_value": 0.1724137931034483,
+            "selected_objective": 0.3214151505650166,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.002279642395906112,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.014867566216891554,
+            "bonferroni_p_value": 0.23788105947026486,
+            "null_interval_95": [
+              -0.0015893891524056264,
+              0.0017351352659581564
+            ],
+            "null_mean": -7.127856270220235e-06,
+            "observed_record_mean_contrast": 0.0023151474043921253,
+            "two_sided_p_value": 0.00849575212393803
+          },
+          "record_bootstrap_interval_95": [
+            0.000872227958705408,
+            0.003767575688912804
+          ],
+          "record_mean_contrast": 0.0023151474043921253,
+          "standardized_pair_mean_difference": 0.022952885304545475,
+          "within_mean_cosine": 0.01502167337031429,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_12.up_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.015673365701402816,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": -0.0020656734842187776,
+            "ari_null_interval_95": [
+              -0.0036574864486842162,
+              0.007447350213784731
+            ],
+            "ari_null_mean": 1.8766768042263712e-05,
+            "ari_permutation_p_value": 0.7486256871564217,
+            "cluster_count": 3,
+            "nmi": 0.001652214029261776,
+            "nmi_null_interval_95": [
+              0.0004376470856137731,
+              0.011079316773851116
+            ],
+            "nmi_null_mean": 0.003847727276901219,
+            "nmi_permutation_p_value": 0.7861069465267366,
+            "selected_objective": 0.20181662716486576,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.002522169784529911,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0007946318467757192,
+              0.0008354946173088398
+            ],
+            "null_mean": 7.979247892563194e-06,
+            "observed_record_mean_contrast": 0.002368679675103924,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.001558876617546195,
+            0.0031790241507135353
+          ],
+          "record_mean_contrast": 0.002368679675103924,
+          "standardized_pair_mean_difference": 0.03668257780940699,
+          "within_mean_cosine": 0.018195535485932727,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.016279804456240915,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.005615836401771947,
+            "ari_null_interval_95": [
+              -0.005115066803860885,
+              0.006465044569124186
+            ],
+            "ari_null_mean": 4.468342060007309e-05,
+            "ari_permutation_p_value": 0.0399800099950025,
+            "cluster_count": 8,
+            "nmi": 0.03509101494278465,
+            "nmi_null_interval_95": [
+              0.016439931925917948,
+              0.03679344117809854
+            ],
+            "nmi_null_mean": 0.025761283313032374,
+            "nmi_permutation_p_value": 0.044977511244377814,
+            "selected_objective": 0.24854808817552632,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.00182840123089522,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0013993003498250875,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0011375592776980584,
+              0.001222105303233327
+            ],
+            "null_mean": 1.3260447189959334e-05,
+            "observed_record_mean_contrast": 0.001977779457211286,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.0011293568256481952,
+            0.0028272373672696333
+          ],
+          "record_mean_contrast": 0.001977779457211286,
+          "standardized_pair_mean_difference": 0.026428549784642617,
+          "within_mean_cosine": 0.018108205687136135,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_12.v_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.031932019373796444,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": -0.0006492775670327622,
+            "ari_null_interval_95": [
+              -0.0036473318227783465,
+              0.006475968261557392
+            ],
+            "ari_null_mean": -7.882960728044323e-05,
+            "ari_permutation_p_value": 0.49075462268865566,
+            "cluster_count": 3,
+            "nmi": 0.0030932249655765015,
+            "nmi_null_interval_95": [
+              0.00046116831376599797,
+              0.009873867907533262
+            ],
+            "nmi_null_mean": 0.003751596795646815,
+            "nmi_permutation_p_value": 0.5137431284357821,
+            "selected_objective": 0.26178459414649047,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0032894342727977227,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0008635402420429358,
+              0.0010320163189450266
+            ],
+            "null_mean": 5.037943157444819e-06,
+            "observed_record_mean_contrast": 0.002997355776416583,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.0020035193390492583,
+            0.003986022421537021
+          ],
+          "record_mean_contrast": 0.002997355776416583,
+          "standardized_pair_mean_difference": 0.04041125180759798,
+          "within_mean_cosine": 0.03522145364659417,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.032815077239379285,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": -0.002145737203899665,
+            "ari_null_interval_95": [
+              -0.005152752687719791,
+              0.006181382597448376
+            ],
+            "ari_null_mean": -8.654842117186728e-05,
+            "ari_permutation_p_value": 0.7566216891554223,
+            "cluster_count": 8,
+            "nmi": 0.02328940377766749,
+            "nmi_null_interval_95": [
+              0.016570288340015324,
+              0.03741275037966348
+            ],
+            "nmi_null_mean": 0.025601853124645624,
+            "nmi_permutation_p_value": 0.6456771614192903,
+            "selected_objective": 0.3090446541499908,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.001657160314926881,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.01199400299850075,
+            "bonferroni_p_value": 0.1679160419790105,
+            "null_interval_95": [
+              -0.0012873368406191375,
+              0.001400307094158361
+            ],
+            "null_mean": -2.8375524688053793e-05,
+            "observed_record_mean_contrast": 0.001897499667131521,
+            "two_sided_p_value": 0.005997001499250375
+          },
+          "record_bootstrap_interval_95": [
+            0.0009664826586627727,
+            0.002860838399326983
+          ],
+          "record_mean_contrast": 0.001897499667131521,
+          "standardized_pair_mean_difference": 0.02026853241420358,
+          "within_mean_cosine": 0.034472237554306166,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_23.down_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.02266062251633075,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": -0.0004584714076873697,
+            "ari_null_interval_95": [
+              -0.0036980958274298033,
+              0.007074631158701662
+            ],
+            "ari_null_mean": -1.8624087373183202e-05,
+            "ari_permutation_p_value": 0.4782608695652174,
+            "cluster_count": 3,
+            "nmi": 0.0033628437068969766,
+            "nmi_null_interval_95": [
+              0.0004346516580586084,
+              0.010333575664828967
+            ],
+            "nmi_null_mean": 0.003793892728671799,
+            "nmi_permutation_p_value": 0.47926036981509246,
+            "selected_objective": 0.20343904007969768,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0021623732030125395,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0007866579039725317,
+              0.0007772939452450202
+            ],
+            "null_mean": -1.2984058726283308e-05,
+            "observed_record_mean_contrast": 0.0019302765426033102,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.0011251725009420745,
+            0.002767143536611775
+          ],
+          "record_mean_contrast": 0.0019302765426033102,
+          "standardized_pair_mean_difference": 0.032626584053098255,
+          "within_mean_cosine": 0.02482299571934329,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.02313222975698523,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.0011894436453153804,
+            "ari_null_interval_95": [
+              -0.005190362344472415,
+              0.006532531161762649
+            ],
+            "ari_null_mean": 4.0781831991261524e-05,
+            "ari_permutation_p_value": 0.3333333333333333,
+            "cluster_count": 8,
+            "nmi": 0.026136184042694913,
+            "nmi_null_interval_95": [
+              0.016829373383993453,
+              0.03803449305138893
+            ],
+            "nmi_null_mean": 0.02618807405088917,
+            "nmi_permutation_p_value": 0.48425787106446777,
+            "selected_objective": 0.24688162277223166,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.0019490901247244431,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.012127269698484091,
+            "bonferroni_p_value": 0.18190904547726136,
+            "null_interval_95": [
+              -0.001083101407601806,
+              0.001166139815965223
+            ],
+            "null_mean": 3.4256859012264603e-06,
+            "observed_record_mean_contrast": 0.0016688686688386383,
+            "two_sided_p_value": 0.006496751624187906
+          },
+          "record_bootstrap_interval_95": [
+            0.0007854297906455313,
+            0.0024971927799715674
+          ],
+          "record_mean_contrast": 0.0016688686688386383,
+          "standardized_pair_mean_difference": 0.029409744970668616,
+          "within_mean_cosine": 0.025081319881709672,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_23.gate_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.029514787492610443,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.006943091798661629,
+            "ari_null_interval_95": [
+              -0.0036842910292084353,
+              0.0067503974946398
+            ],
+            "ari_null_mean": -6.574256418653501e-06,
+            "ari_permutation_p_value": 0.0239880059970015,
+            "cluster_count": 3,
+            "nmi": 0.010350691370780823,
+            "nmi_null_interval_95": [
+              0.0004584918827158042,
+              0.010140248931783159
+            ],
+            "nmi_null_mean": 0.003804413685542407,
+            "nmi_permutation_p_value": 0.020989505247376312,
+            "selected_objective": 0.2215572122506418,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.003109764321140126,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0007574173782520224,
+              0.0007803498028437901
+            ],
+            "null_mean": 9.639061998895666e-06,
+            "observed_record_mean_contrast": 0.002793891528129878,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.0018616820502285762,
+            0.00371984008626275
+          ],
+          "record_mean_contrast": 0.002793891528129878,
+          "standardized_pair_mean_difference": 0.04582251201721377,
+          "within_mean_cosine": 0.03262455181375057,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.03028368012858417,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.0027487421758262925,
+            "ari_null_interval_95": [
+              -0.005086047923746899,
+              0.00635274562162996
+            ],
+            "ari_null_mean": 5.60031665039822e-05,
+            "ari_permutation_p_value": 0.1774112943528236,
+            "cluster_count": 8,
+            "nmi": 0.02908547234939811,
+            "nmi_null_interval_95": [
+              0.01660865793049242,
+              0.03689064167878706
+            ],
+            "nmi_null_mean": 0.02573142237559733,
+            "nmi_permutation_p_value": 0.25987006496751625,
+            "selected_objective": 0.2653486269916455,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.002087213898149469,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.016462357056765735,
+            "bonferroni_p_value": 0.2798600699650175,
+            "null_interval_95": [
+              -0.0011864509175134527,
+              0.0011099126087132645
+            ],
+            "null_mean": -9.071792106559652e-06,
+            "observed_record_mean_contrast": 0.001541613758625157,
+            "two_sided_p_value": 0.009995002498750625
+          },
+          "record_bootstrap_interval_95": [
+            0.0006178732425885768,
+            0.002431620516341123
+          ],
+          "record_mean_contrast": 0.001541613758625157,
+          "standardized_pair_mean_difference": 0.030889516629224015,
+          "within_mean_cosine": 0.03237089402673364,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_23.k_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.02394235234395333,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.0020921921968086827,
+            "ari_null_interval_95": [
+              -0.0036102489681146058,
+              0.007834395281419358
+            ],
+            "ari_null_mean": 1.1538221830278034e-05,
+            "ari_permutation_p_value": 0.2028985507246377,
+            "cluster_count": 3,
+            "nmi": 0.0061399495001010955,
+            "nmi_null_interval_95": [
+              0.00046305384086142666,
+              0.010892900067958558
+            ],
+            "nmi_null_mean": 0.003831424846704026,
+            "nmi_permutation_p_value": 0.17391304347826086,
+            "selected_objective": 0.24175135702252304,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.001951992092556875,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0029458954733159737,
+            "bonferroni_p_value": 0.0559720139930035,
+            "null_interval_95": [
+              -0.0008673046038395012,
+              0.0010339388190111478
+            ],
+            "null_mean": 1.7035195714913635e-05,
+            "observed_record_mean_contrast": 0.0017538181594767836,
+            "two_sided_p_value": 0.001999000499750125
+          },
+          "record_bootstrap_interval_95": [
+            0.0009459731522778219,
+            0.002593819342664936
+          ],
+          "record_mean_contrast": 0.0017538181594767836,
+          "standardized_pair_mean_difference": 0.02357453200774092,
+          "within_mean_cosine": 0.025894344436510206,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.024574069456420804,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": -0.0007894344158089184,
+            "ari_null_interval_95": [
+              -0.005081378689609293,
+              0.006798109925373888
+            ],
+            "ari_null_mean": 7.389783905223028e-05,
+            "ari_permutation_p_value": 0.5762118940529735,
+            "cluster_count": 8,
+            "nmi": 0.025463295275656345,
+            "nmi_null_interval_95": [
+              0.016747818504970678,
+              0.038069240960343496
+            ],
+            "nmi_null_mean": 0.0259752765959918,
+            "nmi_permutation_p_value": 0.5067466266866567,
+            "selected_objective": 0.2948350143061908,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.00013304050604380155,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.9865067466266867,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.0013654474604498283,
+              0.0014839920462320483
+            ],
+            "null_mean": -9.584105116362836e-06,
+            "observed_record_mean_contrast": 1.0892833166195154e-05,
+            "two_sided_p_value": 0.9865067466266867
+          },
+          "record_bootstrap_interval_95": [
+            -0.000957893455640273,
+            0.0009718382997747845
+          ],
+          "record_mean_contrast": 1.0892833166195154e-05,
+          "standardized_pair_mean_difference": 0.00160721270010524,
+          "within_mean_cosine": 0.024707109962464606,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_23.o_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.02541625151732935,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.007281219724492425,
+            "ari_null_interval_95": [
+              -0.003589030464752523,
+              0.007439013678852421
+            ],
+            "ari_null_mean": -3.704959063854637e-05,
+            "ari_permutation_p_value": 0.027486256871564217,
+            "cluster_count": 3,
+            "nmi": 0.009723899140063014,
+            "nmi_null_interval_95": [
+              0.0004986386183335336,
+              0.01065930477089213
+            ],
+            "nmi_null_mean": 0.003787968263079964,
+            "nmi_permutation_p_value": 0.03548225887056472,
+            "selected_objective": 0.21050262054431368,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.001278091249635318,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.004197901049475263,
+            "bonferroni_p_value": 0.08395802098950525,
+            "null_interval_95": [
+              -0.0007446988800202584,
+              0.0008196579770783613
+            ],
+            "null_mean": 8.452940868286665e-06,
+            "observed_record_mean_contrast": 0.0011604017238416534,
+            "two_sided_p_value": 0.0029985007496251873
+          },
+          "record_bootstrap_interval_95": [
+            0.00048028233267082725,
+            0.001788816653847503
+          ],
+          "record_mean_contrast": 0.0011604017238416534,
+          "standardized_pair_mean_difference": 0.01903141790971289,
+          "within_mean_cosine": 0.026694342766964668,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.025310252736619934,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.0033500548100163603,
+            "ari_null_interval_95": [
+              -0.005274912555678738,
+              0.006458151158014594
+            ],
+            "ari_null_mean": -0.00014103671046395577,
+            "ari_permutation_p_value": 0.11944027986006997,
+            "cluster_count": 8,
+            "nmi": 0.03497693854607605,
+            "nmi_null_interval_95": [
+              0.016255794895492046,
+              0.036868180993180955
+            ],
+            "nmi_null_mean": 0.025324065011364007,
+            "nmi_permutation_p_value": 0.04597701149425287,
+            "selected_objective": 0.25478435022528034,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.004189793257376846,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0013993003498250875,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.001080162102384131,
+              0.001118915683268401
+            ],
+            "null_mean": -5.525909087738779e-06,
+            "observed_record_mean_contrast": 0.00440855194049687,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.003407162609891415,
+            0.0053788290562499595
+          ],
+          "record_mean_contrast": 0.00440855194049687,
+          "standardized_pair_mean_difference": 0.06224425172746648,
+          "within_mean_cosine": 0.02950004599399678,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_23.q_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.026341393656190558,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.0025437163279312734,
+            "ari_null_interval_95": [
+              -0.0036439777395133217,
+              0.007186420532910786
+            ],
+            "ari_null_mean": -6.058368366997493e-06,
+            "ari_permutation_p_value": 0.16741629185407297,
+            "cluster_count": 3,
+            "nmi": 0.006612765283494831,
+            "nmi_null_interval_95": [
+              0.00044216696122166733,
+              0.010929975238198754
+            ],
+            "nmi_null_mean": 0.00383926428982968,
+            "nmi_permutation_p_value": 0.14042978510744628,
+            "selected_objective": 0.2568621690259241,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0017723418278512322,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.005330667999333667,
+            "bonferroni_p_value": 0.111944027986007,
+            "null_interval_95": [
+              -0.0009173891294396207,
+              0.0010115960197592255
+            ],
+            "null_mean": -1.0354474798859708e-05,
+            "observed_record_mean_contrast": 0.0015437042486624824,
+            "two_sided_p_value": 0.00399800099950025
+          },
+          "record_bootstrap_interval_95": [
+            0.0005604808043197418,
+            0.002530633723720791
+          ],
+          "record_mean_contrast": 0.0015437042486624824,
+          "standardized_pair_mean_difference": 0.02060482114818813,
+          "within_mean_cosine": 0.02811373548404179,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.026871865935530627,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": -0.0018081851908563166,
+            "ari_null_interval_95": [
+              -0.005278118098306173,
+              0.006292180407534938
+            ],
+            "ari_null_mean": 3.342386755757044e-05,
+            "ari_permutation_p_value": 0.7346326836581709,
+            "cluster_count": 8,
+            "nmi": 0.022447629307438165,
+            "nmi_null_interval_95": [
+              0.01630702186168452,
+              0.03671927249678498
+            ],
+            "nmi_null_mean": 0.02583218468935972,
+            "nmi_permutation_p_value": 0.7296351824087957,
+            "selected_objective": 0.3076994888790277,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.00046113283783903725,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.35122438780609694,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.0013385100169321506,
+              0.0014159498765005133
+            ],
+            "null_mean": 3.1490032097599037e-06,
+            "observed_record_mean_contrast": 0.0008152287684449214,
+            "two_sided_p_value": 0.25087456271864067
+          },
+          "record_bootstrap_interval_95": [
+            -0.0003242877069071611,
+            0.0018671380069359494
+          ],
+          "record_mean_contrast": 0.0008152287684449214,
+          "standardized_pair_mean_difference": 0.005344985625168955,
+          "within_mean_cosine": 0.027332998773369664,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_23.up_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.04449404889293505,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": -0.0007031809925373468,
+            "ari_null_interval_95": [
+              -0.003492057672679119,
+              0.007741886204516951
+            ],
+            "ari_null_mean": 7.545788279890186e-05,
+            "ari_permutation_p_value": 0.5272363818090955,
+            "cluster_count": 3,
+            "nmi": 0.0032895976356287554,
+            "nmi_null_interval_95": [
+              0.0005701689711599676,
+              0.010723971423915967
+            ],
+            "nmi_null_mean": 0.0038886971591671105,
+            "nmi_permutation_p_value": 0.5082458770614693,
+            "selected_objective": 0.26541891603444917,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.00236287660576278,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0007978887807861786,
+              0.000904449345432066
+            ],
+            "null_mean": -1.1665497306090076e-05,
+            "observed_record_mean_contrast": 0.001959279315850392,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.0009276950945917354,
+            0.0030339738264866774
+          ],
+          "record_mean_contrast": 0.001959279315850392,
+          "standardized_pair_mean_difference": 0.031474786740738905,
+          "within_mean_cosine": 0.04685692549869783,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.04501219487518174,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.0025425279408839473,
+            "ari_null_interval_95": [
+              -0.005077298479207202,
+              0.0066853461887004945
+            ],
+            "ari_null_mean": -6.0419559998645564e-05,
+            "ari_permutation_p_value": 0.1889055472263868,
+            "cluster_count": 8,
+            "nmi": 0.026293859852309198,
+            "nmi_null_interval_95": [
+              0.01673301508064564,
+              0.03717067997512377
+            ],
+            "nmi_null_mean": 0.026108936903236547,
+            "nmi_permutation_p_value": 0.4682658670664668,
+            "selected_objective": 0.3051896505328484,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.0021076344230954516,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.004664334499416958,
+            "bonferroni_p_value": 0.0559720139930035,
+            "null_interval_95": [
+              -0.00113981879416202,
+              0.0012489577457768155
+            ],
+            "null_mean": 7.18146371432981e-08,
+            "observed_record_mean_contrast": 0.0018812212809971472,
+            "two_sided_p_value": 0.001999000499750125
+          },
+          "record_bootstrap_interval_95": [
+            0.0009756683324577033,
+            0.0028262310095956435
+          ],
+          "record_mean_contrast": 0.0018812212809971472,
+          "standardized_pair_mean_difference": 0.028100695045947165,
+          "within_mean_cosine": 0.04711982929827719,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_23.v_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.12730128310539937,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.00275713931046631,
+            "ari_null_interval_95": [
+              -0.0035177516796566013,
+              0.007407143405307383
+            ],
+            "ari_null_mean": 0.00011928359312464002,
+            "ari_permutation_p_value": 0.1629185407296352,
+            "cluster_count": 3,
+            "nmi": 0.008042574364798584,
+            "nmi_null_interval_95": [
+              0.0005510175659384771,
+              0.011089146407813364
+            ],
+            "nmi_null_mean": 0.003967459896698401,
+            "nmi_permutation_p_value": 0.08845577211394302,
+            "selected_objective": 0.3944808348172701,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.005852191970739717,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0007484645374301632,
+              0.0008946093108275198
+            ],
+            "null_mean": 1.8007138964569045e-05,
+            "observed_record_mean_contrast": 0.004942540485178097,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.0029938580199785113,
+            0.006891570331200377
+          ],
+          "record_mean_contrast": 0.004942540485178097,
+          "standardized_pair_mean_difference": 0.06411457225037323,
+          "within_mean_cosine": 0.1331534750761391,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.12891658339437503,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.0025800046004610124,
+            "ari_null_interval_95": [
+              -0.005034975029060976,
+              0.006850086635706988
+            ],
+            "ari_null_mean": 9.645372072803244e-05,
+            "ari_permutation_p_value": 0.19940029985007496,
+            "cluster_count": 8,
+            "nmi": 0.03242237010244852,
+            "nmi_null_interval_95": [
+              0.017336456107619098,
+              0.03872485074094652
+            ],
+            "nmi_null_mean": 0.026836810357931073,
+            "nmi_permutation_p_value": 0.1489255372313843,
+            "selected_objective": 0.42221203976990795,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.0025987558901814645,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0013993003498250875,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0011767807231143363,
+              0.0012060761045268069
+            ],
+            "null_mean": -2.6695386866317065e-06,
+            "observed_record_mean_contrast": 0.002533590401165277,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.0014069549033157037,
+            0.0037082138592745236
+          ],
+          "record_mean_contrast": 0.002533590401165277,
+          "standardized_pair_mean_difference": 0.028502369766575733,
+          "within_mean_cosine": 0.1315153392845565,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_35.down_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.02227873365673959,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.0011788372626982196,
+            "ari_null_interval_95": [
+              -0.00359165187276352,
+              0.007224662808164417
+            ],
+            "ari_null_mean": 0.0001286948700681279,
+            "ari_permutation_p_value": 0.2933533233383308,
+            "cluster_count": 3,
+            "nmi": 0.0058163382300364455,
+            "nmi_null_interval_95": [
+              0.0004384641872689474,
+              0.010852398251877915
+            ],
+            "nmi_null_mean": 0.0039709012195602795,
+            "nmi_permutation_p_value": 0.2028985507246377,
+            "selected_objective": 0.3738691223383631,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0009750353278567443,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.2988505747126437,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.0015473205056485625,
+              0.0025062845269319227
+            ],
+            "null_mean": -3.3619210874890186e-05,
+            "observed_record_mean_contrast": 0.000969282116873589,
+            "two_sided_p_value": 0.2988505747126437
+          },
+          "record_bootstrap_interval_95": [
+            -0.0005536347412167907,
+            0.0024861727066023058
+          ],
+          "record_mean_contrast": 0.000969282116873589,
+          "standardized_pair_mean_difference": 0.005617137863426804,
+          "within_mean_cosine": 0.023253768984596333,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.022786445621151813,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": -0.0016171240895963696,
+            "ari_null_interval_95": [
+              -0.0053559491469438785,
+              0.0066365085841707736
+            ],
+            "ari_null_mean": -1.4085210291373297e-05,
+            "ari_permutation_p_value": 0.6816591704147926,
+            "cluster_count": 8,
+            "nmi": 0.02049619038501732,
+            "nmi_null_interval_95": [
+              0.016910976550420346,
+              0.03831744258764394
+            ],
+            "nmi_null_mean": 0.026864483349675984,
+            "nmi_permutation_p_value": 0.8765617191404298,
+            "selected_objective": 0.4380084140651556,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": -0.001450777247553093,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.9520424972698835,
+            "bonferroni_p_value": 1.0,
+            "null_interval_95": [
+              -0.00243604613082866,
+              0.0032524847086826255
+            ],
+            "null_mean": 2.4267348331262312e-05,
+            "observed_record_mean_contrast": -0.00015756933447460988,
+            "two_sided_p_value": 0.9180409795102449
+          },
+          "record_bootstrap_interval_95": [
+            -0.0023306193059896125,
+            0.0019335880109568292
+          ],
+          "record_mean_contrast": -0.00015756933447460988,
+          "standardized_pair_mean_difference": -0.008340757604802199,
+          "within_mean_cosine": 0.02133566837359872,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_35.gate_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.019168583427712556,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.0016131326518965866,
+            "ari_null_interval_95": [
+              -0.003585687571728099,
+              0.007357053055684895
+            ],
+            "ari_null_mean": -6.397183479547389e-05,
+            "ari_permutation_p_value": 0.2318840579710145,
+            "cluster_count": 3,
+            "nmi": 0.005231468170379395,
+            "nmi_null_interval_95": [
+              0.0005141489855072659,
+              0.010968511092767221
+            ],
+            "nmi_null_mean": 0.003773320787347606,
+            "nmi_permutation_p_value": 0.23888055972013994,
+            "selected_objective": 0.21537821194735313,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.0023775699884277766,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0009023822139816198,
+              0.00100485493738197
+            ],
+            "null_mean": -7.1611690033568e-06,
+            "observed_record_mean_contrast": 0.0022258888323239013,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.001364044173792353,
+            0.003135269379745945
+          ],
+          "record_mean_contrast": 0.0022258888323239013,
+          "standardized_pair_mean_difference": 0.029738247083922798,
+          "within_mean_cosine": 0.021546153416140332,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.019652802278830026,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": -0.00038240593358660076,
+            "ari_null_interval_95": [
+              -0.005143809538632587,
+              0.006327642571680992
+            ],
+            "ari_null_mean": -4.440674608870292e-05,
+            "ari_permutation_p_value": 0.5227386306846576,
+            "cluster_count": 8,
+            "nmi": 0.0246908954721524,
+            "nmi_null_interval_95": [
+              0.016433283760012667,
+              0.03761311131033535
+            ],
+            "nmi_null_mean": 0.02560339615171609,
+            "nmi_permutation_p_value": 0.545727136431784,
+            "selected_objective": 0.27728895036390533,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.0024140517271824743,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.008611079075846692,
+            "bonferroni_p_value": 0.111944027986007,
+            "null_interval_95": [
+              -0.0013338484527505915,
+              0.0014218571330118785
+            ],
+            "null_mean": -6.574631970066081e-07,
+            "observed_record_mean_contrast": 0.0020849920926679856,
+            "two_sided_p_value": 0.00399800099950025
+          },
+          "record_bootstrap_interval_95": [
+            0.0010031120629794131,
+            0.0031477176405825744
+          ],
+          "record_mean_contrast": 0.0020849920926679856,
+          "standardized_pair_mean_difference": 0.029841013990219156,
+          "within_mean_cosine": 0.0220668540060125,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_35.k_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.2757483694848363,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.005314086074379063,
+            "ari_null_interval_95": [
+              -0.0035905441686106933,
+              0.0066313906135865635
+            ],
+            "ari_null_mean": -1.701926263974115e-05,
+            "ari_permutation_p_value": 0.053973013493253376,
+            "cluster_count": 3,
+            "nmi": 0.008824905636485868,
+            "nmi_null_interval_95": [
+              0.00042035545107686745,
+              0.01016651026227202
+            ],
+            "nmi_null_mean": 0.0038174082007773084,
+            "nmi_permutation_p_value": 0.05247376311844078,
+            "selected_objective": 0.5652685397164477,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.011103938498796428,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0008033051118761183,
+              0.0010285335289492241
+            ],
+            "null_mean": 8.132551549489096e-06,
+            "observed_record_mean_contrast": 0.00980470720747925,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.007083966579295972,
+            0.012348023899986536
+          ],
+          "record_mean_contrast": 0.00980470720747925,
+          "standardized_pair_mean_difference": 0.08454669861095265,
+          "within_mean_cosine": 0.2868523079836327,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.27890689532785007,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": -0.0013803165473008866,
+            "ari_null_interval_95": [
+              -0.0050185865582656475,
+              0.006324255240624488
+            ],
+            "ari_null_mean": -3.340758765343256e-05,
+            "ari_permutation_p_value": 0.6531734132933533,
+            "cluster_count": 8,
+            "nmi": 0.024634555995556497,
+            "nmi_null_interval_95": [
+              0.016741316163741648,
+              0.038658949292268346
+            ],
+            "nmi_null_mean": 0.0265761581387926,
+            "nmi_permutation_p_value": 0.6056971514242878,
+            "selected_objective": 0.5902997183508926,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.00419139879230751,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0013993003498250875,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0012632927869660046,
+              0.0013377266661770268
+            ],
+            "null_mean": 8.15865578219938e-06,
+            "observed_record_mean_contrast": 0.003535782395483192,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.0024227409446038817,
+            0.004635177745792531
+          ],
+          "record_mean_contrast": 0.003535782395483192,
+          "standardized_pair_mean_difference": 0.031851798096733476,
+          "within_mean_cosine": 0.2830982941201576,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_35.o_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.11841787942097723,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.011543763027671912,
+            "ari_null_interval_95": [
+              -0.00351263354280763,
+              0.007211246893312953
+            ],
+            "ari_null_mean": 2.5676683060253815e-05,
+            "ari_permutation_p_value": 0.0069965017491254375,
+            "cluster_count": 3,
+            "nmi": 0.019302040939732857,
+            "nmi_null_interval_95": [
+              0.0004217842308827158,
+              0.010790554595273416
+            ],
+            "nmi_null_mean": 0.00392974872327779,
+            "nmi_permutation_p_value": 0.0009995002498750624,
+            "selected_objective": 0.3808650077710467,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.006750083938025397,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0007297417700116019,
+              0.0008719824085677634
+            ],
+            "null_mean": 2.6268142914222873e-06,
+            "observed_record_mean_contrast": 0.0056854173649673895,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.003446580959733643,
+            0.007896216789866323
+          ],
+          "record_mean_contrast": 0.0056854173649673895,
+          "standardized_pair_mean_difference": 0.06951396515472523,
+          "within_mean_cosine": 0.12516796335900263,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.11847862874169533,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.05744519438627909,
+            "ari_null_interval_95": [
+              -0.005114750673423773,
+              0.006289070413669333
+            ],
+            "ari_null_mean": -6.691691900811941e-05,
+            "ari_permutation_p_value": 0.0004997501249375312,
+            "cluster_count": 8,
+            "nmi": 0.09349641955791406,
+            "nmi_null_interval_95": [
+              0.01759524928189519,
+              0.04014495259009669
+            ],
+            "nmi_null_mean": 0.02786977947729943,
+            "nmi_permutation_p_value": 0.0004997501249375312,
+            "selected_objective": 0.4108220113095909,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.017228186713850305,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0013993003498250875,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0011576815739595164,
+              0.0011985962607035821
+            ],
+            "null_mean": -1.7916030425453337e-06,
+            "observed_record_mean_contrast": 0.016560261479230547,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.015073638514679494,
+            0.01810916035466002
+          ],
+          "record_mean_contrast": 0.016560261479230547,
+          "standardized_pair_mean_difference": 0.17441291251574656,
+          "within_mean_cosine": 0.13570681545554564,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_35.q_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.20966493810270972,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.008516164189714459,
+            "ari_null_interval_95": [
+              -0.003397072317771044,
+              0.006853038553471041
+            ],
+            "ari_null_mean": -2.9937843174403085e-05,
+            "ari_permutation_p_value": 0.015992003998001,
+            "cluster_count": 3,
+            "nmi": 0.009989878886557864,
+            "nmi_null_interval_95": [
+              0.00044210474749341354,
+              0.0112368177942896
+            ],
+            "nmi_null_mean": 0.0038935557691225737,
+            "nmi_permutation_p_value": 0.041979010494752625,
+            "selected_objective": 0.5153271177292768,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.006711455392591853,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0009506697262688009,
+              0.0013242180875838846
+            ],
+            "null_mean": -8.459981616212395e-07,
+            "observed_record_mean_contrast": 0.005312209992859058,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.0023799911391110457,
+            0.008227654967594245
+          ],
+          "record_mean_contrast": 0.005312209992859058,
+          "standardized_pair_mean_difference": 0.04721073694630262,
+          "within_mean_cosine": 0.21637639349530158,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.21137998771572156,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": -0.002432429786781654,
+            "ari_null_interval_95": [
+              -0.005131436576868996,
+              0.006161776044812251
+            ],
+            "ari_null_mean": -0.00019651574067771903,
+            "ari_permutation_p_value": 0.7716141929035483,
+            "cluster_count": 8,
+            "nmi": 0.0202617920103403,
+            "nmi_null_interval_95": [
+              0.01746372582842555,
+              0.03758810994507699
+            ],
+            "nmi_null_mean": 0.026545055526235147,
+            "nmi_permutation_p_value": 0.8930534732633684,
+            "selected_objective": 0.5454396220441815,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.004065334499156609,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0013993003498250875,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.001532951344847538,
+              0.0018483773879359921
+            ],
+            "null_mean": -1.1010117964655303e-05,
+            "observed_record_mean_contrast": 0.003708816793538836,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.002065487265658313,
+            0.005402397948561015
+          ],
+          "record_mean_contrast": 0.003708816793538836,
+          "standardized_pair_mean_difference": 0.028464880882100363,
+          "within_mean_cosine": 0.21544532221487817,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_35.up_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.07106756959251882,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.007231015382009269,
+            "ari_null_interval_95": [
+              -0.003481365852859049,
+              0.007533838879814733
+            ],
+            "ari_null_mean": 6.549221812468328e-05,
+            "ari_permutation_p_value": 0.030984507746126936,
+            "cluster_count": 3,
+            "nmi": 0.014123191136705142,
+            "nmi_null_interval_95": [
+              0.00043373792227233604,
+              0.011358982763239024
+            ],
+            "nmi_null_mean": 0.004003140917854639,
+            "nmi_permutation_p_value": 0.009995002498750625,
+            "selected_objective": 0.338012918240476,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.004927034959829088,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0009090778796773601,
+              0.0010483900212620654
+            ],
+            "null_mean": -9.341032716996918e-06,
+            "observed_record_mean_contrast": 0.004299606796871976,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.002744788333394939,
+            0.005910438093730074
+          ],
+          "record_mean_contrast": 0.004299606796871976,
+          "standardized_pair_mean_difference": 0.050515003928988854,
+          "within_mean_cosine": 0.07599460455234791,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.07226034020398248,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.0005073548797887081,
+            "ari_null_interval_95": [
+              -0.005188827567748772,
+              0.006203537327326188
+            ],
+            "ari_null_mean": 5.1285535140477024e-05,
+            "ari_permutation_p_value": 0.4102948525737131,
+            "cluster_count": 8,
+            "nmi": 0.02679829136267529,
+            "nmi_null_interval_95": [
+              0.01672544459391605,
+              0.03769541375123623
+            ],
+            "nmi_null_mean": 0.026252534126118013,
+            "nmi_permutation_p_value": 0.4292853573213393,
+            "selected_objective": 0.38251894428953387,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.003507825287725891,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0013993003498250875,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.001346644189256663,
+              0.0015623067716959574
+            ],
+            "null_mean": 3.126686606342299e-07,
+            "observed_record_mean_contrast": 0.0037983397913045596,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.002625939209434268,
+            0.005001752728337876
+          ],
+          "record_mean_contrast": 0.0037983397913045596,
+          "standardized_pair_mean_difference": 0.03575926453016934,
+          "within_mean_cosine": 0.07576816549170837,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      },
+      "layer_35.v_proj": {
+        "difficulty": {
+          "across_mean_cosine": 0.5309977499358299,
+          "across_pair_count": 77084,
+          "clustering": {
+            "ari": 0.04071792071917613,
+            "ari_null_interval_95": [
+              -0.002751557354512083,
+              0.006286341324118038
+            ],
+            "ari_null_mean": -7.78543490300577e-05,
+            "ari_permutation_p_value": 0.0004997501249375312,
+            "cluster_count": 3,
+            "nmi": 0.04933803245016281,
+            "nmi_null_interval_95": [
+              0.000526641228193885,
+              0.011806268073055794
+            ],
+            "nmi_null_mean": 0.0043794933694955825,
+            "nmi_permutation_p_value": 0.0004997501249375312,
+            "selected_objective": 0.7472021797393569,
+            "starts": 10
+          },
+          "group_counts": {
+            "advanced": 154,
+            "foundational": 166,
+            "intermediate": 161
+          },
+          "pair_mean_difference": 0.015180052952500023,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0008745627186406797,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0005598278187552864,
+              0.0008401139001535206
+            ],
+            "null_mean": -1.0130505375544225e-05,
+            "observed_record_mean_contrast": 0.011470887810201889,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.004551586873155632,
+            0.018435123171381674
+          ],
+          "record_mean_contrast": 0.011470887810201889,
+          "standardized_pair_mean_difference": 0.07930063184958167,
+          "within_mean_cosine": 0.54617780288833,
+          "within_pair_count": 38356
+        },
+        "examples": 481,
+        "projection_dimension": 256,
+        "subject": {
+          "across_mean_cosine": 0.5358490043492129,
+          "across_pair_count": 100819,
+          "clustering": {
+            "ari": 0.0015620931970859785,
+            "ari_null_interval_95": [
+              -0.0044051500012493,
+              0.0064626633755893986
+            ],
+            "ari_null_mean": 0.00016279397638820043,
+            "ari_permutation_p_value": 0.27786106946526734,
+            "cluster_count": 8,
+            "nmi": 0.0331077184383283,
+            "nmi_null_interval_95": [
+              0.021676658718125612,
+              0.041260548249270744
+            ],
+            "nmi_null_mean": 0.030782355596185123,
+            "nmi_permutation_p_value": 0.29535232383808097,
+            "selected_objective": 0.7620802095737168,
+            "starts": 10
+          },
+          "group_counts": {
+            "Abstract Algebra": 60,
+            "Combinatorics": 37,
+            "Complex Analysis": 64,
+            "Differential Geometry": 70,
+            "Graph Theory": 63,
+            "Number Theory": 66,
+            "Probability Theory": 53,
+            "Topology": 68
+          },
+          "pair_mean_difference": 0.0015195473336399035,
+          "permutation": {
+            "benjamini_hochberg_q_value": 0.0013993003498250875,
+            "bonferroni_p_value": 0.013993003498250875,
+            "null_interval_95": [
+              -0.0008610857960440541,
+              0.001006816385744539
+            ],
+            "null_mean": -4.358330104723773e-06,
+            "observed_record_mean_contrast": 0.002111977822715328,
+            "two_sided_p_value": 0.0004997501249375312
+          },
+          "record_bootstrap_interval_95": [
+            0.0008919217645860218,
+            0.0033365865234018187
+          ],
+          "record_mean_contrast": 0.002111977822715328,
+          "standardized_pair_mean_difference": 0.00792711590240044,
+          "within_mean_cosine": 0.5373685516828528,
+          "within_pair_count": 14621
+        },
+        "zero_gradient_count": 0
+      }
+    },
+    "permutation_repeats": 2000,
+    "seed": 42
+  },
+  "schema_version": 1,
+  "scope": {
+    "bootstrap_interval": "record-contrast nonparametric bootstrap",
+    "bootstrap_limitation": "Record contrasts share pairwise cosine terms; intervals are descriptive.",
+    "difficulty_is_proxy": true,
+    "exact_reference_role": "conflict-prevalence context only",
+    "layer_35_is_post_hoc_illustration_only": true,
+    "multiple_testing_family": "28 modules adjusted separately for each label axis",
+    "primary_question": "association of projected gradients with subject or difficulty labels",
+    "projected_stream_is_complete_training_corpus": false,
+    "signatures_are_exact_gradients": false
+  }
+}
