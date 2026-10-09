@@ -1,0 +1,79 @@
+{
+  "arms": {
+    "discovered": {
+      "generation_status": "not_run",
+      "max_steps": 64,
+      "seed": 42,
+      "selected_modules": [
+        "layer_6.down_proj",
+        "layer_34.q_proj",
+        "layer_32.q_proj",
+        "layer_22.v_proj"
+      ],
+      "source_recovered_path": ".tmp/placement-ablation-64-v2/discovered.json",
+      "source_sha256": "89e560bfa53d4e01d1108985341e532a8f79283b1ecde28779cda641479e6d74",
+      "trainable_parameters": 466944,
+      "training_count": 895,
+      "validation_count": 100,
+      "validation_loss": 0.6455352902412415
+    },
+    "low_energy": {
+      "generation_status": "not_run",
+      "max_steps": 64,
+      "seed": 42,
+      "selected_modules": [
+        "layer_2.down_proj",
+        "layer_1.q_proj",
+        "layer_4.q_proj",
+        "layer_2.v_proj"
+      ],
+      "source_recovered_path": ".tmp/placement-ablation-64-v2/low_energy.json",
+      "source_sha256": "46f04395304dee0701eb473fa78c5d68f68c1f09c8ed974959fe36a73502ba86",
+      "trainable_parameters": 466944,
+      "training_count": 895,
+      "validation_count": 100,
+      "validation_loss": 0.8319441080093384
+    },
+    "random_1": {
+      "generation_status": "not_run",
+      "max_steps": 64,
+      "seed": 42,
+      "selected_modules": [
+        "layer_23.down_proj",
+        "layer_18.q_proj",
+        "layer_3.q_proj",
+        "layer_11.v_proj"
+      ],
+      "source_recovered_path": ".tmp/placement-ablation-64-v2/random_1.json",
+      "source_sha256": "57016bcfddd6541f9d3da766f8d9647220bf1ede5b3e5b50e92936eb65a6c7a6",
+      "trainable_parameters": 466944,
+      "training_count": 895,
+      "validation_count": 100,
+      "validation_loss": 0.6696200370788574
+    },
+    "random_2": {
+      "generation_status": "not_run",
+      "max_steps": 64,
+      "seed": 42,
+      "selected_modules": [
+        "layer_3.down_proj",
+        "layer_28.q_proj",
+        "layer_7.q_proj",
+        "layer_24.v_proj"
+      ],
+      "source_recovered_path": ".tmp/placement-ablation-64-v2/random_2.json",
+      "source_sha256": "232f5434bb5fbbab332c24c2aca70b09fbf2cc5173e23f09743a858084aecb32",
+      "trainable_parameters": 466944,
+      "training_count": 895,
+      "validation_count": 100,
+      "validation_loss": 0.7069432139396667
+    }
+  },
+  "schema_version": 1,
+  "scope": {
+    "claim_limit": "This short ablation does not test subject or difficulty specialization.",
+    "generation_evaluation_run": false,
+    "purpose": "supporting layer-placement sensitivity check",
+    "replicate_count": 1
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "corpus_counts": {
+    "advanced": 327,
+    "foundational": 336,
+    "intermediate": 332
+  },
+  "difficulty_definition": "target-code-line-count-tertiles",
+  "schema_version": 1,
+  "scope": {
+    "cross_run_comparison_allowed": false,
+    "dynamic_spawning_implemented": false,
+    "limitation": "The fixed specialists used a different base-model identity and evaluation contract from the later shared-adapter probe.",
+    "routing": "oracle label"
+  },
+  "specialists": {
+    "advanced": {
+      "alpha": 32,
+      "base_model_name_or_path": "Qwen/Qwen3-4B",
+      "checkpoint_bytes": 66119208,
+      "checkpoint_sha256": "e797e8df49935afbcdbc8ff57910957ef461252ff5df97b6b95736651fbcddfc",
+      "config_sha256": "2d7fc3d55c419db1f30f32231c62e0b28abbecf6effeeac6cdc353e09334f1e6",
+      "dropout": 0.05,
+      "rank": 16,
+      "target_modules": [
+        "down_proj",
+        "gate_proj",
+        "k_proj",
+        "o_proj",
+        "q_proj",
+        "up_proj",
+        "v_proj"
+      ]
+    },
+    "foundational": {
+      "alpha": 32,
+      "base_model_name_or_path": "Qwen/Qwen3-4B",
+      "checkpoint_bytes": 66119208,
+      "checkpoint_sha256": "b4cf4082d049547bbc9ce3ca8600ba99d1a2f937f7cc2b62717da6307e4e03ed",
+      "config_sha256": "88a945068d62bb4ce885d9118924ba76e0421c683c0be1d99cf696fbf89cf0e0",
+      "dropout": 0.05,
+      "rank": 16,
+      "target_modules": [
+        "down_proj",
+        "gate_proj",
+        "k_proj",
+        "o_proj",
+        "q_proj",
+        "up_proj",
+        "v_proj"
+      ]
+    },
+    "intermediate": {
+      "alpha": 32,
+      "base_model_name_or_path": "Qwen/Qwen3-4B",
+      "checkpoint_bytes": 66119208,
+      "checkpoint_sha256": "d019a37daba64b888d4ca4c6379f9072db7006c85aaa3d55034652c9031bd819",
+      "config_sha256": "118e43614bf92551a8dfb01e72bb4a4908b4072b9a386b37965c23c609732f82",
+      "dropout": 0.05,
+      "rank": 16,
+      "target_modules": [
+        "down_proj",
+        "gate_proj",
+        "k_proj",
+        "o_proj",
+        "q_proj",
+        "up_proj",
+        "v_proj"
+      ]
+    }
+  }
+}
