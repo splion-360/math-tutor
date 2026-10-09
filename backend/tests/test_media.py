@@ -102,7 +102,7 @@ def test_assembler_writes_measured_timeline_captions_and_narrated_video(
     assert timeline["total_duration_seconds"] == 4.0
     assert len(commands) == 2
     assert "concat=n=2:v=0:a=1" in commands[0]
-    assert "[1:a]apad[audio]" in commands[1]
+    assert "[1:a]apad=whole_dur=5.000000[audio]" in commands[1]
     assert "0:v:0" in commands[1]
     assert "copy" in commands[1]
     assert "-shortest" in commands[1]
@@ -131,7 +131,7 @@ def test_assembler_extends_video_when_narration_is_longer(tmp_path: Path) -> Non
 
     mux_filter = commands[1][commands[1].index("-filter_complex") + 1]
     assert "tpad=stop_mode=clone:stop_duration=2.250000" in mux_filter
-    assert "[1:a]apad[audio]" in mux_filter
+    assert "[1:a]apad=whole_dur=4.250000[audio]" in mux_filter
     assert "[video]" in commands[1]
     assert "libx264" in commands[1]
     assert bundle.diagnostics["silent_video_duration_seconds"] == 2.0
@@ -154,3 +154,54 @@ def test_assembler_reports_sanitized_command_failure(tmp_path: Path) -> None:
         )
 
     assert "provider-secret" not in str(captured.value)
+
+
+def test_assembler_removes_partial_video_after_mux_timeout(tmp_path: Path) -> None:
+    narration = make_narration(tmp_path)
+    silent_video = tmp_path / "silent.mp4"
+    silent_video.write_bytes(b"video")
+    command_count = 0
+
+    def runner(command: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
+        nonlocal command_count
+        command_count += 1
+        output = Path(command[-1])
+        output.write_bytes(b"partial")
+        if command_count == 2:
+            raise subprocess.TimeoutExpired(command, timeout)
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    output_dir = tmp_path / "media"
+    with pytest.raises(MediaAssemblyError, match="video muxing failed"):
+        FfmpegMediaAssembler(
+            command_runner=runner,
+            duration_probe=lambda path: 2.0 if path == silent_video else 4.25,
+        ).assemble(
+            silent_video=silent_video,
+            narration=narration,
+            output_dir=output_dir,
+        )
+
+    assert not (output_dir / "narrated.mp4").exists()
+
+
+def test_assembler_removes_partial_audio_after_concatenation_failure(
+    tmp_path: Path,
+) -> None:
+    narration = make_narration(tmp_path)
+    silent_video = tmp_path / "silent.mp4"
+    silent_video.write_bytes(b"video")
+
+    def runner(command: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
+        Path(command[-1]).write_bytes(b"partial")
+        return subprocess.CompletedProcess(command, 1, stdout="", stderr="failed")
+
+    output_dir = tmp_path / "media"
+    with pytest.raises(MediaAssemblyError, match="audio concatenation failed"):
+        FfmpegMediaAssembler(command_runner=runner).assemble(
+            silent_video=silent_video,
+            narration=narration,
+            output_dir=output_dir,
+        )
+
+    assert not (output_dir / "narration.mp3").exists()

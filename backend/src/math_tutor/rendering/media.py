@@ -11,13 +11,19 @@ from collections.abc import Callable
 from pathlib import Path
 
 from math_tutor.domain import NarrationStatus
-from math_tutor.rendering.narration import MediaBundle, SynthesizedNarration
+from math_tutor.rendering.narration import (
+    MediaBundle,
+    NarrationAttachmentError,
+    SynthesizedNarration,
+)
 
 CommandRunner = Callable[[list[str], float], subprocess.CompletedProcess[str]]
 
 
-class MediaAssemblyError(RuntimeError):
+class MediaAssemblyError(NarrationAttachmentError):
     """A sanitized media-stage failure safe for job diagnostics."""
+
+    error_code = "narration_media_assembly_failed"
 
 
 def run_command(command: list[str], timeout_seconds: float) -> subprocess.CompletedProcess[str]:
@@ -146,7 +152,11 @@ class FfmpegMediaAssembler:
                 str(concatenated_audio),
             )
         )
-        self._execute(concat_command, "audio concatenation failed")
+        try:
+            self._execute(concat_command, "audio concatenation failed")
+        except MediaAssemblyError:
+            concatenated_audio.unlink(missing_ok=True)
+            raise
 
         silent_video_duration = self._duration_probe(silent_video)
         audio_duration = self._duration_probe(concatenated_audio)
@@ -167,7 +177,8 @@ class FfmpegMediaAssembler:
                     "-filter_complex",
                     (
                         "[0:v]tpad=stop_mode=clone:"
-                        f"stop_duration={video_extension:.6f}[video];[1:a]apad[audio]"
+                        f"stop_duration={video_extension:.6f}[video];"
+                        f"[1:a]apad=whole_dur={target_duration:.6f}[audio]"
                     ),
                     "-map",
                     "[video]",
@@ -175,13 +186,15 @@ class FfmpegMediaAssembler:
                     "[audio]",
                     "-c:v",
                     "libx264",
+                    "-preset",
+                    "veryfast",
                 )
             )
         else:
             mux_command.extend(
                 (
                     "-filter_complex",
-                    "[1:a]apad[audio]",
+                    f"[1:a]apad=whole_dur={target_duration:.6f}[audio]",
                     "-map",
                     "0:v:0",
                     "-map",
@@ -191,7 +204,11 @@ class FfmpegMediaAssembler:
                 )
             )
         mux_command.extend(("-c:a", "aac", "-shortest", str(narrated_video)))
-        self._execute(mux_command, "video muxing failed")
+        try:
+            self._execute(mux_command, "video muxing failed")
+        except MediaAssemblyError:
+            narrated_video.unlink(missing_ok=True)
+            raise
 
         return MediaBundle(
             silent_video_path=silent_video,

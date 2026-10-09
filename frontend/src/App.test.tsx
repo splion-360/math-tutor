@@ -186,6 +186,36 @@ describe("LessonResult", () => {
     expect(screen.getByText("Stage log").closest(".support-panel")).toBeInTheDocument();
   });
 
+  it("shows narration failures on the media stage", () => {
+    render(
+      <LessonResult
+        lesson={{
+          ...failedLesson,
+          initial_video_url: "/lessons/demo/video/initial",
+          narration_status: "unavailable",
+          diagnostics: {
+            failure_stage: "narration",
+            failure_kind: "operational",
+            narration_error_code: "narration_media_assembly_failed",
+            narration_error: "video muxing failed",
+            narration_plan_attempt_count: 1,
+          },
+        }}
+      />,
+    );
+
+    expect(node("adapter")).toHaveClass("workflow-passed");
+    expect(node("source")).toHaveClass("workflow-passed");
+    expect(node("render")).toHaveClass("workflow-passed");
+    expect(node("media")).toHaveClass("workflow-failed");
+
+    fireEvent.click(screen.getByRole("button", { name: "Inspect Media stage" }));
+
+    expect(screen.getByText("Narration attempts")).toBeInTheDocument();
+    expect(screen.getByText("narration_media_assembly_failed")).toBeInTheDocument();
+    expect(screen.getByText("video muxing failed")).toBeInTheDocument();
+  });
+
   it("switches between the initial and validated videos", () => {
     render(<LessonResult lesson={narratedLesson} />);
 

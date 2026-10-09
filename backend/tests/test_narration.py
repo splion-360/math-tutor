@@ -10,6 +10,7 @@ from types import MappingProxyType
 import pytest
 
 from math_tutor.jobs import JobExecutionError, RenderOutcome
+from math_tutor.rendering.media import MediaAssemblyError
 from math_tutor.rendering.narration import (
     MediaBundle,
     NarratedSourceRenderer,
@@ -105,12 +106,14 @@ def test_outcome_processor_attaches_narration_and_persists_model_evidence(
         "prompt": "Explain gradient descent.",
         "source": "class GradientScene(Scene): pass",
         "target_duration_seconds": 12.5,
+        "artifact_dir": attempt_dir,
     }
     assert outcome.narration_status is NarrationStatus.READY
     assert outcome.silent_video_path == video
     assert outcome.narration_diagnostics == {
         "narration_provider": "elevenlabs",
         "narration_plan_model": "base-model",
+        "narration_plan_attempt_count": 1,
         "narration_target_duration_seconds": 12.5,
     }
     saved_plan = json.loads((attempt_dir / "narration-plan.json").read_text())
@@ -161,6 +164,110 @@ def test_outcome_processor_marks_narration_unavailable_on_failure(tmp_path: Path
         "narration_status": "unavailable",
     }
     assert "private provider failure" not in str(caught.value)
+
+
+def test_outcome_processor_reports_media_assembly_failure(tmp_path: Path) -> None:
+    video = tmp_path / "silent.mp4"
+    video.write_bytes(b"silent")
+    plan = NarrationPlan(
+        lesson_id="lesson-1",
+        segments=(NarrationSegment("segment-01", "Explain it.", "visual-01"),),
+    )
+    planned = PlannedNarration(plan, "base-model", "{}", "{}")
+
+    class Planner:
+        def create_plan(self, **_kwargs: object) -> PlannedNarration:
+            return planned
+
+    class Provider:
+        def synthesize(
+            self,
+            received_plan: NarrationPlan,
+            output_dir: Path,
+        ) -> SynthesizedNarration:
+            return SynthesizedNarration(
+                lesson_id=received_plan.lesson_id,
+                provider="elevenlabs",
+                model_id="speech-model",
+                segments=(
+                    SynthesizedSegment(
+                        "segment-01",
+                        "visual-01",
+                        "Explain it.",
+                        output_dir / "segment.mp3",
+                        1.0,
+                        "a" * 64,
+                    ),
+                ),
+                plan=received_plan,
+            )
+
+    class FailingAssembler:
+        def assemble(self, **_kwargs: object) -> MediaBundle:
+            raise MediaAssemblyError("video muxing failed")
+
+    with pytest.raises(JobExecutionError) as caught:
+        NarrationOutcomeProcessor(
+            planner=Planner(),
+            provider=Provider(),
+            assembler=FailingAssembler(),
+            duration_probe=lambda _path: 5.0,
+        ).process(
+            job_id="lesson-1",
+            prompt="Explain limits.",
+            source="class GeneratedLesson(Scene): pass",
+            outcome=RenderOutcome(video, "docker", 1.0, "rendered"),
+            artifact_dir=tmp_path / "attempt",
+        )
+
+    assert caught.value.diagnostics == {
+        "failure_stage": "narration",
+        "failure_kind": "operational",
+        "narration_error_code": "narration_media_assembly_failed",
+        "narration_error": "video muxing failed",
+        "narration_status": "unavailable",
+    }
+
+
+def test_outcome_processor_classifies_artifact_directory_failure(tmp_path: Path) -> None:
+    video = tmp_path / "silent.mp4"
+    video.write_bytes(b"silent")
+    artifact_file = tmp_path / "attempt"
+    artifact_file.write_text("not a directory")
+
+    class UnusedPlanner:
+        def create_plan(self, **_kwargs: object) -> PlannedNarration:
+            raise AssertionError("planner must not run")
+
+    class UnusedProvider:
+        def synthesize(
+            self,
+            _plan: NarrationPlan,
+            _output_dir: Path,
+        ) -> SynthesizedNarration:
+            raise AssertionError("provider must not run")
+
+    class UnusedAssembler:
+        def assemble(self, **_kwargs: object) -> MediaBundle:
+            raise AssertionError("assembler must not run")
+
+    with pytest.raises(JobExecutionError) as caught:
+        NarrationOutcomeProcessor(
+            planner=UnusedPlanner(),
+            provider=UnusedProvider(),
+            assembler=UnusedAssembler(),
+            duration_probe=lambda _path: 5.0,
+        ).process(
+            job_id="lesson-1",
+            prompt="Explain limits.",
+            source="class GeneratedLesson(Scene): pass",
+            outcome=RenderOutcome(video, "docker", 1.0, "rendered"),
+            artifact_dir=artifact_file,
+        )
+
+    assert caught.value.diagnostics["failure_stage"] == "narration"
+    assert caught.value.diagnostics["failure_kind"] == "operational"
+    assert caught.value.diagnostics["narration_status"] == "unavailable"
 
 
 def test_narrated_source_renderer_keeps_provider_secret_outside_generated_code(

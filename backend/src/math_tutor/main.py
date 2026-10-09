@@ -10,7 +10,11 @@ from fastapi import FastAPI
 
 from math_tutor.api import create_app
 from math_tutor.domain import LessonStage
-from math_tutor.generation.narration import NARRATION_SYSTEM_PROMPT, ModelNarrationPlanner
+from math_tutor.generation.narration import (
+    NARRATION_RESPONSE_FORMAT,
+    NARRATION_SYSTEM_PROMPT,
+    ModelNarrationPlanner,
+)
 from math_tutor.generation.pipeline import GeneratedLessonPipeline
 from math_tutor.generation.provider import (
     BASE_MODEL,
@@ -143,6 +147,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
             model=BASE_MODEL,
             max_tokens=512,
             system_prompt=NARRATION_SYSTEM_PROMPT,
+            response_format=NARRATION_RESPONSE_FORMAT,
         )
         if resolved.modal_vllm_base_url:
             narration_model = ModalVllmClient(
@@ -157,13 +162,18 @@ def build_app(settings: Settings | None = None) -> FastAPI:
                 "Modal inference endpoint is not configured",
             )
         outcome_processor = NarrationOutcomeProcessor(
-            planner=ModelNarrationPlanner(narration_model),
+            planner=ModelNarrationPlanner(
+                narration_model,
+                max_retries=resolved.narration_plan_max_retries,
+            ),
             provider=ElevenLabsNarrationProvider(
                 api_key=elevenlabs_api_key,
                 voice_id=resolved.elevenlabs_voice_id,
                 duration_probe=probe_audio_duration,
             ),
-            assembler=FfmpegMediaAssembler(),
+            assembler=FfmpegMediaAssembler(
+                timeout_seconds=resolved.media_assembly_timeout_seconds,
+            ),
             duration_probe=probe_audio_duration,
         )
 

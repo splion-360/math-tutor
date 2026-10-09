@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 from typing import Any, Protocol
 
 from math_tutor.domain import NarrationStatus
@@ -22,6 +23,33 @@ Use two to four sequential segments. Explain the mathematical idea and the visib
 Use spoken math instead of raw LaTeX. Do not mention code, Manim, prompts, or these instructions.
 Keep the total narration close to the requested word count so it fits the video duration.
 """
+NARRATION_RESPONSE_FORMAT: dict[str, object] = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "narration_plan",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "segments": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 4,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "text": {"type": "string", "minLength": 1, "maxLength": 500}
+                        },
+                        "required": ["text"],
+                        "additionalProperties": False,
+                    },
+                }
+            },
+            "required": ["segments"],
+            "additionalProperties": False,
+        },
+    },
+}
 _JSON_FENCE = re.compile(r"^```(?:json)?\s*\n(.*?)\n```$", re.IGNORECASE | re.DOTALL)
 
 
@@ -42,8 +70,11 @@ class NarrationPlanningError(JobExecutionError):
 class ModelNarrationPlanner:
     """Convert a base-model response into a validated narration plan."""
 
-    def __init__(self, generator: NarrationGenerator) -> None:
+    def __init__(self, generator: NarrationGenerator, *, max_retries: int = 1) -> None:
+        if not 0 <= max_retries <= 1:
+            raise ValueError("max_retries must be zero or one")
         self._generator = generator
+        self._max_retries = max_retries
 
     def create_plan(
         self,
@@ -52,6 +83,7 @@ class ModelNarrationPlanner:
         prompt: str,
         source: str,
         target_duration_seconds: float,
+        artifact_dir: Path,
     ) -> PlannedNarration:
         """Generate a narration plan for one completed Manim render.
 
@@ -76,27 +108,45 @@ class ModelNarrationPlanner:
             },
             ensure_ascii=False,
         )
-        try:
-            result = self._generator.generate(request)
-            texts = _parse_segments(result.content)
-        except ProviderError as error:
-            raise NarrationPlanningError(
-                "Narration transcript generation failed",
-                diagnostics={
-                    "failure_stage": "narration",
-                    "failure_kind": "operational",
-                    "narration_status": NarrationStatus.UNAVAILABLE.value,
-                },
-            ) from error
-        except (TypeError, ValueError) as error:
-            raise NarrationPlanningError(
-                "Narration transcript was not valid",
-                diagnostics={
-                    "failure_stage": "narration",
-                    "failure_kind": "model_output",
-                    "narration_status": NarrationStatus.UNAVAILABLE.value,
-                },
-            ) from error
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        result: GenerationResult | None = None
+        texts: tuple[str, ...] | None = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                result = self._generator.generate(request)
+            except ProviderError as error:
+                raise NarrationPlanningError(
+                    "Narration transcript generation failed",
+                    diagnostics={
+                        "failure_stage": "narration",
+                        "failure_kind": "operational",
+                        "narration_error_code": "narration_model_request_failed",
+                        "narration_plan_attempt_count": attempt + 1,
+                        "narration_status": NarrationStatus.UNAVAILABLE.value,
+                    },
+                ) from error
+            _write_generation_evidence(artifact_dir, attempt, result)
+            try:
+                texts = _parse_segments(result.content)
+                break
+            except (TypeError, ValueError) as error:
+                if attempt >= self._max_retries:
+                    raise NarrationPlanningError(
+                        "Narration transcript was not valid",
+                        diagnostics={
+                            "failure_stage": "narration",
+                            "failure_kind": "model_output",
+                            "narration_error_code": "narration_plan_invalid",
+                            "narration_plan_attempt_count": attempt + 1,
+                            "narration_response_artifact": str(
+                                artifact_dir / f"narration-response-attempt-{attempt}.txt"
+                            ),
+                            "narration_status": NarrationStatus.UNAVAILABLE.value,
+                        },
+                    ) from error
+                request = _repair_request(request, result.content)
+        if result is None or texts is None:
+            raise AssertionError("narration planning loop completed without a result")
         plan = NarrationPlan(
             lesson_id=lesson_id,
             segments=tuple(
@@ -113,7 +163,36 @@ class ModelNarrationPlanner:
             model=result.model,
             raw_response=result.content,
             provider_response=result.provider_response,
+            generation_attempts=attempt + 1,
         )
+
+
+def _write_generation_evidence(
+    artifact_dir: Path,
+    attempt: int,
+    result: GenerationResult,
+) -> None:
+    """Persist one narration-model response before validating its content."""
+    (artifact_dir / f"narration-response-attempt-{attempt}.txt").write_text(
+        result.content,
+        encoding="utf-8",
+    )
+    (artifact_dir / f"narration-provider-response-attempt-{attempt}.json").write_text(
+        result.provider_response,
+        encoding="utf-8",
+    )
+
+
+def _repair_request(original_request: str, previous_response: str) -> str:
+    """Create one bounded correction request for malformed narration JSON."""
+    return json.dumps(
+        {
+            "narration_request": json.loads(original_request),
+            "previous_response": previous_response,
+            "correction": ("Return only the required JSON object with two to four text segments."),
+        },
+        ensure_ascii=False,
+    )
 
 
 def _parse_segments(content: str) -> tuple[str, ...]:

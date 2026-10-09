@@ -540,7 +540,11 @@ function markCompletedStages(
   if (["source", "render"].includes(failedNode ?? "")) states.adapter = "passed";
   if (failedNode === "render") states.source = "passed";
   const failure = readText(diagnostics, ["failure_stage", "failed_stage"]);
-  if (failure === "output_validation" || failure === "validating_output") {
+  if (
+    failure === "narration"
+    || failure === "output_validation"
+    || failure === "validating_output"
+  ) {
     states.adapter = "passed";
     states.source = "passed";
     states.render = "passed";
@@ -554,6 +558,7 @@ function failedWorkflowNode(lesson: LessonJob): string | null {
     return "source";
   }
   if (failure === "render" || failure === "rendering") return "render";
+  if (failure === "narration") return "media";
   if (failure === "output_validation" || failure === "validating_output") return null;
   return "publish";
 }
@@ -638,7 +643,10 @@ function workflowStageDetails(
       "Deterministic checks parse the Python and reject unsafe or invalid Manim source."
     ),
     render: "The admitted scene runs inside the isolated Manim renderer.",
-    media: "Media checks inspect the rendered file, streams, duration, and captions contract.",
+    media: (
+      "Narration assembly and media checks inspect the rendered file, streams, duration, "
+      + "and captions contract."
+    ),
     spatial: "Layout checks inspect frame boundaries, margins, object size, and intersections.",
     visual: "The visual model checks sampled frames for bounded visible defects.",
     repair: "One bounded repair reruns generation, source admission, rendering, and validation.",
@@ -684,6 +692,11 @@ function workflowStageDetails(
     );
     addFact("Findings", axis?.findingCount);
     addFact("Advisories", axis?.advisoryCount);
+    if (node.id === "media") {
+      addFact("Narration", lesson.narration_status);
+      addFact("Narration attempts", diagnostics.narration_plan_attempt_count);
+      addFact("Failure kind", diagnostics.failure_kind);
+    }
   }
   if (node.id === "publish") {
     addFact("Validation", diagnostics.validation_status);
@@ -721,6 +734,16 @@ function fallbackStageFinding(
     return {
       code: "source_validation_failed",
       message: "The generated scene violated a deterministic source-admission rule.",
+      repairInstruction: null,
+    };
+  }
+  if (stageId === "media" && failure === "narration") {
+    const code = readText(diagnostics, ["narration_error_code"])
+      ?? "narration_failed";
+    const error = readText(diagnostics, ["narration_error"]);
+    return {
+      code,
+      message: error ?? "The narration stage could not produce playable lesson media.",
       repairInstruction: null,
     };
   }

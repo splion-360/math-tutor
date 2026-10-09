@@ -41,6 +41,8 @@ class Settings(BaseModel):
     elevenlabs_voice_id: str = "Xb7hH8MSUJpSbSDYk0k2"
     artifact_root: Path = Path("artifacts")
     render_timeout_seconds: float = Field(default=90, gt=0)
+    media_assembly_timeout_seconds: float = Field(default=180, gt=0)
+    narration_plan_max_retries: int = Field(default=1, ge=0, le=1)
     max_pending_jobs: int = Field(default=8, gt=0)
     validation_max_repair_attempts: int = Field(default=1, ge=0, le=1)
     spatial_unsafe_margin: float = Field(default=0.25, ge=0)

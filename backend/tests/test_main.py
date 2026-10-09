@@ -45,7 +45,8 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
     validator_callbacks: list[object] = []
     observed_renderers: list[dict[str, object]] = []
     observed_narration_providers: list[dict[str, object]] = []
-    observed_planners: list[object] = []
+    observed_planners: list[dict[str, object]] = []
+    observed_assemblers: list[dict[str, object]] = []
     observed_outcome_processors: list[dict[str, object]] = []
     observed_pipelines: list[dict[str, object]] = []
     observed_services: list[dict[str, object]] = []
@@ -107,11 +108,12 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
             observed_narration_providers.append(kwargs)
 
     class RecordingAssembler:
-        pass
+        def __init__(self, **kwargs: object) -> None:
+            observed_assemblers.append(kwargs)
 
     class RecordingPlanner:
-        def __init__(self, model: object) -> None:
-            observed_planners.append(model)
+        def __init__(self, model: object, **kwargs: object) -> None:
+            observed_planners.append({"model": model, **kwargs})
 
     class RecordingOutcomeProcessor:
         def __init__(self, **kwargs: object) -> None:
@@ -160,6 +162,7 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
     assert "VoiceoverScene" not in observed_models[0].system_prompt
     assert observed_models[1].system_prompt == main.NARRATION_SYSTEM_PROMPT
     assert observed_models[1].max_tokens == 512
+    assert observed_models[1].response_format == main.NARRATION_RESPONSE_FORMAT
     assert observed_visual_connections == [
         {
             "base_url": "https://workspace--visual.modal.run/v1",
@@ -191,7 +194,9 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
         }
     ]
     assert len(observed_planners) == 1
-    assert observed_planners[0].config.model == BASE_MODEL
+    assert observed_planners[0]["model"].config.model == BASE_MODEL
+    assert observed_planners[0]["max_retries"] == 1
+    assert observed_assemblers == [{"timeout_seconds": 180}]
     assert len(observed_outcome_processors) == 1
     processor = observed_outcome_processors[0]
     assert processor["planner"].__class__ is RecordingPlanner

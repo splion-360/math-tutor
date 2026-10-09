@@ -95,6 +95,40 @@ def test_system_prompt_matches_the_shared_adapter_training_contract() -> None:
     )
 
 
+def test_generate_includes_optional_structured_response_format() -> None:
+    observed: dict[str, object] = {}
+    response_format: dict[str, object] = {
+        "type": "json_schema",
+        "json_schema": {"name": "narration", "schema": {"type": "object"}},
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        observed.update(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-json",
+                "choices": [
+                    {
+                        "message": {"content": "{}"},
+                        "finish_reason": "stop",
+                    }
+                ],
+            },
+        )
+
+    client = ModalVllmClient(
+        api_key="modal-secret",
+        config=GenerationConfig(response_format=response_format),
+        base_url=MODAL_BASE_URL,
+        transport=httpx.MockTransport(handler),
+    )
+
+    client.generate("Return JSON.")
+
+    assert observed["response_format"] == response_format
+
+
 def test_voiceover_prompt_requires_timed_narration_blocks() -> None:
     assert "VoiceoverScene" in VOICEOVER_SYSTEM_PROMPT
     assert "ElevenLabsService" in VOICEOVER_SYSTEM_PROMPT

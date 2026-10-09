@@ -12,6 +12,7 @@ from typing import Protocol
 import httpx
 
 from math_tutor.rendering.narration import (
+    NarrationAttachmentError,
     NarrationPlan,
     SynthesizedNarration,
     SynthesizedSegment,
@@ -74,8 +75,10 @@ class HttpxTransport:
         )
 
 
-class ElevenLabsError(RuntimeError):
+class ElevenLabsError(NarrationAttachmentError):
     """A sanitized narration-provider failure safe for job diagnostics."""
+
+    error_code = "narration_synthesis_failed"
 
 
 class ElevenLabsNarrationProvider:

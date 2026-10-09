@@ -55,6 +55,11 @@ class PlannedNarration:
     model: str
     raw_response: str = field(repr=False)
     provider_response: str = field(repr=False)
+    generation_attempts: int = 1
+
+    def __post_init__(self) -> None:
+        if self.generation_attempts <= 0:
+            raise ValueError("generation_attempts must be positive")
 
 
 @dataclass(frozen=True)
@@ -137,6 +142,12 @@ class MediaAssembler(Protocol):
         ...
 
 
+class NarrationAttachmentError(RuntimeError):
+    """A bounded narration failure safe to include in job diagnostics."""
+
+    error_code = "narration_attachment_failed"
+
+
 class NarrationPlanner(Protocol):
     """Generate a bounded narration plan from a rendered lesson description."""
 
@@ -147,6 +158,7 @@ class NarrationPlanner(Protocol):
         prompt: str,
         source: str,
         target_duration_seconds: float,
+        artifact_dir: Path,
     ) -> PlannedNarration:
         """Return narration text for one rendered lesson."""
         ...
@@ -193,14 +205,15 @@ class NarrationOutcomeProcessor:
             JobExecutionError: If planning, synthesis, or assembly fails.
         """
         try:
+            artifact_dir.mkdir(parents=True, exist_ok=True)
             video_duration = self._duration_probe(outcome.video_path)
             planned = self._planner.create_plan(
                 lesson_id=job_id,
                 prompt=prompt,
                 source=source,
                 target_duration_seconds=video_duration,
+                artifact_dir=artifact_dir,
             )
-            artifact_dir.mkdir(parents=True, exist_ok=True)
             (artifact_dir / "narration-plan.json").write_text(
                 json.dumps(
                     {
@@ -238,6 +251,17 @@ class NarrationOutcomeProcessor:
             )
         except JobExecutionError:
             raise
+        except NarrationAttachmentError as error:
+            raise JobExecutionError(
+                "Narration could not be attached to the lesson",
+                diagnostics={
+                    "failure_stage": "narration",
+                    "failure_kind": "operational",
+                    "narration_error_code": error.error_code,
+                    "narration_error": str(error),
+                    "narration_status": NarrationStatus.UNAVAILABLE.value,
+                },
+            ) from error
         except Exception as error:
             raise JobExecutionError(
                 "Narration could not be attached to the lesson",
@@ -256,6 +280,7 @@ class NarrationOutcomeProcessor:
             narration_diagnostics={
                 **dict(bundle.diagnostics),
                 "narration_plan_model": planned.model,
+                "narration_plan_attempt_count": planned.generation_attempts,
                 "narration_target_duration_seconds": video_duration,
             },
         )

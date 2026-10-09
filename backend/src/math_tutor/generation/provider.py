@@ -61,6 +61,7 @@ class GenerationConfig:
     max_tokens: int = 4096
     seed: int = 42
     system_prompt: str = SYSTEM_PROMPT
+    response_format: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -135,21 +136,21 @@ class ModalVllmClient:
         """
         started = monotonic()
         try:
-            response = self._client.post(
-                "/chat/completions",
-                json={
-                    "model": self.config.model,
-                    "messages": [
-                        {"role": "system", "content": self.config.system_prompt},
-                        {"role": "user", "content": prompt},
-                    ],
-                    "temperature": self.config.temperature,
-                    "top_p": self.config.top_p,
-                    "max_tokens": self.config.max_tokens,
-                    "seed": self.config.seed,
-                    "chat_template_kwargs": {"enable_thinking": False},
-                },
-            )
+            request_payload: dict[str, object] = {
+                "model": self.config.model,
+                "messages": [
+                    {"role": "system", "content": self.config.system_prompt},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": self.config.temperature,
+                "top_p": self.config.top_p,
+                "max_tokens": self.config.max_tokens,
+                "seed": self.config.seed,
+                "chat_template_kwargs": {"enable_thinking": False},
+            }
+            if self.config.response_format is not None:
+                request_payload["response_format"] = self.config.response_format
+            response = self._client.post("/chat/completions", json=request_payload)
         except httpx.HTTPError as error:
             raise ProviderError("Modal vLLM generation request could not be completed") from error
         elapsed = monotonic() - started

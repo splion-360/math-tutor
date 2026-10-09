@@ -44,6 +44,8 @@ def test_settings_loads_secret_and_keeps_operational_code_defaults(
     assert settings.modal_vllm_base_url == "https://workspace--qwen.modal.direct/v1"
     assert settings.artifact_root == Path("artifacts")
     assert settings.render_timeout_seconds == 90
+    assert settings.media_assembly_timeout_seconds == 180
+    assert settings.narration_plan_max_retries == 1
     assert settings.max_pending_jobs == 8
     assert settings.validation_max_repair_attempts == 1
     assert settings.spatial_unsafe_margin == 0.25
