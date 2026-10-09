@@ -48,6 +48,7 @@ def _plot_results(summary: dict[str, Any], output_directory: Path) -> list[str]:
     import matplotlib
 
     matplotlib.use("Agg")
+    matplotlib.rcParams["svg.hashsalt"] = "math-tutor-gradient-label-alignment-v1"
     import matplotlib.pyplot as plt
 
     modules = summary["results"]["modules"]
@@ -70,7 +71,7 @@ def _plot_results(summary: dict[str, Any], output_directory: Path) -> list[str]:
     axes[-1].set_xticks(range(len(names)), labels, rotation=65, ha="right", fontsize=8)
     figure.suptitle("Within-label versus across-label projected-gradient alignment")
     effect_path = output_directory / "gradient_label_effects.svg"
-    figure.savefig(effect_path)
+    figure.savefig(effect_path, metadata={"Date": None})
     plt.close(figure)
     _strip_svg_trailing_space(effect_path)
     outputs.append(effect_path.name)
@@ -95,7 +96,7 @@ def _plot_results(summary: dict[str, Any], output_directory: Path) -> list[str]:
     axes[-1].set_xticks(range(len(names)), labels, rotation=65, ha="right", fontsize=8)
     figure.suptitle("Spherical k-means agreement with corpus labels")
     cluster_path = output_directory / "gradient_label_clustering.svg"
-    figure.savefig(cluster_path)
+    figure.savefig(cluster_path, metadata={"Date": None})
     plt.close(figure)
     _strip_svg_trailing_space(cluster_path)
     outputs.append(cluster_path.name)

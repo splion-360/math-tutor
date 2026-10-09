@@ -4,7 +4,10 @@ The fixtures keep label effects explicit enough to verify their direction."""
 from __future__ import annotations
 
 import json
+import runpy
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -48,6 +51,29 @@ def test_loaders_join_unique_records_and_reject_missing_labels(tmp_path: Path) -
 
     with pytest.raises(ValueError, match="missing labels"):
         load_signature_modules(signatures, labels)
+
+
+@pytest.mark.parametrize("field_value", [None, "", " algebra", "algebra "])
+def test_record_labels_reject_null_empty_or_untrimmed_values(
+    tmp_path: Path, field_value: Any
+) -> None:
+    records = tmp_path / "records.jsonl"
+    records.write_text(
+        json.dumps({"id": "a", "subject": field_value, "difficulty": "short"}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="invalid label field"):
+        load_record_labels(records)
+
+
+def test_record_labels_reject_duplicate_ids(tmp_path: Path) -> None:
+    records = tmp_path / "records.jsonl"
+    row = json.dumps({"id": "a", "subject": "algebra", "difficulty": "short"})
+    records.write_text(f"{row}\n{row}\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="duplicate corpus record"):
+        load_record_labels(records)
 
 
 def test_load_signature_modules_requires_matching_module_coverage(tmp_path: Path) -> None:
@@ -110,3 +136,28 @@ def test_benjamini_hochberg_preserves_order_and_monotonic_adjustment() -> None:
     adjusted = benjamini_hochberg([0.01, 0.04, 0.03, 0.002])
 
     assert adjusted == pytest.approx([0.02, 0.04, 0.04, 0.008])
+
+
+def test_svg_figures_are_byte_stable(tmp_path: Path) -> None:
+    script = Path(__file__).parents[1] / "scripts/analyze_gradient_label_alignment.py"
+    plot = cast(
+        Callable[[dict[str, Any], Path], list[str]], runpy.run_path(str(script))["_plot_results"]
+    )
+    label_result = {
+        "record_mean_contrast": 0.01,
+        "record_bootstrap_interval_95": [0.005, 0.015],
+        "clustering": {"ari": 0.02, "nmi": 0.03},
+    }
+    summary = {
+        "results": {
+            "modules": {"layer_0.q_proj": {"subject": label_result, "difficulty": label_result}}
+        }
+    }
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+
+    names = plot(summary, first)
+    assert names == plot(summary, second)
+    assert all((first / name).read_bytes() == (second / name).read_bytes() for name in names)

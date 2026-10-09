@@ -70,13 +70,17 @@ def load_record_labels(path: Path) -> dict[str, RecordLabels]:
             continue
         row = json.loads(line)
         try:
-            record_id = str(row["id"])
-            subject = str(row["subject"])
-            difficulty = str(row["difficulty"])
+            values = {name: row[name] for name in ("id", "subject", "difficulty")}
         except KeyError as error:
             raise ValueError(f"missing label field on line {line_number}") from error
-        if not record_id or not subject or not difficulty:
-            raise ValueError(f"empty label field on line {line_number}")
+        if any(
+            not isinstance(value, str) or not value.strip() or value != value.strip()
+            for value in values.values()
+        ):
+            raise ValueError(f"invalid label field on line {line_number}")
+        record_id = values["id"]
+        subject = values["subject"]
+        difficulty = values["difficulty"]
         if record_id in labels:
             raise ValueError(f"duplicate corpus record {record_id}")
         labels[record_id] = {"subject": subject, "difficulty": difficulty}
@@ -271,14 +275,12 @@ def adjusted_rand_index(left: NDArray[np.int64], right: NDArray[np.int64]) -> fl
         Chance-adjusted pair agreement in the conventional [-1, 1] range.
     """
     table = _contingency(left, right)
-
-    def choose_two(values: NDArray[np.int64]) -> NDArray[np.float64]:
-        return values * (values - 1) / 2
-
-    joint = float(choose_two(table).sum())
-    row_pairs = float(choose_two(table.sum(axis=1)).sum())
-    column_pairs = float(choose_two(table.sum(axis=0)).sum())
-    total_pairs = float(choose_two(np.asarray([len(left)])).sum())
+    joint = float((table * (table - 1) / 2).sum())
+    row_counts = table.sum(axis=1)
+    column_counts = table.sum(axis=0)
+    row_pairs = float((row_counts * (row_counts - 1) / 2).sum())
+    column_pairs = float((column_counts * (column_counts - 1) / 2).sum())
+    total_pairs = len(left) * (len(left) - 1) / 2
     expected = row_pairs * column_pairs / total_pairs if total_pairs else 0.0
     maximum = (row_pairs + column_pairs) / 2
     return (joint - expected) / (maximum - expected) if maximum != expected else 1.0

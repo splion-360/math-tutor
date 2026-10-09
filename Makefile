@@ -61,6 +61,7 @@ evidence-figures:
 	uv run --frozen --project training --python 3.12 python -m dynamic_lora.evidence figures
 
 gradient-label-analysis:
+	uv run --frozen --project training --python 3.12 python -m dynamic_lora.evidence fetch-all
 	uv run --frozen --project training --python 3.12 python training/scripts/analyze_gradient_label_alignment.py \
 		--signatures training/artifacts/evidence/full_corpus_signatures.jsonl \
 		--records training/artifacts/evidence/bespoke_manim_train.jsonl \
