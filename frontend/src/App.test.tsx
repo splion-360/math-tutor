@@ -129,7 +129,8 @@ describe("LessonResult", () => {
     );
 
     const stageLog = screen.getByText("Stage log").closest(".workflow-inspector");
-    expect(stageLog).toHaveClass("video-stage");
+    expect(stageLog).toHaveClass("detail-card");
+    expect(stageLog?.closest(".support-panel")).toBeInTheDocument();
     expect(document.querySelector(".workflow .workflow-inspector")).not.toBeInTheDocument();
     expect(screen.getByText("Generation attempts")).toBeInTheDocument();
     expect(screen.getByText("Repair attempts")).toBeInTheDocument();
@@ -142,7 +143,7 @@ describe("LessonResult", () => {
     expect(screen.getByText("Generation stopped")).toBeInTheDocument();
   });
 
-  it("shows available render logs in the lesson viewport", () => {
+  it("shows available render logs in the details panel", () => {
     render(
       <LessonResult
         lesson={{
@@ -158,7 +159,8 @@ describe("LessonResult", () => {
 
     expect(screen.getByText("Execution output")).toBeInTheDocument();
     expect(screen.getByText("Rendered scene.mp4")).toBeInTheDocument();
-    expect(screen.queryByTestId("lesson-video")).not.toBeInTheDocument();
+    expect(screen.getByTestId("lesson-video")).toBeInTheDocument();
+    expect(screen.getByText("Stage log").closest(".support-panel")).toBeInTheDocument();
   });
 
   it("plays the accepted video and exposes generated code", () => {

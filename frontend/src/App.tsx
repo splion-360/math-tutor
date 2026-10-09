@@ -148,20 +148,14 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
               <button
                 type="button"
                 className={artifactMode === "view" ? "active" : ""}
-                onClick={() => {
-                  setArtifactMode("view");
-                  setSelectedStage(null);
-                }}
+                onClick={() => setArtifactMode("view")}
               >
                 View
               </button>
               <button
                 type="button"
                 className={artifactMode === "code" ? "active" : ""}
-                onClick={() => {
-                  setArtifactMode("code");
-                  setSelectedStage(null);
-                }}
+                onClick={() => setArtifactMode("code")}
               >
                 {"</>"}
               </button>
@@ -177,25 +171,23 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
             </label>
           </div>
 
-          {selectedStage ? (
-            <WorkflowStageInspector
-              node={workflowNode(lesson, selectedStage)}
-              lesson={lesson}
-              onClose={() => setSelectedStage(null)}
-            />
-          ) : (
-            <VideoStage
-              lesson={lesson}
-              busy={busy}
-              mode={artifactMode}
-              captionsEnabled={captionsEnabled}
-            />
-          )}
+          <VideoStage
+            lesson={lesson}
+            busy={busy}
+            mode={artifactMode}
+            captionsEnabled={captionsEnabled}
+          />
 
           {requestError && <p className="request-error" role="alert">{requestError}</p>}
         </section>
 
-        {lesson && <SupportTabs lesson={lesson} />}
+        {lesson && (
+          <SupportTabs
+            lesson={lesson}
+            selectedStage={selectedStage}
+            onCloseStage={() => setSelectedStage(null)}
+          />
+        )}
       </section>
     </main>
   );
@@ -225,20 +217,14 @@ function LessonResult({ lesson }: { lesson: LessonJob }) {
           <button
             type="button"
             className={artifactMode === "view" ? "active" : ""}
-            onClick={() => {
-              setArtifactMode("view");
-              setSelectedStage(null);
-            }}
+            onClick={() => setArtifactMode("view")}
           >
             View
           </button>
           <button
             type="button"
             className={artifactMode === "code" ? "active" : ""}
-            onClick={() => {
-              setArtifactMode("code");
-              setSelectedStage(null);
-            }}
+            onClick={() => setArtifactMode("code")}
           >
             {"</>"}
           </button>
@@ -253,21 +239,19 @@ function LessonResult({ lesson }: { lesson: LessonJob }) {
           Captions
         </label>
       </div>
-      {selectedStage ? (
-        <WorkflowStageInspector
-          node={workflowNode(lesson, selectedStage)}
+      <VideoStage
+        lesson={lesson}
+        busy={lesson.status === "queued" || lesson.status === "running"}
+        mode={artifactMode}
+        captionsEnabled={captionsEnabled}
+      />
+      {(selectedStage || (lesson.status !== "queued" && lesson.status !== "running")) && (
+        <SupportTabs
           lesson={lesson}
-          onClose={() => setSelectedStage(null)}
-        />
-      ) : (
-        <VideoStage
-          lesson={lesson}
-          busy={lesson.status === "queued" || lesson.status === "running"}
-          mode={artifactMode}
-          captionsEnabled={captionsEnabled}
+          selectedStage={selectedStage}
+          onCloseStage={() => setSelectedStage(null)}
         />
       )}
-      {lesson.status !== "queued" && lesson.status !== "running" && <SupportTabs lesson={lesson} />}
     </section>
   );
 }
@@ -580,7 +564,9 @@ function WorkflowStageInspector({
     ? readText(lesson.diagnostics, ["logs"])
     : null;
   return (
-    <div className={`video-stage workflow-inspector workflow-inspector-${node.state}`}>
+    <section
+      className={`detail-card stage-log-card workflow-inspector workflow-inspector-${node.state}`}
+    >
       <div className="workflow-inspector-heading">
         <div>
           <span>Stage log</span>
@@ -621,7 +607,7 @@ function WorkflowStageInspector({
           <pre>{logs}</pre>
         </section>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -813,7 +799,15 @@ function FailedVideo({ lesson: _lesson }: { lesson: LessonJob }) {
   );
 }
 
-function SupportTabs({ lesson }: { lesson: LessonJob | null }) {
+function SupportTabs({
+  lesson,
+  selectedStage,
+  onCloseStage,
+}: {
+  lesson: LessonJob | null;
+  selectedStage: string | null;
+  onCloseStage: () => void;
+}) {
   const axes = lesson ? readValidationAxes(lesson.diagnostics) : [];
 
   return (
@@ -848,6 +842,13 @@ function SupportTabs({ lesson }: { lesson: LessonJob | null }) {
                   ))}
                 </div>
               </section>
+            )}
+            {selectedStage && (
+              <WorkflowStageInspector
+                node={workflowNode(lesson, selectedStage)}
+                lesson={lesson}
+                onClose={onCloseStage}
+              />
             )}
           </article>
         ) : (

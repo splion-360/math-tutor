@@ -769,7 +769,9 @@ textarea:focus {
 }
 
 .workspace-with-details .lesson-details-grid {
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  height: 100%;
+  flex-direction: column;
   gap: 10px;
 }
 
@@ -791,6 +793,11 @@ textarea:focus {
 
 .workspace-with-details .validation-results {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace-with-details .stage-log-card {
+  max-height: min(38vh, 340px);
+  margin-top: auto;
 }
 
 .standalone-result {
@@ -816,6 +823,10 @@ textarea:focus {
   border: 1px solid var(--border);
   background: rgba(17, 24, 39, 0.36);
   padding: 12px;
+}
+
+.stage-log-card {
+  grid-column: 1 / -1;
 }
 
 .detail-card h2 {
