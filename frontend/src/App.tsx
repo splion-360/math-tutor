@@ -88,7 +88,6 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
             <small>Visual math studio</small>
           </span>
         </a>
-        <span className="engine-pill">Shared LoRA · Manim · Parallel validation</span>
       </header>
 
       <section className="workspace-grid">
@@ -104,7 +103,7 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
             id="lesson-prompt"
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            rows={5}
+            rows={4}
             spellCheck={false}
           />
 
@@ -124,11 +123,6 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
             {busy ? "Generating…" : "Generate lesson"}
             <span aria-hidden="true">→</span>
           </button>
-
-          <div className="composer-meta">
-            <span>One shared adapter</span>
-            <span>One repair attempt</span>
-          </div>
         </form>
 
         <section className="video-panel" aria-live="polite">
@@ -186,7 +180,7 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
         </section>
       </section>
 
-      <SupportTabs lesson={lesson} />
+      {lesson && <SupportTabs lesson={lesson} />}
     </main>
   );
 }

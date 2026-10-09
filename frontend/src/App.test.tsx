@@ -144,6 +144,8 @@ describe("App lesson flow", () => {
     render(<App transport={transport} pollIntervalMs={0} />);
 
     expect(screen.getByText("Create a visual lesson")).toBeInTheDocument();
+    expect(screen.queryByText("Shared LoRA · Manim · Parallel validation")).not.toBeInTheDocument();
+    expect(screen.queryByText("One repair attempt")).not.toBeInTheDocument();
     expect(screen.getByText("Your generated visual lesson will appear here.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /generate lesson/i }));

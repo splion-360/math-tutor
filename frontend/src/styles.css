@@ -54,7 +54,7 @@ button:disabled {
 
 .studio-shell {
   min-height: 100vh;
-  padding: 0 clamp(14px, 2vw, 28px) 24px;
+  padding: 0 clamp(12px, 1.5vw, 22px) 16px;
 }
 
 .studio-header {
@@ -65,7 +65,7 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 56px;
+  min-height: 48px;
   border-bottom: 1px solid var(--border);
   background: rgba(17, 24, 39, 0.94);
   backdrop-filter: blur(14px);
@@ -74,7 +74,7 @@ button:disabled {
 .brand {
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 10px;
   color: inherit;
   text-decoration: none;
 }
@@ -82,26 +82,24 @@ button:disabled {
 .brand-mark {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border: 1px solid rgba(112, 197, 184, 0.42);
   border-radius: 8px;
   background: rgba(112, 197, 184, 0.12);
   color: var(--primary);
-  font: 700 23px var(--font-display);
+  font: 700 20px var(--font-display);
 }
 
 .brand strong {
   display: block;
-  font-size: 20px;
+  font-size: 17px;
   line-height: 1;
 }
 
 .brand small,
 .section-kicker,
-.engine-pill,
 .status-badge,
-.composer-meta,
 .code-stage-head,
 .segmented-control button {
   font: 700 10px/1.2 var(--font-display);
@@ -111,15 +109,8 @@ button:disabled {
 
 .brand small {
   display: block;
-  margin-top: 5px;
+  margin-top: 3px;
   color: var(--muted);
-}
-
-.engine-pill {
-  border: 1px solid rgba(112, 197, 184, 0.32);
-  background: rgba(112, 197, 184, 0.1);
-  color: var(--primary);
-  padding: 7px 10px;
 }
 
 .workspace-grid,
@@ -132,9 +123,8 @@ button:disabled {
 .workspace-grid {
   display: grid;
   grid-template-columns: minmax(300px, 0.54fr) minmax(620px, 1.46fr);
-  gap: 16px;
-  min-height: calc(100vh - 76px);
-  padding-top: 14px;
+  gap: 12px;
+  padding-top: 10px;
 }
 
 .composer-panel,
@@ -150,7 +140,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: clamp(16px, 1.7vw, 22px);
+  padding: clamp(13px, 1.3vw, 18px);
 }
 
 .section-kicker {
@@ -159,20 +149,20 @@ button:disabled {
 }
 
 .panel-copy h1 {
-  margin: 7px 0 0;
-  font-size: clamp(30px, 3.2vw, 52px);
+  margin: 5px 0 0;
+  font-size: clamp(27px, 2.7vw, 42px);
   line-height: 1.02;
   letter-spacing: -0.03em;
 }
 
 .panel-copy p:last-child {
-  margin: 10px 0 16px;
+  margin: 7px 0 11px;
   color: var(--muted);
-  line-height: 1.48;
+  line-height: 1.4;
 }
 
 .composer-panel label {
-  margin-bottom: 9px;
+  margin-bottom: 6px;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -181,15 +171,15 @@ button:disabled {
 
 textarea {
   width: 100%;
-  min-height: 132px;
+  min-height: 104px;
   resize: vertical;
   border: 1px solid rgba(238, 242, 232, 0.22);
   border-radius: 0;
   outline: 0;
   background: var(--field);
   color: var(--ink);
-  padding: 14px;
-  line-height: 1.55;
+  padding: 11px;
+  line-height: 1.45;
 }
 
 textarea:focus {
@@ -200,16 +190,17 @@ textarea:focus {
 .sample-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .sample-row button {
-  min-height: 32px;
+  min-height: 28px;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--muted);
-  padding: 7px 9px;
+  padding: 5px 8px;
+  font-size: 12px;
   text-align: left;
 }
 
@@ -224,28 +215,19 @@ textarea:focus {
   justify-content: center;
   gap: 18px;
   width: 100%;
-  margin-top: 16px;
+  margin-top: 11px;
   border: 0;
   background: var(--primary);
   color: #07110f;
-  padding: 15px 18px;
+  padding: 12px 16px;
   font-weight: 900;
-}
-
-.composer-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  margin-top: auto;
-  padding-top: 14px;
-  color: var(--muted);
 }
 
 .video-panel {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: clamp(10px, 1.2vw, 14px);
+  padding: clamp(8px, 1vw, 12px);
 }
 
 .video-panel-head {
@@ -253,12 +235,12 @@ textarea:focus {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 0 4px 8px;
+  padding: 0 2px 6px;
 }
 
 .video-panel-head h2 {
   margin: 4px 0 0;
-  font-size: clamp(22px, 2.4vw, 42px);
+  font-size: clamp(20px, 2vw, 32px);
   line-height: 1.1;
 }
 
@@ -268,7 +250,7 @@ textarea:focus {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.05);
   color: var(--muted);
-  padding: 7px 9px;
+  padding: 6px 8px;
   white-space: nowrap;
 }
 
@@ -287,9 +269,8 @@ textarea:focus {
 
 .video-stage {
   position: relative;
-  flex: 1;
-  min-height: 0;
-  aspect-ratio: 16 / 9;
+  height: clamp(280px, 38vh, 410px);
+  min-height: 280px;
   overflow: hidden;
   border: 1px solid rgba(112, 197, 184, 0.28);
   background:
@@ -369,10 +350,10 @@ textarea:focus {
 }
 
 .workflow {
-  margin-bottom: 10px;
+  margin-bottom: 7px;
   border: 1px solid var(--border);
   background: rgba(10, 15, 24, 0.55);
-  padding: 10px;
+  padding: 7px;
 }
 
 .workflow-heading {
@@ -380,7 +361,7 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 9px;
+  margin-bottom: 6px;
   color: var(--muted);
   font-size: 11px;
 }
@@ -407,11 +388,11 @@ textarea:focus {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 1px 7px;
-  min-height: 52px;
+  min-height: 44px;
   align-content: center;
   border: 1px solid rgba(238, 242, 232, 0.13);
   background: rgba(17, 24, 39, 0.75);
-  padding: 7px 8px;
+  padding: 5px 7px;
 }
 
 .workflow-node > span {
@@ -488,7 +469,7 @@ textarea:focus {
 }
 
 .workflow-validation .workflow-node {
-  min-height: 32px;
+  min-height: 28px;
 }
 
 .workflow-branch-label {
@@ -532,11 +513,11 @@ textarea:focus {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  margin-top: 8px;
+  margin-top: 6px;
   border: 1px solid var(--border);
   background: rgba(17, 24, 39, 0.45);
   color: var(--muted);
-  padding: 9px 11px;
+  padding: 7px 9px;
   font-size: 12px;
 }
 
@@ -545,7 +526,7 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .segmented-control {
@@ -559,7 +540,7 @@ textarea:focus {
   border: 0;
   background: transparent;
   color: var(--muted);
-  padding: 8px 12px;
+  padding: 6px 10px;
 }
 
 .segmented-control button.active {
@@ -592,11 +573,11 @@ textarea:focus {
 }
 
 .support-panel {
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .standalone-result {
-  padding: 16px;
+  padding: 12px;
 }
 
 .standalone-result .support-panel {
@@ -604,24 +585,24 @@ textarea:focus {
 }
 
 .support-content {
-  padding: clamp(16px, 1.7vw, 22px);
+  padding: clamp(12px, 1.3vw, 18px);
 }
 
 .lesson-details-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
-  gap: 16px;
+  gap: 12px;
 }
 
 .detail-card {
   min-width: 0;
   border: 1px solid var(--border);
   background: rgba(17, 24, 39, 0.36);
-  padding: 16px;
+  padding: 12px;
 }
 
 .detail-card h2 {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   font-size: clamp(20px, 1.8vw, 28px);
 }
 
@@ -726,7 +707,7 @@ textarea:focus {
 
 .awaiting-content {
   display: grid;
-  min-height: 190px;
+  min-height: 100px;
   place-items: center;
   color: var(--muted);
   text-align: center;
@@ -745,7 +726,7 @@ textarea:focus {
   }
 
   .video-stage {
-    min-height: 320px;
+    height: clamp(280px, 50vw, 390px);
   }
 
   .workflow-graph {
@@ -768,14 +749,9 @@ textarea:focus {
   .studio-header,
   .video-panel-head,
   .video-controls-strip,
-  .artifact-toolbar,
-  .composer-meta {
+  .artifact-toolbar {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .engine-pill {
-    display: none;
   }
 
   .workflow-graph {
