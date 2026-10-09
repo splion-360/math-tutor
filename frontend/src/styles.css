@@ -133,7 +133,7 @@ button:disabled {
 }
 
 .workspace-with-details {
-  grid-template-columns: minmax(260px, 0.48fr) minmax(560px, 1fr) minmax(280px, 0.55fr);
+  grid-template-columns: minmax(260px, 0.48fr) minmax(560px, 1fr) minmax(240px, 0.34fr);
 }
 
 .composer-panel,
@@ -692,8 +692,10 @@ textarea:focus {
 }
 
 .adapter-routing strong {
+  min-width: 0;
   color: var(--primary);
   font-size: 12px;
+  overflow-wrap: anywhere;
   text-align: right;
 }
 
