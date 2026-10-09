@@ -143,13 +143,21 @@
     <p>This statistic describes a local pairwise relationship. Adapter specialization requires stable groups under repeated measurement.</p>
 
     <h3>Tests of label structure</h3>
-    <p>Each nonzero projected signature was normalized. For record <em>i</em>, the mean cosine to records with the same label was compared with the mean cosine to records carrying another label:</p>
+    <p>Let <em>z</em> denote a normalized, nonzero projected signature and <em>y</em> its label. The same-label set excludes the record itself. The different-label set contains every retained record with another label:</p>
+    <div class="equation" role="img" aria-label="projected cosine s tilde i j m equals z i m dot z j m; S i contains same-label records except i; D i contains different-label records">
+      <math display="block">
+        <mover accent="true"><msubsup><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow><mi>m</mi></msubsup><mo>~</mo></mover><mo>=</mo><msubsup><mi>z</mi><mi>i</mi><mi>m</mi></msubsup><mo>·</mo><msubsup><mi>z</mi><mi>j</mi><mi>m</mi></msubsup><mo>,</mo>
+        <mspace width="1em"></mspace><msub><mi>S</mi><mi>i</mi></msub><mo>=</mo><mo>{</mo><mi>j</mi><mo>≠</mo><mi>i</mi><mo>:</mo><msub><mi>y</mi><mi>j</mi></msub><mo>=</mo><msub><mi>y</mi><mi>i</mi></msub><mo>}</mo><mo>,</mo>
+        <mspace width="1em"></mspace><msub><mi>D</mi><mi>i</mi></msub><mo>=</mo><mo>{</mo><mi>j</mi><mo>:</mo><msub><mi>y</mi><mi>j</mi></msub><mo>≠</mo><msub><mi>y</mi><mi>i</mi></msub><mo>}</mo>
+      </math>
+    </div>
+    <p>For each retained record, mean projected cosine to the same-label set was compared with mean projected cosine to the different-label set:</p>
     <div class="equation" role="img" aria-label="delta i m is mean cosine to same-label records minus mean cosine to different-label records">
       <math display="block">
         <msubsup><mi>Δ</mi><mi>i</mi><mi>m</mi></msubsup><mo>=</mo>
-        <mfrac><mn>1</mn><mrow><mo>|</mo><msub><mi>S</mi><mi>i</mi></msub><mo>|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>j</mi><mo>∈</mo><msub><mi>S</mi><mi>i</mi></msub></mrow></munder><msubsup><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow><mi>m</mi></msubsup>
+        <mfrac><mn>1</mn><mrow><mo>|</mo><msub><mi>S</mi><mi>i</mi></msub><mo>|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>j</mi><mo>∈</mo><msub><mi>S</mi><mi>i</mi></msub></mrow></munder><mover accent="true"><msubsup><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow><mi>m</mi></msubsup><mo>~</mo></mover>
         <mo>−</mo>
-        <mfrac><mn>1</mn><mrow><mo>|</mo><msub><mi>D</mi><mi>i</mi></msub><mo>|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>j</mi><mo>∈</mo><msub><mi>D</mi><mi>i</mi></msub></mrow></munder><msubsup><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow><mi>m</mi></msubsup>
+        <mfrac><mn>1</mn><mrow><mo>|</mo><msub><mi>D</mi><mi>i</mi></msub><mo>|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>j</mi><mo>∈</mo><msub><mi>D</mi><mi>i</mi></msub></mrow></munder><mover accent="true"><msubsup><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow><mi>m</mi></msubsup><mo>~</mo></mover>
       </math>
     </div>
     <p>The standardized pair-mean difference uses <code>sqrt((variance within + variance across) / 2)</code> as its denominator. The value is descriptive because many pairs share the same record.</p>
@@ -209,7 +217,7 @@
 
     <h3>Weak agreement between clusters and labels</h3>
     <p>Subject ARI ranged from −0.003 to 0.057; subject NMI ranged from 0.020 to 0.093. Code-length ARI ranged from −0.003 to 0.041; NMI ranged from 0.001 to 0.049.</p>
-    <p>Some modules exceeded shuffled-label baselines. Their absolute agreement remained low, leaving substantial label mixing in a router trained to reproduce either label system.</p>
+    <p>Some modules exceeded shuffled-label baselines. Their absolute agreement remained low, and the fitted clusters contained substantial mixing of both label systems.</p>
 
     <figure>
       <a href="assets/gradient_specialization/gradient_label_clustering.svg" aria-label="Open the gradient clustering figure at full size"><img src="assets/gradient_specialization/gradient_label_clustering.svg" alt="Adjusted Rand index and normalized mutual information for spherical k-means clusters against subject and code-length labels"></a>
