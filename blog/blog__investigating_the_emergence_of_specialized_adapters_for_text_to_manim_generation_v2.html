@@ -51,11 +51,8 @@
     table { border-collapse: collapse; font-size: 0.86rem; line-height: 1.45; min-width: 650px; width: 100%; }
     th, td { border: 1px solid #dedede; padding: 8px 10px; text-align: left; vertical-align: top; }
     th { background: #f4f4f4; font-size: 0.76rem; letter-spacing: 0.04em; text-transform: uppercase; }
-    .note { color: var(--muted); font-size: 0.88rem; }
     .references { font-size: 0.88rem; }
     .references li { margin-bottom: 9px; }
-    .appendix { border-top: 1px solid var(--rule); margin-top: 44px; }
-    .artifact { overflow-wrap: anywhere; }
     @media (max-width: 640px) {
       body { font-size: 15px; }
       main { padding: 26px 16px 56px; }
@@ -97,7 +94,6 @@
       <li><a href="#limitations">Limitations</a></li>
       <li><a href="#conclusion">Conclusion</a></li>
       <li><a href="#references">References</a></li>
-      <li><a href="#reproducibility">Reproducibility</a></li>
     </ol>
   </nav>
 
@@ -224,20 +220,6 @@
     </ol>
   </section>
 
-  <section id="reproducibility" class="appendix">
-    <h2>Appendix: Reproducibility and evidence lineage</h2>
-    <p>The label analysis is deterministic at seed 42. It uses 2,000 bootstrap resamples, 2,000 label permutations, and 10 spherical k-means starts per module and label axis.</p>
-    <p><strong>Run:</strong> <code>make gradient-label-analysis</code></p>
-    <ul class="artifact">
-      <li>Label-analysis results and input hashes: <a href="../training/evaluation/gradient_label_alignment/summary.json"><code>training/evaluation/gradient_label_alignment/summary.json</code></a></li>
-      <li>Fixed specialist inventory: <a href="../training/evaluation/fixed_specialist_inventory.json"><code>training/evaluation/fixed_specialist_inventory.json</code></a></li>
-      <li>Short placement ablation: <a href="../training/evaluation/placement_ablation_64.json"><code>training/evaluation/placement_ablation_64.json</code></a></li>
-      <li>Exact cosine source SHA-256: <code>c21d4398a7be61cd0ab2de99a8fb03da428327a644168c710d799cae06a05baa</code></li>
-      <li>Projected signature source SHA-256: <code>6fbea5c90a87c9f8d8f745539ee22bd7ffe420cf66117bea933dff75d1e86173</code></li>
-      <li>Prepared corpus SHA-256: <code>b811de3070bb5084cdf8092c7d05a9ad20454de195a33551ac96c5a8b4096e65</code></li>
-    </ul>
-    <p class="note">This is a research draft. The tracked evidence separates recovered original summaries from derived analyses and records where the surviving artifacts limit the claims.</p>
-  </section>
 </main>
 </body>
 </html>
