@@ -7,7 +7,6 @@ import type {
   LessonStage,
   LessonStatus,
   LessonTransport,
-  NarrationStatus,
 } from "./contracts";
 import { isTerminal } from "./contracts";
 import { HttpLessonTransport } from "./transport";
@@ -173,11 +172,6 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
             captionsEnabled={captionsEnabled}
           />
 
-          <div className="video-controls-strip">
-            <span>{artifactMode === "code" ? "Generated Manim source" : artifactStatus(lesson, captionsEnabled)}</span>
-            <span>{lesson ? narrationLabel(lesson.narration_status) : "Narration pending"}</span>
-          </div>
-
           {requestError && <p className="request-error" role="alert">{requestError}</p>}
         </section>
 
@@ -296,6 +290,7 @@ interface WorkflowStageDetails {
 function WorkflowGraph({ lesson }: { lesson: LessonJob | null }) {
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const nodes = workflowNodes(lesson);
+  const active = lesson?.status === "queued" || lesson?.status === "running";
   const node = (id: string) => nodes.find((item) => item.id === id)!;
   const selectedNode = selectedStage ? node(selectedStage) : null;
   const repairLabel = lesson
@@ -305,7 +300,10 @@ function WorkflowGraph({ lesson }: { lesson: LessonJob | null }) {
     : null;
 
   return (
-    <section className="workflow" aria-label="Lesson generation workflow">
+    <section
+      className={`workflow${active ? " workflow-active" : ""}`}
+      aria-label="Lesson generation workflow"
+    >
       <div className="workflow-heading">
         <span>Workflow</span>
         <strong>{repairLabel ?? (lesson ? stageLabels[lesson.stage] : "Waiting for a prompt")}</strong>
@@ -789,19 +787,6 @@ function lessonTitle(lesson: LessonJob) {
   if (lesson.status === "running") return "Rendering";
   if (lesson.narration_status === "ready") return "Narrated lesson ready";
   return "Video ready";
-}
-
-function narrationLabel(status: NarrationStatus) {
-  if (status === "ready") return "Voice + captions";
-  if (status === "pending") return "Narration pending";
-  if (status === "unavailable") return "Narration unavailable";
-  return "Silent lesson";
-}
-
-function artifactStatus(lesson: LessonJob | null, captionsEnabled: boolean) {
-  if (!lesson) return "Video appears here";
-  if (!lesson.captions_url) return "Captions unavailable";
-  return captionsEnabled ? "Captions on" : "Captions off";
 }
 
 function readText(record: Record<string, unknown>, keys: string[]) {

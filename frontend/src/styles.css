@@ -404,6 +404,7 @@ textarea:focus {
 }
 
 .workflow-node {
+  position: relative;
   width: 100%;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -414,6 +415,7 @@ textarea:focus {
   border-radius: 0;
   background: rgba(17, 24, 39, 0.75);
   color: var(--ink);
+  overflow: hidden;
   padding: 5px 7px;
   text-align: left;
 }
@@ -450,6 +452,27 @@ textarea:focus {
 .workflow-running {
   border-color: var(--gold);
   box-shadow: 0 0 0 1px rgba(228, 189, 102, 0.2);
+}
+
+.workflow-active .workflow-pending {
+  border-color: rgba(228, 189, 102, 0.62);
+}
+
+.workflow-active .workflow-pending::after,
+.workflow-running::after {
+  position: absolute;
+  bottom: 0;
+  left: -42%;
+  width: 42%;
+  height: 2px;
+  background: var(--gold);
+  content: "";
+  animation: workflow-loading 1.35s ease-in-out infinite;
+}
+
+.workflow-active .workflow-pending > span,
+.workflow-active .workflow-pending small {
+  color: var(--gold);
 }
 
 .workflow-running > span,
@@ -636,18 +659,6 @@ textarea:focus {
   place-items: center;
   height: 100%;
   color: var(--muted);
-}
-
-.video-controls-strip {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 6px;
-  border: 1px solid var(--border);
-  background: rgba(17, 24, 39, 0.45);
-  color: var(--muted);
-  padding: 7px 9px;
-  font-size: 12px;
 }
 
 .artifact-toolbar {
@@ -932,7 +943,6 @@ textarea:focus {
 @media (max-width: 640px) {
   .studio-header,
   .video-panel-head,
-  .video-controls-strip,
   .artifact-toolbar {
     align-items: flex-start;
     flex-direction: column;
@@ -957,6 +967,16 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+}
+
+@keyframes workflow-loading {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(340%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
