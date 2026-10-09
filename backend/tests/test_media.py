@@ -76,7 +76,10 @@ def test_assembler_writes_measured_timeline_captions_and_narrated_video(
         Path(command[-1]).write_bytes(b"assembled")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
-    bundle = FfmpegMediaAssembler(command_runner=runner).assemble(
+    bundle = FfmpegMediaAssembler(
+        command_runner=runner,
+        duration_probe=lambda path: 5.0 if path == silent_video else 4.0,
+    ).assemble(
         silent_video=silent_video,
         narration=narration,
         output_dir=tmp_path / "media",
@@ -104,6 +107,35 @@ def test_assembler_writes_measured_timeline_captions_and_narrated_video(
     assert "copy" in commands[1]
     assert "-shortest" in commands[1]
     assert commands[1][-1].endswith("narrated.mp4")
+
+
+def test_assembler_extends_video_when_narration_is_longer(tmp_path: Path) -> None:
+    narration = make_narration(tmp_path)
+    silent_video = tmp_path / "silent.mp4"
+    silent_video.write_bytes(b"video")
+    commands: list[list[str]] = []
+
+    def runner(command: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        Path(command[-1]).write_bytes(b"assembled")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    bundle = FfmpegMediaAssembler(
+        command_runner=runner,
+        duration_probe=lambda path: 2.0 if path == silent_video else 4.25,
+    ).assemble(
+        silent_video=silent_video,
+        narration=narration,
+        output_dir=tmp_path / "media",
+    )
+
+    mux_filter = commands[1][commands[1].index("-filter_complex") + 1]
+    assert "tpad=stop_mode=clone:stop_duration=2.250000" in mux_filter
+    assert "[1:a]apad[audio]" in mux_filter
+    assert "[video]" in commands[1]
+    assert "libx264" in commands[1]
+    assert bundle.diagnostics["silent_video_duration_seconds"] == 2.0
+    assert bundle.diagnostics["assembled_target_duration_seconds"] == 4.25
 
 
 def test_assembler_reports_sanitized_command_failure(tmp_path: Path) -> None:

@@ -10,11 +10,11 @@ from fastapi import FastAPI
 
 from math_tutor.api import create_app
 from math_tutor.domain import LessonStage
+from math_tutor.generation.narration import NARRATION_SYSTEM_PROMPT, ModelNarrationPlanner
 from math_tutor.generation.pipeline import GeneratedLessonPipeline
 from math_tutor.generation.provider import (
+    BASE_MODEL,
     SHARED_ADAPTER_MODEL,
-    SYSTEM_PROMPT,
-    VOICEOVER_SYSTEM_PROMPT,
     GenerationConfig,
     ModalVllmClient,
     UnavailableModelClient,
@@ -23,10 +23,7 @@ from math_tutor.jobs import JobStore, LessonService, RenderOutcome
 from math_tutor.rendering.elevenlabs import ElevenLabsNarrationProvider
 from math_tutor.rendering.manim import DEFAULT_MANIM_IMAGE, DockerManimRenderer
 from math_tutor.rendering.media import FfmpegMediaAssembler, probe_audio_duration
-from math_tutor.rendering.narration import (
-    NarratedSourceRenderer,
-    SourceRenderer,
-)
+from math_tutor.rendering.narration import NarrationOutcomeProcessor
 from math_tutor.settings import Settings, get_settings
 from math_tutor.validation.media import MediaValidator
 from math_tutor.validation.models import RenderedAttempt, ValidationReport
@@ -117,34 +114,12 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         image=DEFAULT_MANIM_IMAGE,
         timeout_seconds=resolved.render_timeout_seconds,
     )
-    renderer: SourceRenderer = base_renderer
-    if narration_enabled:
-        renderer = NarratedSourceRenderer(
-            renderer=base_renderer,
-            provider=ElevenLabsNarrationProvider(
-                api_key=elevenlabs_api_key,
-                voice_id=resolved.elevenlabs_voice_id,
-                duration_probe=probe_audio_duration,
-            ),
-            assembler=FfmpegMediaAssembler(),
-            artifact_root=resolved.artifact_root,
-        )
     modal_api_key = (
         resolved.modal_vllm_api_key.get_secret_value()
         if resolved.modal_vllm_api_key is not None
         else ""
     )
-    generation_config = GenerationConfig(
-        model=SHARED_ADAPTER_MODEL,
-        system_prompt=(
-            VOICEOVER_SYSTEM_PROMPT.replace(
-                "__VOICE_ID__",
-                resolved.elevenlabs_voice_id,
-            )
-            if narration_enabled
-            else SYSTEM_PROMPT
-        ),
-    )
+    generation_config = GenerationConfig(model=SHARED_ADAPTER_MODEL)
     model: ModelClient
     if resolved.modal_vllm_base_url:
         model = ModalVllmClient(
@@ -161,24 +136,58 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         )
         generation_provider = "unavailable"
 
+    narration_model: ModelClient | None = None
+    outcome_processor: NarrationOutcomeProcessor | None = None
+    if narration_enabled:
+        narration_config = GenerationConfig(
+            model=BASE_MODEL,
+            max_tokens=512,
+            system_prompt=NARRATION_SYSTEM_PROMPT,
+        )
+        if resolved.modal_vllm_base_url:
+            narration_model = ModalVllmClient(
+                api_key=modal_api_key,
+                config=narration_config,
+                base_url=resolved.modal_vllm_base_url,
+                timeout_seconds=resolved.modal_vllm_timeout_seconds,
+            )
+        else:
+            narration_model = UnavailableModelClient(
+                narration_config,
+                "Modal inference endpoint is not configured",
+            )
+        outcome_processor = NarrationOutcomeProcessor(
+            planner=ModelNarrationPlanner(narration_model),
+            provider=ElevenLabsNarrationProvider(
+                api_key=elevenlabs_api_key,
+                voice_id=resolved.elevenlabs_voice_id,
+                duration_probe=probe_audio_duration,
+            ),
+            assembler=FfmpegMediaAssembler(),
+            duration_probe=probe_audio_duration,
+        )
+
     pipeline = GeneratedLessonPipeline(
         artifact_root=resolved.artifact_root,
         prompt=GENERATED_DEMO_PROMPT,
         generator=model,
-        renderer=renderer,
+        renderer=base_renderer,
         inference_path="lora_adapter",
         generation_provider=generation_provider,
         validator=output_validator,
         max_repair_attempts=resolved.validation_max_repair_attempts,
         stage_reporter=report_stage,
         render_reporter=report_render,
-        voiceover=narration_enabled,
+        outcome_processor=outcome_processor,
+        narration_required=narration_enabled,
         captions_required=narration_enabled,
     )
 
     def close_models() -> None:
         """Close configured generation and visual-model clients."""
         model.close()
+        if narration_model is not None:
+            narration_model.close()
         if configured_visual_client is not None:
             configured_visual_client.close()
 

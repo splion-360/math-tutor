@@ -4,14 +4,15 @@ Provider and assembler protocols keep orchestration independent of external serv
 from __future__ import annotations
 
 import ast
+import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import MappingProxyType
-from typing import Protocol
+from typing import Protocol, cast
 
 from math_tutor.domain import NarrationStatus
-from math_tutor.jobs import JobRenderer, PartialOutcome, RenderOutcome
+from math_tutor.jobs import JobExecutionError, JobRenderer, PartialOutcome, RenderOutcome
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,16 @@ class NarrationPlan:
         segment_ids = [segment.id for segment in self.segments]
         if len(segment_ids) != len(set(segment_ids)):
             raise ValueError("narration segment ids must be unique")
+
+
+@dataclass(frozen=True)
+class PlannedNarration:
+    """Narration plan and provider evidence produced by a language model."""
+
+    plan: NarrationPlan
+    model: str
+    raw_response: str = field(repr=False)
+    provider_response: str = field(repr=False)
 
 
 @dataclass(frozen=True)
@@ -124,6 +135,130 @@ class MediaAssembler(Protocol):
     ) -> MediaBundle:
         """Combine silent video and narration into a media bundle."""
         ...
+
+
+class NarrationPlanner(Protocol):
+    """Generate a bounded narration plan from a rendered lesson description."""
+
+    def create_plan(
+        self,
+        *,
+        lesson_id: str,
+        prompt: str,
+        source: str,
+        target_duration_seconds: float,
+    ) -> PlannedNarration:
+        """Return narration text for one rendered lesson."""
+        ...
+
+
+class NarrationOutcomeProcessor:
+    """Generate, synthesize, and attach narration after Manim rendering."""
+
+    def __init__(
+        self,
+        *,
+        planner: NarrationPlanner,
+        provider: NarrationProvider,
+        assembler: MediaAssembler,
+        duration_probe: Callable[[Path], float],
+    ) -> None:
+        self._planner = planner
+        self._provider = provider
+        self._assembler = assembler
+        self._duration_probe = duration_probe
+
+    def process(
+        self,
+        *,
+        job_id: str,
+        prompt: str,
+        source: str,
+        outcome: RenderOutcome,
+        artifact_dir: Path,
+    ) -> RenderOutcome:
+        """Attach model-planned narration to a completed silent render.
+
+        Args:
+            job_id: Parent lesson job identifier.
+            prompt: Original lesson request.
+            source: Admitted Manim source used for the render.
+            outcome: Completed silent-render outcome.
+            artifact_dir: Immutable attempt directory for narration evidence.
+
+        Returns:
+            Render outcome pointing to narrated media and captions.
+
+        Raises:
+            JobExecutionError: If planning, synthesis, or assembly fails.
+        """
+        try:
+            video_duration = self._duration_probe(outcome.video_path)
+            planned = self._planner.create_plan(
+                lesson_id=job_id,
+                prompt=prompt,
+                source=source,
+                target_duration_seconds=video_duration,
+            )
+            artifact_dir.mkdir(parents=True, exist_ok=True)
+            (artifact_dir / "narration-plan.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": planned.plan.schema_version,
+                        "lesson_id": planned.plan.lesson_id,
+                        "model": planned.model,
+                        "segments": [
+                            {
+                                "id": segment.id,
+                                "text": segment.text,
+                                "cue": segment.cue,
+                            }
+                            for segment in planned.plan.segments
+                        ],
+                        "target_duration_seconds": video_duration,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+            (artifact_dir / "narration-response.txt").write_text(
+                planned.raw_response,
+                encoding="utf-8",
+            )
+            (artifact_dir / "narration-provider-response.json").write_text(
+                planned.provider_response,
+                encoding="utf-8",
+            )
+            narration = self._provider.synthesize(planned.plan, artifact_dir / "audio")
+            bundle = self._assembler.assemble(
+                silent_video=outcome.video_path,
+                narration=narration,
+                output_dir=artifact_dir / "narration",
+            )
+        except JobExecutionError:
+            raise
+        except Exception as error:
+            raise JobExecutionError(
+                "Narration could not be attached to the lesson",
+                diagnostics={
+                    "failure_stage": "narration",
+                    "failure_kind": "operational",
+                    "narration_status": NarrationStatus.UNAVAILABLE.value,
+                },
+            ) from error
+        return replace(
+            outcome,
+            video_path=bundle.video_path,
+            silent_video_path=bundle.silent_video_path,
+            captions_path=bundle.captions_path,
+            narration_status=bundle.narration_status,
+            narration_diagnostics={
+                **dict(bundle.diagnostics),
+                "narration_plan_model": planned.model,
+                "narration_target_duration_seconds": video_duration,
+            },
+        )
 
 
 class SourceRenderer(Protocol):
@@ -269,7 +404,7 @@ class _VoiceoverToScene(ast.NodeTransformer):
             else base
             for base in node.bases
         ]
-        return self.generic_visit(node)
+        return cast(ast.ClassDef, self.generic_visit(node))
 
     def visit_Expr(self, node: ast.Expr) -> ast.Expr | None:  # noqa: N802
         if (
@@ -278,11 +413,11 @@ class _VoiceoverToScene(ast.NodeTransformer):
             and node.value.func.attr == "set_speech_service"
         ):
             return None
-        return self.generic_visit(node)
+        return cast(ast.Expr, self.generic_visit(node))
 
     def visit_With(self, node: ast.With) -> ast.With | list[ast.stmt]:  # noqa: N802
         if _voiceover_call(node) is None:
-            return self.generic_visit(node)
+            return cast(ast.With, self.generic_visit(node))
         if self.transformed_blocks >= len(self._durations):
             raise ValueError("voiceover block has no synthesized narration segment")
         tracker = node.items[0].optional_vars
@@ -316,7 +451,7 @@ class _TrackerDurationRewriter(ast.NodeTransformer):
             and node.value.id == self._tracker
         ):
             return ast.copy_location(ast.Constant(value=self._duration), node)
-        return self.generic_visit(node)
+        return cast(ast.expr, self.generic_visit(node))
 
 
 def _voiceover_call(node: ast.With) -> ast.Call | None:

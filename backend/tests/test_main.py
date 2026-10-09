@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from math_tutor.generation.provider import (
+    BASE_MODEL,
     SHARED_ADAPTER_MODEL,
     GenerationConfig,
     ModelHealth,
@@ -44,7 +45,8 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
     validator_callbacks: list[object] = []
     observed_renderers: list[dict[str, object]] = []
     observed_narration_providers: list[dict[str, object]] = []
-    observed_narrated_renderers: list[dict[str, object]] = []
+    observed_planners: list[object] = []
+    observed_outcome_processors: list[dict[str, object]] = []
     observed_pipelines: list[dict[str, object]] = []
     observed_services: list[dict[str, object]] = []
     close_callbacks: list[object] = []
@@ -69,7 +71,7 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
             return ModelHealth(True, self.config.model, True)
 
         def close(self) -> None:
-            closed.append("generation")
+            closed.append(self.config.model)
 
     class RecordingVisualClient:
         model = "visual-model"
@@ -107,9 +109,13 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
     class RecordingAssembler:
         pass
 
-    class RecordingNarratedRenderer:
+    class RecordingPlanner:
+        def __init__(self, model: object) -> None:
+            observed_planners.append(model)
+
+    class RecordingOutcomeProcessor:
         def __init__(self, **kwargs: object) -> None:
-            observed_narrated_renderers.append(kwargs)
+            observed_outcome_processors.append(kwargs)
 
     class RecordingLessonService:
         def __init__(self, **kwargs: object) -> None:
@@ -127,7 +133,8 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
     monkeypatch.setattr(main, "DockerManimRenderer", RecordingRenderer)
     monkeypatch.setattr(main, "ElevenLabsNarrationProvider", RecordingNarrationProvider)
     monkeypatch.setattr(main, "FfmpegMediaAssembler", RecordingAssembler)
-    monkeypatch.setattr(main, "NarratedSourceRenderer", RecordingNarratedRenderer)
+    monkeypatch.setattr(main, "ModelNarrationPlanner", RecordingPlanner)
+    monkeypatch.setattr(main, "NarrationOutcomeProcessor", RecordingOutcomeProcessor)
     monkeypatch.setattr(main, "GeneratedLessonPipeline", RecordingPipeline)
     monkeypatch.setattr(main, "LessonService", RecordingLessonService)
     monkeypatch.setattr(main, "create_app", capture_app)
@@ -146,9 +153,13 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
         )
     )
 
-    assert [config.model for config in observed_models] == [SHARED_ADAPTER_MODEL]
-    assert "VoiceoverScene" in observed_models[0].system_prompt
-    assert 'voice_id="narrator-voice"' in observed_models[0].system_prompt
+    assert [config.model for config in observed_models] == [
+        SHARED_ADAPTER_MODEL,
+        BASE_MODEL,
+    ]
+    assert "VoiceoverScene" not in observed_models[0].system_prompt
+    assert observed_models[1].system_prompt == main.NARRATION_SYSTEM_PROMPT
+    assert observed_models[1].max_tokens == 512
     assert observed_visual_connections == [
         {
             "base_url": "https://workspace--visual.modal.run/v1",
@@ -179,11 +190,14 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
             "duration_probe": main.probe_audio_duration,
         }
     ]
-    assert len(observed_narrated_renderers) == 1
-    assert observed_narrated_renderers[0]["renderer"].__class__ is RecordingRenderer
-    assert observed_narrated_renderers[0]["provider"].__class__ is RecordingNarrationProvider
-    assert observed_narrated_renderers[0]["assembler"].__class__ is RecordingAssembler
-    assert observed_narrated_renderers[0]["artifact_root"] == tmp_path / "artifacts"
+    assert len(observed_planners) == 1
+    assert observed_planners[0].config.model == BASE_MODEL
+    assert len(observed_outcome_processors) == 1
+    processor = observed_outcome_processors[0]
+    assert processor["planner"].__class__ is RecordingPlanner
+    assert processor["provider"].__class__ is RecordingNarrationProvider
+    assert processor["assembler"].__class__ is RecordingAssembler
+    assert processor["duration_probe"] is main.probe_audio_duration
     assert len(observed_pipelines) == 1
     pipeline = observed_pipelines[0]
     assert pipeline["artifact_root"] == tmp_path / "artifacts"
@@ -198,11 +212,12 @@ def test_build_app_wires_shared_adapter_and_parallel_validators(
     assert pipeline["max_repair_attempts"] == 1
     assert callable(pipeline["stage_reporter"])
     assert callable(pipeline["render_reporter"])
-    assert pipeline["voiceover"] is True
+    assert pipeline["narration_required"] is True
     assert pipeline["captions_required"] is True
-    assert pipeline["renderer"].__class__ is RecordingNarratedRenderer
+    assert pipeline["renderer"].__class__ is RecordingRenderer
+    assert pipeline["outcome_processor"].__class__ is RecordingOutcomeProcessor
     assert observed_services[0]["narration_requested"] is True
     close_callback = close_callbacks[0]
     assert callable(close_callback)
     close_callback()
-    assert closed == ["generation", "visual"]
+    assert closed == [SHARED_ADAPTER_MODEL, BASE_MODEL, "visual"]

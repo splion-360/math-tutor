@@ -3,21 +3,164 @@ The tests cover plan ordering, identifiers, durations, and digests."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import MappingProxyType
 
 import pytest
 
-from math_tutor.jobs import RenderOutcome
+from math_tutor.jobs import JobExecutionError, RenderOutcome
 from math_tutor.rendering.narration import (
     MediaBundle,
     NarratedSourceRenderer,
+    NarrationOutcomeProcessor,
     NarrationPlan,
     NarrationSegment,
     NarrationStatus,
+    PlannedNarration,
     SynthesizedNarration,
     SynthesizedSegment,
 )
+
+
+def test_outcome_processor_attaches_narration_and_persists_model_evidence(
+    tmp_path: Path,
+) -> None:
+    plan = NarrationPlan(
+        lesson_id="lesson-1",
+        segments=(
+            NarrationSegment("segment-01", "Start at the curve.", "visual-sequence-01"),
+            NarrationSegment("segment-02", "Move downhill.", "visual-sequence-02"),
+        ),
+    )
+    planned = PlannedNarration(
+        plan=plan,
+        model="base-model",
+        raw_response='{"segments":[]}',
+        provider_response='{"id":"request-1"}',
+    )
+    video = tmp_path / "silent.mp4"
+    video.write_bytes(b"silent")
+    observed: dict[str, object] = {}
+
+    class Planner:
+        def create_plan(self, **kwargs: object) -> PlannedNarration:
+            observed["plan_request"] = kwargs
+            return planned
+
+    class Provider:
+        def synthesize(
+            self,
+            received_plan: NarrationPlan,
+            output_dir: Path,
+        ) -> SynthesizedNarration:
+            observed["synthesis"] = (received_plan, output_dir)
+            return SynthesizedNarration(
+                lesson_id=received_plan.lesson_id,
+                provider="elevenlabs",
+                model_id="speech-model",
+                segments=tuple(
+                    SynthesizedSegment(
+                        id=segment.id,
+                        cue=segment.cue,
+                        text=segment.text,
+                        audio_path=output_dir / f"{segment.id}.mp3",
+                        duration_seconds=2.0,
+                        sha256=str(index) * 64,
+                    )
+                    for index, segment in enumerate(received_plan.segments, start=1)
+                ),
+                plan=received_plan,
+            )
+
+    class Assembler:
+        def assemble(self, **kwargs: object) -> MediaBundle:
+            observed["assembly"] = kwargs
+            output_dir = kwargs["output_dir"]
+            assert isinstance(output_dir, Path)
+            return MediaBundle(
+                silent_video_path=video,
+                video_path=output_dir / "narrated.mp4",
+                captions_path=output_dir / "captions.vtt",
+                narration_status=NarrationStatus.READY,
+                diagnostics=MappingProxyType({"narration_provider": "elevenlabs"}),
+            )
+
+    attempt_dir = tmp_path / "attempt"
+    outcome = NarrationOutcomeProcessor(
+        planner=Planner(),
+        provider=Provider(),
+        assembler=Assembler(),
+        duration_probe=lambda _path: 12.5,
+    ).process(
+        job_id="lesson-1",
+        prompt="Explain gradient descent.",
+        source="class GradientScene(Scene): pass",
+        outcome=RenderOutcome(video, "docker", 1.0, "rendered"),
+        artifact_dir=attempt_dir,
+    )
+
+    assert observed["plan_request"] == {
+        "lesson_id": "lesson-1",
+        "prompt": "Explain gradient descent.",
+        "source": "class GradientScene(Scene): pass",
+        "target_duration_seconds": 12.5,
+    }
+    assert outcome.narration_status is NarrationStatus.READY
+    assert outcome.silent_video_path == video
+    assert outcome.narration_diagnostics == {
+        "narration_provider": "elevenlabs",
+        "narration_plan_model": "base-model",
+        "narration_target_duration_seconds": 12.5,
+    }
+    saved_plan = json.loads((attempt_dir / "narration-plan.json").read_text())
+    assert saved_plan["model"] == "base-model"
+    assert [segment["text"] for segment in saved_plan["segments"]] == [
+        "Start at the curve.",
+        "Move downhill.",
+    ]
+
+
+def test_outcome_processor_marks_narration_unavailable_on_failure(tmp_path: Path) -> None:
+    video = tmp_path / "silent.mp4"
+    video.write_bytes(b"silent")
+
+    class FailingPlanner:
+        def create_plan(self, **_kwargs: object) -> PlannedNarration:
+            raise RuntimeError("private provider failure")
+
+    class UnusedProvider:
+        def synthesize(
+            self,
+            _plan: NarrationPlan,
+            _output_dir: Path,
+        ) -> SynthesizedNarration:
+            raise AssertionError("synthesis must not run")
+
+    class UnusedAssembler:
+        def assemble(self, **_kwargs: object) -> MediaBundle:
+            raise AssertionError("assembly must not run")
+
+    with pytest.raises(JobExecutionError) as caught:
+        NarrationOutcomeProcessor(
+            planner=FailingPlanner(),
+            provider=UnusedProvider(),
+            assembler=UnusedAssembler(),
+            duration_probe=lambda _path: 5.0,
+        ).process(
+            job_id="lesson-1",
+            prompt="Explain limits.",
+            source="class GeneratedLesson(Scene): pass",
+            outcome=RenderOutcome(video, "docker", 1.0, "rendered"),
+            artifact_dir=tmp_path / "attempt",
+        )
+
+    assert caught.value.diagnostics == {
+        "failure_stage": "narration",
+        "failure_kind": "operational",
+        "narration_status": "unavailable",
+    }
+    assert "private provider failure" not in str(caught.value)
 
 
 def test_narrated_source_renderer_keeps_provider_secret_outside_generated_code(

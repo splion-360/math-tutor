@@ -4,6 +4,7 @@ The tests preserve evidence and provenance across pipeline outcomes."""
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -29,7 +30,7 @@ from math_tutor.generation.source import (
     extract_and_validate_raw_scene,
     extract_and_validate_scene,
 )
-from math_tutor.jobs import RenderOutcome
+from math_tutor.jobs import JobExecutionError, JobStore, RenderOutcome
 from math_tutor.rendering.manim import RenderFailed, RenderTimedOut
 from math_tutor.rendering.narration import NarrationStatus
 from math_tutor.validation.models import (
@@ -163,6 +164,35 @@ class FixedAttemptValidator:
         if self._raises:
             raise RuntimeError("private validator failure")
         return ValidationReport(self.name, ValidationStatus.PASS)
+
+
+class NarrationRecordingProcessor:
+    """Replace the silent outcome before validation and record processor input."""
+
+    def __init__(self, narrated_video: Path, captions: Path) -> None:
+        self._narrated_video = narrated_video
+        self._captions = captions
+        self.calls: list[tuple[str, str, str, Path]] = []
+
+    def process(
+        self,
+        *,
+        job_id: str,
+        prompt: str,
+        source: str,
+        outcome: RenderOutcome,
+        artifact_dir: Path,
+    ) -> RenderOutcome:
+        self.calls.append((job_id, prompt, source, artifact_dir))
+        self._narrated_video.write_bytes(b"narrated")
+        self._captions.write_text("WEBVTT\n", encoding="utf-8")
+        return replace(
+            outcome,
+            video_path=self._narrated_video,
+            silent_video_path=outcome.video_path,
+            captions_path=self._captions,
+            narration_status=NarrationStatus.READY,
+        )
 
 
 def _passing_validation_diagnostics(
@@ -586,6 +616,138 @@ def test_pipeline_reports_render_before_output_validation(tmp_path: Path) -> Non
     pipeline.render("render-reported-123")
 
     assert events == ["render", "validation"]
+
+
+def test_pipeline_reports_initial_render_then_narrates_before_validation(
+    tmp_path: Path,
+) -> None:
+    events: list[str] = []
+    processor = NarrationRecordingProcessor(
+        tmp_path / "narrated.mp4",
+        tmp_path / "captions.vtt",
+    )
+
+    class NarrationValidator(ManifestRecordingValidator):
+        def validate(self, attempt: RenderedAttempt) -> ValidationReport:
+            events.append("validation")
+            assert attempt.narration_required is True
+            assert attempt.captions_required is True
+            assert attempt.outcome.video_path.read_bytes() == b"narrated"
+            assert attempt.outcome.narration_status is NarrationStatus.READY
+            return super().validate(attempt)
+
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain the derivative visually.",
+        generator=FixedGenerator(_generation(f"```python\n{VALID_SCENE}```")),
+        renderer=RecordingSourceRenderer(tmp_path / "silent.mp4"),
+        validator=NarrationValidator(),
+        outcome_processor=processor,
+        narration_required=True,
+        captions_required=True,
+        render_reporter=lambda _job_id, _attempt, outcome: events.append(
+            outcome.narration_status.value
+        ),
+    )
+
+    outcome = pipeline.render("narrated-123")
+
+    attempt_dir = tmp_path / "artifacts" / "narrated-123" / "attempts" / "0"
+    assert processor.calls == [
+        (
+            "narrated-123",
+            "Explain the derivative visually.",
+            VALID_SCENE.rstrip(),
+            attempt_dir,
+        )
+    ]
+    assert events == ["not_requested", "validation"]
+    assert outcome.video_path.read_bytes() == b"narrated"
+    assert outcome.silent_video_path == tmp_path / "silent.mp4"
+
+
+def test_narration_planning_keeps_original_prompt_during_repair(tmp_path: Path) -> None:
+    processor = NarrationRecordingProcessor(
+        tmp_path / "narrated.mp4",
+        tmp_path / "captions.vtt",
+    )
+    failed_report = ValidationReport(
+        validator="media",
+        status=ValidationStatus.FAIL,
+        findings=(
+            ValidationFinding(
+                code="duration_out_of_range",
+                message="The lesson is too short.",
+                repair_instruction="Extend the visual explanation.",
+            ),
+        ),
+    )
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain the derivative visually.",
+        generator=SequenceGenerator(
+            [
+                _generation(f"```python\n{VALID_SCENE}```"),
+                _generation(f"```python\n{VALID_SCENE}```"),
+            ]
+        ),
+        renderer=SequenceSourceRenderer(tmp_path / "rendered"),
+        validator=SequenceValidator(
+            [failed_report, ValidationReport("media", ValidationStatus.PASS)]
+        ),
+        outcome_processor=processor,
+        narration_required=True,
+        captions_required=True,
+        max_repair_attempts=1,
+    )
+
+    pipeline.render("narration-repair-123")
+
+    assert [call[1] for call in processor.calls] == [
+        "Explain the derivative visually.",
+        "Explain the derivative visually.",
+    ]
+
+
+def test_narration_failure_keeps_initial_video_and_skips_validation(tmp_path: Path) -> None:
+    store = JobStore()
+    job = store.create("Explain limits.", narration_requested=True)
+    store.mark_running(job.id)
+    validator = ManifestRecordingValidator()
+
+    class FailingProcessor:
+        def process(self, **_kwargs: object) -> RenderOutcome:
+            raise JobExecutionError(
+                "Narration could not be attached to the lesson",
+                diagnostics={
+                    "failure_stage": "narration",
+                    "failure_kind": "operational",
+                    "narration_status": "unavailable",
+                },
+            )
+
+    pipeline = GeneratedLessonPipeline(
+        artifact_root=tmp_path / "artifacts",
+        prompt="Explain limits.",
+        generator=FixedGenerator(_generation(f"```python\n{VALID_SCENE}```")),
+        renderer=RecordingSourceRenderer(tmp_path / "silent.mp4"),
+        validator=validator,
+        outcome_processor=FailingProcessor(),
+        narration_required=True,
+        captions_required=True,
+        render_reporter=lambda job_id, _attempt, outcome: store.mark_initial_render(
+            job_id, outcome
+        ),
+    )
+
+    with pytest.raises(JobExecutionError) as caught:
+        pipeline.render(job.id)
+    failed = store.mark_failed(job.id, caught.value)
+
+    assert failed.initial_video_path == str(tmp_path / "silent.mp4")
+    assert failed.narration_status is NarrationStatus.UNAVAILABLE
+    assert failed.diagnostics["failure_stage"] == "narration"
+    assert validator.manifest_paths == []
 
 
 def test_pipeline_persists_one_validation_input_before_validation(tmp_path: Path) -> None:

@@ -53,6 +53,22 @@ class SourceRenderer(Protocol):
         ...
 
 
+class RenderedOutcomeProcessor(Protocol):
+    """Transform a completed render before validation and publication."""
+
+    def process(
+        self,
+        *,
+        job_id: str,
+        prompt: str,
+        source: str,
+        outcome: RenderOutcome,
+        artifact_dir: Path,
+    ) -> RenderOutcome:
+        """Return the media outcome that validators should inspect."""
+        ...
+
+
 class PromptLessonRenderer(Protocol):
     """Render a lesson from a user prompt."""
 
@@ -72,8 +88,10 @@ class GeneratedLessonPipeline:
         prompt: Default lesson prompt used when render receives no override.
         generator: Model boundary used for initial generation and repair.
         renderer: Isolated Manim source renderer.
-        voiceover: Whether rendered media must contain narration.
+        voiceover: Whether generated source must use the VoiceoverScene contract.
+        narration_required: Whether validated media must contain narration.
         captions_required: Whether rendered media must include WebVTT captions.
+        outcome_processor: Optional post-render media processor run before validation.
         inference_path: Routing provenance recorded with each attempt.
         generation_provider: Provider provenance recorded with each attempt.
         validator: Independent rendered-attempt validator.
@@ -91,7 +109,9 @@ class GeneratedLessonPipeline:
         generator: Generator,
         renderer: SourceRenderer,
         voiceover: bool = False,
+        narration_required: bool = False,
         captions_required: bool = False,
+        outcome_processor: RenderedOutcomeProcessor | None = None,
         inference_path: InferencePath = "lora_adapter",
         generation_provider: str = "configured_generator",
         validator: AttemptValidator | None = None,
@@ -107,7 +127,9 @@ class GeneratedLessonPipeline:
         self._generator = generator
         self._renderer = renderer
         self._voiceover = voiceover
+        self._narration_required = narration_required
         self._captions_required = captions_required
+        self._outcome_processor = outcome_processor
         self._inference_path = inference_path
         self._generation_provider = generation_provider
         self._validator = validator
@@ -203,6 +225,7 @@ class GeneratedLessonPipeline:
                 attempt_number=attempt_number,
                 attempt_dir=attempt_dir,
                 prompt=effective_prompt,
+                narration_prompt=original_prompt,
                 result=result,
                 extracted=extracted,
                 previous_infrastructure_retry_count=infrastructure_retry_count,
@@ -403,6 +426,7 @@ class GeneratedLessonPipeline:
         attempt_number: int,
         attempt_dir: Path,
         prompt: str,
+        narration_prompt: str,
         result: GenerationResult,
         extracted: ExtractedScene,
         previous_infrastructure_retry_count: int,
@@ -415,6 +439,7 @@ class GeneratedLessonPipeline:
             attempt_number: Zero-based generation attempt number.
             attempt_dir: Evidence directory for the attempt.
             prompt: Prompt that produced the admitted source.
+            narration_prompt: Original lesson request used to describe the rendered video.
             result: Provider result containing model provenance.
             extracted: Admitted source and scene class.
             previous_infrastructure_retry_count: Retries completed by earlier attempts.
@@ -476,6 +501,16 @@ class GeneratedLessonPipeline:
             },
             generated_code=extracted.source,
         )
+        if self._render_reporter is not None:
+            self._render_reporter(job_id, attempt_number, outcome)
+        if self._outcome_processor is not None:
+            outcome = self._outcome_processor.process(
+                job_id=job_id,
+                prompt=narration_prompt,
+                source=extracted.source,
+                outcome=outcome,
+                artifact_dir=attempt_dir,
+            )
         (attempt_dir / "render.log").write_text(outcome.logs, encoding="utf-8")
         attempt = RenderedAttempt(
             number=attempt_number,
@@ -484,7 +519,7 @@ class GeneratedLessonPipeline:
             source=extracted.source,
             scene_class=extracted.scene_class,
             outcome=outcome,
-            narration_required=self._voiceover,
+            narration_required=self._narration_required or self._voiceover,
             captions_required=self._captions_required,
             original_prompt_path=artifacts.original_prompt_path,
             generation_model=result.model,
@@ -493,8 +528,6 @@ class GeneratedLessonPipeline:
             infrastructure_retry_count=infrastructure_retry_count,
             job_id=job_id,
         )
-        if self._render_reporter is not None:
-            self._render_reporter(job_id, attempt_number, outcome)
         return attempt
 
     def _raise_render_failure(
