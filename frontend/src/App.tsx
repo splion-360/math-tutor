@@ -1,6 +1,6 @@
 // Render the lesson request, progress, and generated artifact experience.
 // Progress labels mirror the backend lesson-stage contract.
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import type {
   LessonJob,
@@ -57,6 +57,10 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const mounted = useRef(true);
   const busy = polling;
+
+  useEffect(() => {
+    if (lesson?.video_url) setVideoMode("validated");
+  }, [lesson?.video_url]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -175,9 +179,15 @@ export function App({ transport = defaultTransport, pollIntervalMs = 700 }: AppP
 }
 
 function LessonResult({ lesson }: { lesson: LessonJob }) {
-  const [videoMode, setVideoMode] = useState<VideoMode>("initial");
+  const [videoMode, setVideoMode] = useState<VideoMode>(
+    lesson.video_url ? "validated" : "initial",
+  );
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (lesson.video_url) setVideoMode("validated");
+  }, [lesson.video_url]);
 
   return (
     <section className="standalone-result">

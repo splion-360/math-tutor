@@ -221,9 +221,15 @@ describe("LessonResult", () => {
 
     expect(screen.getByTestId("lesson-video")).toHaveAttribute(
       "src",
-      "/lessons/demo/video/initial",
+      "/lessons/demo/video",
     );
     expect(node("publish")).toHaveClass("workflow-passed");
+
+    fireEvent.click(screen.getByRole("button", { name: "Initial video" }));
+    expect(screen.getByTestId("lesson-video")).toHaveAttribute(
+      "src",
+      "/lessons/demo/video/initial",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Validated video" }));
     expect(screen.getByTestId("lesson-video")).toHaveAttribute(
@@ -285,6 +291,10 @@ describe("App lesson flow", () => {
     fireEvent.click(screen.getByRole("button", { name: /generate lesson/i }));
 
     await waitFor(() => expect(node("publish")).toHaveClass("workflow-passed"));
+    expect(screen.getByTestId("lesson-video")).toHaveAttribute(
+      "src",
+      "/lessons/demo/video",
+    );
     expect(screen.getByRole("button", { name: /generate lesson/i })).toBeEnabled();
   });
 
@@ -309,7 +319,6 @@ describe("App lesson flow", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /generate lesson/i }));
     await waitFor(() => expect(node("publish")).toHaveClass("workflow-passed"));
-    fireEvent.click(screen.getByRole("button", { name: "Validated video" }));
     expect(screen.getByTestId("lesson-video")).toHaveAttribute(
       "src",
       "/lessons/demo/video",

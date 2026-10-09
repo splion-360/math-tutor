@@ -184,20 +184,39 @@ class JobStore:
         )
 
     def mark_initial_render(self, job_id: str, outcome: RenderOutcome) -> LessonJob:
-        """Expose the first successfully rendered candidate before validation."""
-        return self._mutate(
-            job_id,
-            lambda job: replace(
+        """Expose the latest narrated candidate while retaining the first silent render."""
+
+        def update(job: LessonJob) -> LessonJob:
+            narration_ready = outcome.narration_status is NarrationStatus.READY
+            preview_path = (
+                str(outcome.video_path)
+                if narration_ready
+                else job.initial_video_path or str(outcome.video_path)
+            )
+            return replace(
                 job,
-                initial_video_path=job.initial_video_path or str(outcome.video_path),
+                initial_video_path=preview_path,
+                preview_revision=(
+                    job.preview_revision + 1
+                    if preview_path != job.initial_video_path
+                    else job.preview_revision
+                ),
+                narration_status=(
+                    NarrationStatus.READY if narration_ready else job.narration_status
+                ),
                 generated_code=outcome.generated_code or job.generated_code,
                 diagnostics={
                     **dict(job.diagnostics),
                     "renderer": outcome.renderer,
                     "elapsed_seconds": outcome.elapsed_seconds,
                     "logs": outcome.logs,
+                    **dict(outcome.narration_diagnostics or {}),
                 },
-            ),
+            )
+
+        return self._mutate(
+            job_id,
+            update,
         )
 
     def mark_validation_axis(

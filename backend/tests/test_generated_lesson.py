@@ -661,7 +661,7 @@ def test_pipeline_reports_initial_render_then_narrates_before_validation(
             attempt_dir,
         )
     ]
-    assert events == ["not_requested", "validation"]
+    assert events == ["not_requested", "ready", "validation"]
     assert outcome.video_path.read_bytes() == b"narrated"
     assert outcome.silent_video_path == tmp_path / "silent.mp4"
 

@@ -67,7 +67,14 @@ class LessonResponse(BaseModel):
 
 def to_response(job: LessonJob) -> LessonResponse:
     """Convert an internal job snapshot into its bounded API representation."""
-    initial_video_url = f"/lessons/{job.id}/video/initial" if job.initial_video_path else None
+    initial_video_url = None
+    if job.initial_video_path:
+        narration_version = (
+            f"?narration=ready&revision={job.preview_revision}"
+            if job.narration_status is NarrationStatus.READY
+            else ""
+        )
+        initial_video_url = f"/lessons/{job.id}/video/initial{narration_version}"
     video_url = f"/lessons/{job.id}/video" if job.video_path else None
     silent_video_url = f"/lessons/{job.id}/video/silent" if job.silent_video_path else None
     captions_url = f"/lessons/{job.id}/captions" if job.captions_path else None

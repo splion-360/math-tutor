@@ -511,6 +511,8 @@ class GeneratedLessonPipeline:
                 outcome=outcome,
                 artifact_dir=attempt_dir,
             )
+            if self._render_reporter is not None:
+                self._render_reporter(job_id, attempt_number, outcome)
         (attempt_dir / "render.log").write_text(outcome.logs, encoding="utf-8")
         attempt = RenderedAttempt(
             number=attempt_number,

@@ -60,6 +60,7 @@ class LessonJob:
     started_at: datetime | None = None
     completed_at: datetime | None = None
     initial_video_path: str | None = None
+    preview_revision: int = 0
     video_path: str | None = None
     silent_video_path: str | None = None
     captions_path: str | None = None

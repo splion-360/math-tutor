@@ -174,6 +174,60 @@ def test_initial_render_is_available_while_validation_is_running(tmp_path: Path)
     assert video.content == b"initial-video"
 
 
+def test_narrated_candidate_replaces_silent_preview_before_validation(
+    tmp_path: Path,
+) -> None:
+    silent_video = tmp_path / "silent.mp4"
+    narrated_video = tmp_path / "narrated.mp4"
+    repaired_video = tmp_path / "repaired.mp4"
+    silent_video.write_bytes(b"silent")
+    narrated_video.write_bytes(b"narrated")
+    repaired_video.write_bytes(b"repaired")
+    store = JobStore()
+    job = store.create("Explain limits.", narration_requested=True)
+    store.mark_running(job.id)
+
+    store.mark_initial_render(
+        job.id,
+        RenderOutcome(silent_video, "test-renderer", 0.5, "rendered candidate"),
+    )
+    updated = store.mark_initial_render(
+        job.id,
+        RenderOutcome(
+            narrated_video,
+            "test-renderer",
+            0.5,
+            "narration attached",
+            narration_status=NarrationStatus.READY,
+        ),
+    )
+    response = to_response(updated)
+
+    assert updated.initial_video_path == str(narrated_video)
+    assert updated.preview_revision == 2
+    assert updated.narration_status is NarrationStatus.READY
+    assert response.initial_video_url == (
+        f"/lessons/{job.id}/video/initial?narration=ready&revision=2"
+    )
+
+    repaired = store.mark_initial_render(
+        job.id,
+        RenderOutcome(
+            repaired_video,
+            "test-renderer",
+            0.5,
+            "repair narration attached",
+            narration_status=NarrationStatus.READY,
+        ),
+    )
+
+    assert repaired.initial_video_path == str(repaired_video)
+    assert repaired.preview_revision == 3
+    assert to_response(repaired).initial_video_url == (
+        f"/lessons/{job.id}/video/initial?narration=ready&revision=3"
+    )
+
+
 def test_job_store_keeps_first_render_and_merges_live_validator_results(tmp_path: Path) -> None:
     first = tmp_path / "first.mp4"
     repaired = tmp_path / "repaired.mp4"
