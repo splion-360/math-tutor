@@ -37,6 +37,8 @@ Every configured axis is required. Before the validators start, the suite checks
 immutable input declares the exact checks registered by those validators. A missing or
 mismatched contract produces `validator_error` results for every axis and blocks publication.
 
+![Math Tutor sends a prompt through one shared LoRA, source admission, rendering, narration, parallel media, layout, and visual validation, and one bounded repair attempt.](assets/math-tutor-system.drawio.svg)
+
 ## Setup
 
 ### Prerequisites
