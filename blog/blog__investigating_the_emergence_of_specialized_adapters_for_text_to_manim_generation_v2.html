@@ -38,6 +38,8 @@
     a { color: #174f83; text-underline-offset: 2px; }
     code { font: 0.86em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #f1f1f1; padding: 1px 4px; border-radius: 3px; }
     .abstract, .finding { background: var(--soft); border-left: 4px solid var(--accent); padding: 17px 20px; margin: 28px 0; }
+    .equation { background: #fafafa; border: 1px solid #e7e7e7; margin: 18px 0; overflow-x: auto; padding: 14px 18px; text-align: center; }
+    math { font-size: 1.08rem; }
     .label { color: var(--accent); display: block; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 7px; text-transform: uppercase; }
     nav { background: #fafafa; border: 1px solid #e7e7e7; margin: 28px 0; padding: 15px 19px; }
     nav strong { display: block; font-size: 0.82rem; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -73,13 +75,13 @@
   <header>
     <h1>Investigating the Emergence of Specialized Adapters for Text-to-Manim Generation</h1>
     <p class="deck">An exploratory study of whether subject labels and a code-length difficulty proxy explain the gradient structure of a shared LoRA adapter.</p>
-    <p class="meta">Research draft v2 · October 2026</p>
+    <p class="meta">Research draft · October 2026</p>
   </header>
 
   <section class="abstract" id="abstract">
     <span class="label">Abstract</span>
-    <p>I began this project with a simple hypothesis: prompts from different mathematical subjects, or prompts that produce more complex Manim programs, might benefit from separate LoRA adapters. I first trained three fixed adapters and routed examples by a code-length-based difficulty label. I then asked a stricter question: does the gradient geometry of one shared adapter reveal the same separation without being told where the boundaries are?</p>
-    <p>Exact held-out gradients showed that conflict was common, but conflict alone did not identify coherent groups. A second analysis joined projected gradients from 481 training examples to subject and difficulty labels across 28 LoRA modules. Within-label cosine effects were small, although many were detectable under shuffled-label tests. Unsupervised agreement remained weak: the best adjusted Rand index was 0.057 for subject and 0.041 for the difficulty proxy. Under this checkpoint and sample, the evidence did not support clean subject- or difficulty-specific adapter boundaries.</p>
+    <p>The study began with the hypothesis that mathematical subject or program complexity could produce distinct LoRA adaptation needs. Three adapters were first assigned by a code-length label. A shared adapter was then examined to see whether comparable groups appeared in its gradients.</p>
+    <p>Negative gradient cosines were common in 100 held-out examples. Projected gradients from 481 training examples were also compared with subject and code-length labels across 28 LoRA modules. The largest adjusted Rand index was 0.057 for subject and 0.041 for code length. These labels explained only a small part of the measured gradient structure.</p>
   </section>
 
   <nav aria-label="Article sections">
@@ -99,36 +101,60 @@
 
   <section id="introduction">
     <h2>1. Introduction</h2>
-    <p>Text-to-Manim generation sits in an unusual space. The model has to translate a lesson request into a Python program, and the program has to express both mathematical content and a visual sequence. While working on this problem, I read D-MoLE, a method that grows and routes LoRA experts layer by layer for continual multimodal instruction tuning.<sup><a href="#ref-dmole">1</a></sup> Its central idea—that different tasks may need different adaptation capacity—suggested a smaller question for this project.</p>
-    <p>The dataset covers many mathematical subjects. I suspected that algebraic, geometric, probabilistic, and other prompts could push the adapter in different directions. If those differences were stable, a training regime might eventually allocate specialized adapters instead of forcing all examples through one update space.</p>
-    <p>I use <em>emergence</em> in the title to describe that hypothesis. This experiment did not implement an online spawning algorithm. It tested whether the observed gradients contained a credible signal from which such groups could emerge. The distinction matters because three earlier specialist adapters were fixed in advance and selected by an oracle label. They demonstrate a routed setup, but they are not evidence of learned specialization.</p>
+    <p>Text-to-Manim generation maps a lesson request to a Python program that expresses mathematical content through an animation.</p>
+    <p>D-MoLE provided the starting point for this investigation. Its experts are allocated and routed layer by layer during continual multimodal instruction tuning.<sup><a href="#ref-dmole">1</a></sup> That design raised a smaller question: do text-to-Manim gradients contain stable groups that could justify separate adapters?</p>
+    <p>Subject labels and target-code length were treated as possible group boundaries. The term <em>emergence</em> refers to this search for structure. Online adapter spawning was outside the experiment. The three earlier adapters were assigned in advance through an oracle label, which supplies no evidence of learned specialization.</p>
   </section>
 
   <section id="related-work">
     <h2>2. Related work</h2>
-    <p>LoRA freezes a pretrained model and learns low-rank update matrices inside selected layers.<sup><a href="#ref-lora">2</a></sup> This makes multiple task adapters practical to store and swap, but it does not determine how many adapters a problem needs or which examples belong together.</p>
-    <p>D-MoLE addresses a broader continual multimodal setting. It allocates LoRA experts across layers under a parameter budget and combines that allocator with a gradient-based curriculum for balancing modalities.<sup><a href="#ref-dmole">1</a></sup> I borrowed the architectural question, not the method. D-MoLE does not establish that negative cosine similarity should trigger a new adapter, and the present work does not reproduce its continual-learning experiments.</p>
-    <p>Gradient conflict has a more direct precedent in multi-task learning. PCGrad defines two task gradients as conflicting when their cosine similarity is negative and projects one away from the other during optimization.<sup><a href="#ref-pcgrad">3</a></sup> Here, cosine is used as a diagnostic. A negative value says that two local descent directions oppose each other. It does not say that they belong to different lasting tasks. The analysis therefore asks whether conflicts organize around known labels and whether unsupervised clusters recover those labels.</p>
+    <p>LoRA freezes pretrained weights and learns low-rank update matrices inside selected layers.<sup><a href="#ref-lora">2</a></sup> Several adapters can be stored cheaply. Their number and training assignments remain design choices.</p>
+    <p>D-MoLE studies those choices in a continual multimodal setting. LoRA experts are allocated across layers under a parameter budget, and a gradient-based curriculum balances modality updates.<sup><a href="#ref-dmole">1</a></sup> The present study uses its architectural question in a smaller, single-dataset setting.</p>
+    <p>PCGrad gives gradient conflict a precise optimization meaning. Two task gradients conflict when their cosine similarity is negative, and one gradient can be projected away from the other.<sup><a href="#ref-pcgrad">3</a></sup> Cosine similarity is used here only as a measurement. Stable specialization would also require repeatable group structure.</p>
   </section>
 
   <section id="methodology">
     <h2>3. Methodology</h2>
     <h3>Dataset and labels</h3>
-    <p>The prepared Bespoke-Manim corpus contains 995 prompt–program pairs from the pinned dataset revision.<sup><a href="#ref-dataset">4</a></sup> Preparation retained rows with nonempty <code>python_code</code> and no recorded dataset error; it did not revalidate mathematical or rendering correctness. The corpus spans 23 subject labels. The earlier routing experiment divided examples into three nearly equal bands—336 foundational, 332 intermediate, and 327 advanced—using tertiles of target Python line count.</p>
-    <p>Those names are convenient labels, not validated measures of mathematical difficulty. Longer target code may reflect more objects, comments, or animation steps. Throughout the article I call this variable the <em>code-length difficulty proxy</em>.</p>
+    <p>The prepared Bespoke-Manim corpus contains 995 prompt-program pairs from the pinned dataset revision.<sup><a href="#ref-dataset">4</a></sup> Rows were retained when <code>python_code</code> was present and the dataset contained no recorded error. Mathematical correctness and renderability were outside that filter.</p>
+    <p>The corpus contains 23 subject labels. Target Python line count was split into tertiles: 336 foundational, 332 intermediate, and 327 advanced examples. These names are used as a <em>code-length difficulty proxy</em>. Line count also changes with formatting and animation verbosity.</p>
 
     <h3>Fixed specialists and the shared probe</h3>
-    <p>The first setup trained three rank-16 LoRA checkpoints, one for each code-length band, and used the known band as an oracle router. The checkpoints are distinct and cover the same seven projection types. Their base-model identity and evaluation contract differ from the later shared-adapter study, so I do not compare their losses or claim that one design performed better.</p>
-    <p>The shared-adapter study used a rank-16, alpha-32 LoRA on a 4-bit-loaded Qwen3-4B-Instruct checkpoint, with dropout 0.05 and the same seven projection types. Training targeted assistant code tokens and rejected complete prompt-plus-code sequences longer than 3,072 tokens. The study measured per-example gradients at checkpoint step 1,790. Two recovered views serve different purposes:</p>
+    <p>Three rank-16 LoRA checkpoints were first trained, one for each code-length band. The known band supplied the oracle route. A direct loss comparison with the later shared adapter was avoided because the base checkpoint and evaluation contract differ.</p>
+    <p>The shared probe used rank 16, alpha 32, dropout 0.05, and seven projection types on a 4-bit-loaded Qwen3-4B-Instruct checkpoint. Loss was applied to assistant code tokens. Complete prompt-plus-code sequences were limited to 3,072 tokens. Gradients were measured at step 1,790.</p>
     <ul>
-      <li><strong>Exact held-out gradients:</strong> unprojected LoRA A/B gradients, concatenated within each module, for 100 validation examples, 19 represented subjects, 36 layers, and seven projection types—252 modules in total. Only aggregated cosine summaries were recovered.</li>
-      <li><strong>Projected training signatures:</strong> 256-dimensional signatures for 481 training examples from eight subjects, covering seven projection types at layers 0, 12, 23, and 35—28 modules. For each module, the implementation concatenates the LoRA parameter gradients conceptually, then accumulates their coordinates into deterministic signed-hash buckets. These per-example signatures support the label-association and clustering tests.</li>
+      <li><strong>Exact held-out gradients:</strong> unprojected LoRA A/B gradients from 100 validation examples and 19 subjects. Gradients were concatenated within each of 252 modules across 36 layers. The surviving artifact contains aggregated cosine summaries.</li>
+      <li><strong>Projected training signatures:</strong> 256-dimensional signatures from 481 training examples and eight subjects. Seven projection types were recorded at layers 0, 12, 23, and 35, giving 28 modules. Coordinates were accumulated into deterministic signed-hash buckets.</li>
     </ul>
 
+    <h3>Gradient conflict</h3>
+    <p>For example <em>i</em> and LoRA module <em>m</em>, the gradient was defined with respect to the trainable parameters of that module:</p>
+    <div class="equation" role="img" aria-label="g i m equals the gradient with respect to module parameters theta m of the loss for example x i">
+      <math display="block"><msubsup><mi>g</mi><mi>i</mi><mi>m</mi></msubsup><mo>=</mo><msub><mo>∇</mo><msub><mi>θ</mi><mi>m</mi></msub></msub><mi>ℒ</mi><mo>(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>;</mo><mi>θ</mi><mo>)</mo></math>
+    </div>
+    <p>Pairwise cosine similarity measures whether two examples point toward similar local updates. A pair was counted as conflicting when the cosine was negative:</p>
+    <div class="equation" role="img" aria-label="s i j m is the cosine between two gradients; c i j m equals one when that cosine is negative">
+      <math display="block">
+        <msubsup><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow><mi>m</mi></msubsup><mo>=</mo>
+        <mfrac><mrow><msubsup><mi>g</mi><mi>i</mi><mi>m</mi></msubsup><mo>·</mo><msubsup><mi>g</mi><mi>j</mi><mi>m</mi></msubsup></mrow><mrow><mo>‖</mo><msubsup><mi>g</mi><mi>i</mi><mi>m</mi></msubsup><mo>‖</mo><mo>‖</mo><msubsup><mi>g</mi><mi>j</mi><mi>m</mi></msubsup><mo>‖</mo></mrow></mfrac><mo>,</mo>
+        <mspace width="1em"></mspace><msubsup><mi>c</mi><mrow><mi>i</mi><mi>j</mi></mrow><mi>m</mi></msubsup><mo>=</mo><mn>1</mn><mo>[</mo><msubsup><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow><mi>m</mi></msubsup><mo>&lt;</mo><mn>0</mn><mo>]</mo>
+      </math>
+    </div>
+    <p>This statistic describes a local pairwise relationship. Adapter specialization requires stable groups under repeated measurement.</p>
+
     <h3>Tests of label structure</h3>
-    <p>For each projected module, I normalized every nonzero signature and computed pairwise cosine similarity. I compared the mean similarity of pairs sharing a label with pairs crossing labels. I also computed a per-record contrast: the record's mean cosine to examples with the same label minus its mean cosine to examples with a different label. The reported standardized effect divides the pair-mean difference by <code>sqrt((variance within + variance across) / 2)</code>; it is a descriptive scale for these dependent pairs, not an independent-sample Cohen's d.</p>
-    <p>Uncertainty comes from 2,000 resamples of the record contrasts. Because records share pairwise cosine terms, these intervals are descriptive. For a null comparison, I shuffled labels 2,000 times while preserving group sizes. Benjamini–Hochberg and Bonferroni adjustments were applied separately to the 28 subject tests and the 28 difficulty-proxy tests.<sup><a href="#ref-bh">5</a></sup></p>
-    <p>Finally, spherical k-means clustered each module with the number of clusters set to the number of observed labels: eight for subject and three for the proxy. Ten initializations were tried. Adjusted Rand index (ARI) and normalized mutual information (NMI) measured agreement with the labels; shuffled labels supplied a chance baseline. ARI adjusts pair agreement for chance.<sup><a href="#ref-ari">6</a></sup></p>
+    <p>Each nonzero projected signature was normalized. For record <em>i</em>, the mean cosine to records with the same label was compared with the mean cosine to records carrying another label:</p>
+    <div class="equation" role="img" aria-label="delta i m is mean cosine to same-label records minus mean cosine to different-label records">
+      <math display="block">
+        <msubsup><mi>Δ</mi><mi>i</mi><mi>m</mi></msubsup><mo>=</mo>
+        <mfrac><mn>1</mn><mrow><mo>|</mo><msub><mi>S</mi><mi>i</mi></msub><mo>|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>j</mi><mo>∈</mo><msub><mi>S</mi><mi>i</mi></msub></mrow></munder><msubsup><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow><mi>m</mi></msubsup>
+        <mo>−</mo>
+        <mfrac><mn>1</mn><mrow><mo>|</mo><msub><mi>D</mi><mi>i</mi></msub><mo>|</mo></mrow></mfrac><munder><mo>∑</mo><mrow><mi>j</mi><mo>∈</mo><msub><mi>D</mi><mi>i</mi></msub></mrow></munder><msubsup><mi>s</mi><mrow><mi>i</mi><mi>j</mi></mrow><mi>m</mi></msubsup>
+      </math>
+    </div>
+    <p>The standardized pair-mean difference uses <code>sqrt((variance within + variance across) / 2)</code> as its denominator. The value is descriptive because many pairs share the same record.</p>
+    <p>Record contrasts were resampled 2,000 times for descriptive intervals. Labels were shuffled 2,000 times with group sizes held fixed. Benjamini-Hochberg and Bonferroni corrections were applied separately to the 28 tests for each label system.<sup><a href="#ref-bh">5</a></sup></p>
+    <p>Spherical k-means was then fitted per module with eight clusters for subject and three for code length. Ten initializations were used. Agreement was measured with adjusted Rand index (ARI) and normalized mutual information (NMI), with shuffled labels providing chance baselines.<sup><a href="#ref-ari">6</a></sup></p>
   </section>
 
   <section id="experiments">
@@ -143,31 +169,51 @@
         </tbody>
       </table>
     </div>
-    <p>The held-out exact analysis contains 4,665 unique cross-subject example pairs per module. The projected analysis contains 115,440 unique pairs per module. For subjects, 14,621 are within-label and 100,819 cross-label. For the code-length proxy, 38,356 are within-band and 77,084 cross-band.</p>
-    <p>A short placement ablation trained four equal-size adapter configurations for 64 steps with seed 42 and 466,944 trainable parameters per arm. It compared modules selected from the gradient probe with two random placements and one low-energy placement. This experiment evaluated validation loss only; it did not generate videos.</p>
+    <p>The exact analysis contains 4,665 unique cross-subject pairs per module. The projected analysis contains 115,440 unique pairs per module. Subject labels produce 14,621 within-label pairs and 100,819 cross-label pairs. Code-length labels produce 38,356 within-band pairs and 77,084 cross-band pairs.</p>
+    <p>Four equal-size adapter placements were also trained for 64 steps with seed 42. Each arm contained 466,944 trainable parameters. Validation loss was measured; generation was outside this short ablation.</p>
   </section>
 
   <section id="results">
     <h2>5. Results</h2>
-    <h3>Conflict was real, but conflict was not a partition</h3>
-    <p>Across the 252 exact-gradient modules, the share of cross-subject pairs with negative cosine ranged from 13.9% to 50.8% (4,665 unique cross-subject pairs per module). After gradients were aggregated by layer, the range was 15.6% to 48.8% across 36 layers. This rules out a simple story in which all subjects update the shared adapter in the same direction. It still leaves open whether the opposition is stable enough to define specialists.</p>
-
-    <h3>Label effects were detectable and small</h3>
-    <p>For subject labels, the median per-record cosine contrast across 28 modules was 0.0019, with a range from −0.0010 to 0.0166. Seventeen of 28 modules had a Benjamini–Hochberg q-value at or below 0.05, and 11 of 28 survived Bonferroni correction. The standardized pair-mean differences had a median of 0.025 and a maximum of 0.174.</p>
-    <p>The code-length proxy produced a median contrast of 0.0023 and a range from 0.0008 to 0.0115. Twenty-six of 28 modules met the q ≤ 0.05 threshold, and 18 of 28 survived Bonferroni correction. Its standardized differences had a median of 0.033 and a maximum of 0.085.</p>
-    <p>Statistical detectability therefore does not settle the routing question. Each label permutation reshuffles 481 records; the 115,440 pairwise terms share those records and are not independent observations. The result shows consistency under this checkpoint's label-shuffle test, not reproducibility across runs. The practical question is whether the tested labels produce separable groups.</p>
+    <h3>Layer structure dominated gradient magnitude</h3>
+    <p>Gradient norms varied strongly by transformer layer. The broad layer pattern was repeated across the 19 held-out subjects. Several columns contain few examples, so small subject-level differences should be treated cautiously.</p>
 
     <figure>
-      <a href="../training/evaluation/gradient_label_alignment/gradient_label_effects.svg" aria-label="Open the gradient alignment effects figure at full size"><img src="../training/evaluation/gradient_label_alignment/gradient_label_effects.svg" alt="Per-module subject and code-length proxy gradient alignment effects with descriptive bootstrap intervals"></a>
-      <figcaption><strong>Figure 1.</strong> Mean per-record within-label minus across-label cosine contrast for every recovered projected module. Error bars show 95% record-contrast bootstrap intervals. They are descriptive because pairwise cosine terms are shared across records. Layer 35 was inspected after earlier exploratory plots and should not be read as a preregistered primary layer.</figcaption>
+      <a href="assets/gradient_specialization/subject_layer_lora_norms.png" aria-label="Open the subject by layer LoRA gradient norm heatmap at full size"><img src="assets/gradient_specialization/subject_layer_lora_norms.png" alt="Heatmap of mean LoRA gradient norm by held-out subject and transformer layer"></a>
+      <figcaption><strong>Figure 1.</strong> Mean per-example LoRA gradient norm by subject and layer at the saved checkpoint. Layer patterns are visually stronger than differences between subject columns. Subject counts range from one to eleven.</figcaption>
     </figure>
 
-    <h3>Unsupervised clusters barely matched the labels</h3>
-    <p>Subject ARI ranged from −0.003 to 0.057; subject NMI ranged from 0.020 to 0.093. For the code-length proxy, ARI ranged from −0.003 to 0.041 and NMI from 0.001 to 0.049. Some of the best values exceeded shuffled-label baselines, but their absolute agreement remained low. A router built to recover either tested label system would inherit substantial label mixing.</p>
+    <h3>Cross-subject conflict was widespread</h3>
+    <p>Across 252 exact-gradient modules, 13.9% to 50.8% of cross-subject pairs had negative cosine. Each module contains 4,665 unique cross-subject pairs. Layer-aggregated rates ranged from 15.6% to 48.8% across 36 layers.</p>
+    <p>The distribution changed across layers and projection types. No single subject partition follows from that frequency alone.</p>
 
     <figure>
-      <a href="../training/evaluation/gradient_label_alignment/gradient_label_clustering.svg" aria-label="Open the gradient clustering figure at full size"><img src="../training/evaluation/gradient_label_alignment/gradient_label_clustering.svg" alt="Adjusted Rand index and normalized mutual information for spherical k-means clusters against subject and code-length labels"></a>
-      <figcaption><strong>Figure 2.</strong> Agreement between spherical k-means assignments and the two candidate label systems. The number of clusters equals the number of labels for each test. Low absolute ARI and NMI are the main result; the bars do not identify latent specialist types.</figcaption>
+      <a href="assets/gradient_specialization/exact_cross_subject_conflict_by_projection.png" aria-label="Open the exact cross-subject conflict heatmap at full size"><img src="assets/gradient_specialization/exact_cross_subject_conflict_by_projection.png" alt="Heatmap of negative cross-subject gradient cosine rates across 36 layers and seven LoRA projection types"></a>
+      <figcaption><strong>Figure 2.</strong> Fraction of exact held-out cross-subject pairs with negative cosine for every layer and LoRA projection type. The variation is continuous across the network.</figcaption>
+    </figure>
+
+    <figure>
+      <a href="assets/gradient_specialization/layer35_down_subject_pair_cosines.png" aria-label="Open the layer 35 subject-pair cosine heatmap at full size"><img src="assets/gradient_specialization/layer35_down_subject_pair_cosines.png" alt="Heatmap of mean exact gradient cosine for each pair of held-out subjects at layer 35 down projection"></a>
+      <figcaption><strong>Figure 3.</strong> Mean exact cosine for subject pairs at <code>layer_35.down_proj</code>. Blue cells indicate opposing mean directions and red cells indicate aligned directions. This module was selected after exploratory inspection. Several subjects have fewer than five examples.</figcaption>
+    </figure>
+
+    <h3>Small label-associated effects</h3>
+    <p>For subject labels, the median per-record cosine contrast across 28 modules was 0.0019, with a range from −0.0010 to 0.0166. Seventeen of 28 modules had a Benjamini–Hochberg q-value at or below 0.05, and 11 of 28 survived Bonferroni correction. The standardized pair-mean differences had a median of 0.025 and a maximum of 0.174.</p>
+    <p>The code-length proxy produced a median contrast of 0.0023 and a range from 0.0008 to 0.0115. Twenty-six of 28 modules met the q ≤ 0.05 threshold, and 18 of 28 survived Bonferroni correction. Its standardized differences had a median of 0.033 and a maximum of 0.085.</p>
+    <p>Each permutation reshuffles 481 record labels. The 115,440 pairwise terms reuse those records, violating independence. Significance here describes the frozen checkpoint under its label-shuffle test. Reproducibility across runs remains unmeasured.</p>
+
+    <figure>
+      <a href="assets/gradient_specialization/gradient_label_effects.svg" aria-label="Open the gradient alignment effects figure at full size"><img src="assets/gradient_specialization/gradient_label_effects.svg" alt="Per-module subject and code-length proxy gradient alignment effects with descriptive bootstrap intervals"></a>
+      <figcaption><strong>Figure 4.</strong> Mean per-record within-label cosine contrast for every recovered projected module. Error bars show 95% record-resampling intervals. Shared pairwise terms make the intervals descriptive. Layer 35 was selected after exploratory inspection.</figcaption>
+    </figure>
+
+    <h3>Weak agreement between clusters and labels</h3>
+    <p>Subject ARI ranged from −0.003 to 0.057; subject NMI ranged from 0.020 to 0.093. Code-length ARI ranged from −0.003 to 0.041; NMI ranged from 0.001 to 0.049.</p>
+    <p>Some modules exceeded shuffled-label baselines. Their absolute agreement remained low, leaving substantial label mixing in a router trained to reproduce either label system.</p>
+
+    <figure>
+      <a href="assets/gradient_specialization/gradient_label_clustering.svg" aria-label="Open the gradient clustering figure at full size"><img src="assets/gradient_specialization/gradient_label_clustering.svg" alt="Adjusted Rand index and normalized mutual information for spherical k-means clusters against subject and code-length labels"></a>
+      <figcaption><strong>Figure 5.</strong> Agreement between spherical k-means assignments and the tested labels. Cluster count was set to eight for subject and three for code length. These scores evaluate the declared labels; other latent partitions were not tested.</figcaption>
     </figure>
 
     <h3>Placement mattered in one short run</h3>
@@ -182,30 +228,31 @@
         </tbody>
       </table>
     </div>
-    <p>The selected placement reached the lowest validation loss in this four-arm comparison. One seed and 64 updates are not enough to establish a general placement rule. The result suggests that <em>where</em> adaptation capacity is placed may deserve further study even when subject-based routing is weak.</p>
+    <p>The gradient-selected placement reached the lowest validation loss in this four-arm comparison. Evidence from one seed and 64 updates is preliminary. Layer placement remains a separate question from subject-based routing.</p>
   </section>
 
   <section id="discussion">
     <h2>6. Discussion</h2>
     <div class="finding">
       <span class="label">Main finding</span>
-      <p>The evaluated per-module partitions had little agreement with subject or code-length labels. Other latent partitions, joint representations across modules, and their usefulness for routing remain untested. This evidence did not justify spawning one adapter per subject or per proxy band.</p>
+      <p>The evaluated partitions had little agreement with subject or code-length labels. This checkpoint supplies little support for spawning adapters from either label system.</p>
     </div>
-    <p>The initial hypothesis treated dataset labels as plausible task boundaries. The measurements suggest that they are weak routing targets. Subject labels describe mathematical content, while the generation task remains largely the same: write a runnable visual program. The code-length proxy is closer to output structure, which may explain why it appears consistently in cosine tests, but its clusters still mix the three proxy labels.</p>
-    <p>This also changes how I interpret gradient conflict. Negative cosine is useful as a warning that examples compete locally. A spawning rule would need stronger evidence: persistence over checkpoints, agreement across seeds, a stable partition, and a downstream gain from routing. None of those follows from conflict frequency alone.</p>
+    <p>The original hypothesis treated dataset labels as possible task boundaries. Subject labels describe mathematical content. Every example still asks for a runnable visual program. Code length is closer to output structure, which may explain its stronger permutation results. Its three labels still remain mixed within the fitted clusters.</p>
+    <p>Negative cosine reveals local competition between examples. An adapter-spawning rule would require persistence across checkpoints and seeds, followed by a measured benefit from routing. Conflict frequency alone supplies none of that evidence.</p>
   </section>
 
   <section id="limitations">
     <h2>7. Limitations</h2>
-    <p>The projected stream covers 481 of 895 training examples and only eight of the corpus's 23 subject labels. The exact held-out view covers 19 subjects, but some subjects have one example and the recovered file contains aggregate statistics rather than raw vectors. Exact and projected results therefore answer related but different questions.</p>
-    <p>The code-length bands are a proxy derived from the target answer. They are unavailable for a new prompt unless another system predicts them, and they may capture formatting or animation verbosity. The fixed specialist checkpoints were trained with a different base-model identity and evaluation contract, which prevents a controlled comparison with the shared adapter.</p>
-    <p>The clustering study uses one checkpoint and one projected signature seed. I did not compare pairwise cosines or cluster assignments from the 256-dimensional signed-hash signatures with their exact-vector equivalents, so the study does not measure how much structure the projection preserved. The recovered exact artifact is aggregated and cannot supply that check. Layer 35 received attention after exploratory visualization. The placement ablation has one seed, 64 steps, and no generation evaluation. The experiments do not measure whether any proposed router improves rendered-video quality.</p>
+    <p>The projected stream covers 481 of 895 training examples and eight of the corpus's 23 subjects. The exact view covers 19 subjects, with as few as one example in some groups. Only aggregate exact-gradient statistics survived. The exact and projected views answer different questions.</p>
+    <p>Code-length bands are derived from the target program, so a new prompt has no observed band at inference time. They can also capture formatting and animation verbosity. The fixed specialists used a different base checkpoint and evaluation contract, preventing a controlled comparison with the shared adapter.</p>
+    <p>Clustering was evaluated at one checkpoint with one projection seed. Preservation of exact cosine or cluster structure by the 256-dimensional signed-hash projection was not measured. The exact artifact is too aggregated to recover that comparison.</p>
+    <p>Layer 35 was selected after exploratory visualization. The placement ablation used one seed, 64 steps, and validation loss only. Rendered-video quality and downstream routing gains remain unmeasured.</p>
   </section>
 
   <section id="conclusion">
     <h2>8. Conclusion</h2>
-    <p>D-MoLE prompted a useful question for text-to-Manim training: could adapter groups be discovered from the training dynamics instead of declared in advance? In this run, subject and code-length labels left small traces in the gradient geometry, while the tested partitions showed little agreement with either label system. The recovered evidence did not support a clean boundary for those routing targets.</p>
-    <p>A stronger follow-up would collect exact per-example gradients at several checkpoints and seeds, test partition stability before naming any group, and evaluate routed adapters on held-out program generation and rendering. Until then, “specialized adapter” is a hypothesis to test, not a conclusion from a colorful gradient plot.</p>
+    <p>D-MoLE motivated a search for adapter groups inside text-to-Manim training dynamics. Subject and code-length labels left measurable traces in the projected gradients. The fitted partitions showed little agreement with either label system.</p>
+    <p>Specialized adapters remain a hypothesis for a controlled routing experiment. Exact gradients should be collected across checkpoints and seeds. Any stable partition should then be tested on held-out program generation and rendering.</p>
   </section>
 
   <section id="references" class="references">

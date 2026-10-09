@@ -1,0 +1,35 @@
+{
+  "assets": {
+    "exact_cross_subject_conflict_by_projection.png": {
+      "generator": "training/scripts/plot_validation_gradient_cosines.py",
+      "sha256": "98d904d929a19a7e7e2a32e62e9cd854c054a58f9ad5f9362ba24675b75e55b5",
+      "source": "training/artifacts/evidence/lora_cosines.json",
+      "source_sha256": "c21d4398a7be61cd0ab2de99a8fb03da428327a644168c710d799cae06a05baa"
+    },
+    "gradient_label_clustering.svg": {
+      "generator": "training/scripts/analyze_gradient_label_alignment.py",
+      "sha256": "96053d1f73e45ef2d5633ea97797bffe53b0d1463b5bb47244473b8e539d82f2",
+      "source": "training/evaluation/gradient_label_alignment/summary.json",
+      "source_sha256": "24b56ade82854d2c52929216cd7046c30077a8f25a4f74eaddc4141ba5be942e"
+    },
+    "gradient_label_effects.svg": {
+      "generator": "training/scripts/analyze_gradient_label_alignment.py",
+      "sha256": "1783267c2083a2bc28d6e6a300a6b213c2964debb9e556b37458bc41e10ee346",
+      "source": "training/evaluation/gradient_label_alignment/summary.json",
+      "source_sha256": "24b56ade82854d2c52929216cd7046c30077a8f25a4f74eaddc4141ba5be942e"
+    },
+    "layer35_down_subject_pair_cosines.png": {
+      "generator": "training/scripts/plot_validation_gradient_cosines.py",
+      "sha256": "e2707ff846c39b5a63a3fcf7fbd5429e0d945684c77dd575df5403a78cfd1a57",
+      "source": "training/artifacts/evidence/lora_cosines.json",
+      "source_sha256": "c21d4398a7be61cd0ab2de99a8fb03da428327a644168c710d799cae06a05baa"
+    },
+    "subject_layer_lora_norms.png": {
+      "generator": "training/scripts/plot_validation_gradient_heatmap.py",
+      "sha256": "a024bd6697df99350e51e7fb673ebd31af484a1bda7ad42a7f8f49207e9f9883",
+      "source": "training/artifacts/evidence/lora_norms.json",
+      "source_sha256": "7d273c308b1eabbcff151ff25e26ae8b74f1d2ceeecd891ce3e198940a637eef"
+    }
+  },
+  "schema_version": 1
+}
