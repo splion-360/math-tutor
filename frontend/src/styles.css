@@ -421,7 +421,13 @@ textarea:focus {
   font-size: 15px;
 }
 
-.workflow-node strong,
+.workflow-node strong {
+  min-width: 0;
+  overflow-wrap: break-word;
+  line-height: 1.15;
+  white-space: normal;
+}
+
 .workflow-node small {
   overflow: hidden;
   text-overflow: ellipsis;
