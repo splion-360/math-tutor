@@ -100,6 +100,8 @@ describe("LessonResult", () => {
           diagnostics: {
             failure_stage: "parse",
             line: 14,
+            attempt_count: 2,
+            repair_count: 1,
             validation_reports: [
               {
                 validator: "source",
@@ -117,12 +119,15 @@ describe("LessonResult", () => {
       />,
     );
 
+    expect(node("adapter")).toHaveClass("workflow-passed");
     expect(node("source")).toHaveClass("workflow-failed");
     fireEvent.click(
       screen.getByRole("button", { name: "Inspect Source check stage" }),
     );
 
     expect(screen.getByText("Stage details")).toBeInTheDocument();
+    expect(screen.getByText("Generation attempts")).toBeInTheDocument();
+    expect(screen.getByText("Repair attempts")).toBeInTheDocument();
     expect(screen.getByText("source_admission_failed")).toBeInTheDocument();
     expect(
       screen.getByText("Return valid Python without an unterminated string."),

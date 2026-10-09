@@ -120,7 +120,7 @@ def extract_and_validate_raw_scene(response: str) -> ExtractedScene:
             "raw scene must be plain Python or one Python code fence",
             diagnostics={"failure_stage": "extraction"},
         )
-    source = (matches[0] if matches else response).strip()
+    source = _strip_leading_tool_call_markers(matches[0] if matches else response).strip()
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError) as error:
@@ -143,6 +143,23 @@ def extract_and_validate_raw_scene(response: str) -> ExtractedScene:
         )
     _validate_safe_scene_tree(tree, voiceover=False)
     return ExtractedScene(source=source, scene_class=scene_classes[0].name)
+
+
+def _strip_leading_tool_call_markers(source: str) -> str:
+    """Remove standalone Qwen control markers before otherwise plain Python."""
+    lines = source.splitlines()
+    index = 0
+    while index < len(lines) and not lines[index].strip():
+        index += 1
+
+    marker_found = False
+    while index < len(lines) and lines[index].strip() == "<tool_call>":
+        marker_found = True
+        index += 1
+        while index < len(lines) and not lines[index].strip():
+            index += 1
+
+    return "\n".join(lines[index:]) if marker_found else source
 
 
 def _validate_safe_scene_tree(tree: ast.Module, *, voiceover: bool) -> None:
@@ -184,6 +201,7 @@ def _validate_safe_scene_tree(tree: ast.Module, *, voiceover: bool) -> None:
                     f"call '{forbidden_call}' is not allowed in generated scenes",
                     diagnostics={"failure_stage": "validation"},
                 )
+
 
 def _validate_voiceover_contract(tree: ast.Module) -> None:
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]

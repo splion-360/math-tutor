@@ -272,6 +272,16 @@ def test_raw_manim_scene_accepts_training_style_class_without_rewriting_it() -> 
     assert extracted.scene_class == "TriangleProof"
 
 
+def test_raw_manim_scene_ignores_known_qwen_tool_call_prefix() -> None:
+    source = VALID_SCENE.replace("GeneratedLesson", "TriangleProof")
+    response = f"<tool_call>\n\n<tool_call>\n\n{source}"
+
+    extracted = extract_and_validate_raw_scene(response)
+
+    assert extracted.source == source.strip()
+    assert extracted.scene_class == "TriangleProof"
+
+
 def test_raw_manim_scene_rejects_unsafe_import_before_rendering() -> None:
     source = VALID_SCENE.replace("from manim import *", "import os\nfrom manim import *")
 

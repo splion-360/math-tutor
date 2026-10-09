@@ -448,10 +448,26 @@ function workflowNodes(lesson: LessonJob | null): WorkflowNode[] {
     for (const id of Object.keys(states)) states[id] = "passed";
   } else if (lesson.status === "failed" || lesson.status === "partial") {
     const failedNode = failedWorkflowNode(lesson);
+    markCompletedStages(states, failedNode, lesson.diagnostics);
     if (failedNode) states[failedNode] = "failed";
   }
 
   return Object.entries(labels).map(([id, label]) => ({ id, label, state: states[id] }));
+}
+
+function markCompletedStages(
+  states: Record<string, WorkflowNodeState>,
+  failedNode: string | null,
+  diagnostics: Record<string, unknown>,
+) {
+  if (["source", "render"].includes(failedNode ?? "")) states.adapter = "passed";
+  if (failedNode === "render") states.source = "passed";
+  const failure = readText(diagnostics, ["failure_stage", "failed_stage"]);
+  if (failure === "output_validation" || failure === "validating_output") {
+    states.adapter = "passed";
+    states.source = "passed";
+    states.render = "passed";
+  }
 }
 
 function failedWorkflowNode(lesson: LessonJob): string | null {
@@ -553,6 +569,8 @@ function workflowStageDetails(
   if (node.id === "source") {
     addFact("Failure phase", readText(diagnostics, ["failure_stage"]));
     addFact("Line", diagnostics.line);
+    addFact("Generation attempts", diagnostics.attempt_count);
+    addFact("Repair attempts", diagnostics.repair_count);
   }
   if (node.id === "render") {
     addFact("Renderer", diagnostics.renderer);
